@@ -1,12 +1,14 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
+import { createGuestAccessCode } from "@/lib/seam";
+import { getSupabaseServerClient } from "@/lib/supabase";
 import {
   HOST_BPS,
   PLATFORM_BPS,
   VAULT_BPS,
   getStripe,
   splitWeeklyCapture,
-  totalAmountToCents,
   weeklySplitMetadata,
   type WeeklySplitCents,
 } from "@/lib/stripe";
@@ -22,6 +24,10 @@ type CreateSubscriptionBody = {
   customerEmail: string;
   hostAccountId: string;
   totalCents: number;
+  tenantId: string;
+  hostId: string;
+  listingId: string;
+  seamDeviceId: string;
 };
 
 type VaultOutcome =
@@ -77,6 +83,14 @@ export async function POST(request: Request) {
       expand: ["latest_invoice"],
     });
 
+    const onboarded = await engageAgreement({
+      tenantId: parsed.tenantId,
+      hostId: parsed.hostId,
+      listingId: parsed.listingId,
+      seamDeviceId: parsed.seamDeviceId,
+      subscriptionId: subscription.id,
+    });
+
     const invoice = invoiceFromSubscription(subscription.latest_invoice);
     const applicationFeeStamped = await stampApplicationFee(stripe, invoice, split);
 
@@ -90,6 +104,8 @@ export async function POST(request: Request) {
             error: credit.error,
             subscriptionId: subscription.id,
             customerId: customer.id,
+            agreementId: onboarded.agreementId,
+            seamAccessCodeId: onboarded.seamAccessCodeId,
             split: splitPayload(split, parsed.hostAccountId),
             applicationFeeStamped,
             vault: credit,
@@ -104,6 +120,8 @@ export async function POST(request: Request) {
       ok: true,
       subscriptionId: subscription.id,
       customerId: customer.id,
+      agreementId: onboarded.agreementId,
+      seamAccessCodeId: onboarded.seamAccessCodeId,
       totalCents: split.totalCents,
       currency: WEEKLY_CURRENCY,
       interval: WEEKLY_INTERVAL,
@@ -124,6 +142,100 @@ export async function POST(request: Request) {
       : "Subscription creation failed";
     return NextResponse.json({ ok: false, error: safeMessage }, { status: 500 });
   }
+}
+
+type EngagedAgreement = {
+  agreementId: string;
+  seamAccessCodeId: string | null;
+};
+
+async function engageAgreement(input: {
+  tenantId: string;
+  hostId: string;
+  listingId: string;
+  seamDeviceId: string;
+  subscriptionId: string;
+}): Promise<EngagedAgreement> {
+  const supabase = getSupabaseServerClient();
+  const tenantName = await readTenantDisplayName(supabase, input.tenantId);
+  const seamAccessCodeId = await provisionGuestCode(input.seamDeviceId, tenantName);
+  const agreementId = randomUUID();
+
+  try {
+    const { error } = await supabase.from("agreements").insert({
+      id: agreementId,
+      tenant_id: input.tenantId,
+      host_id: input.hostId,
+      listing_id: input.listingId,
+      tenant_name: tenantName,
+      status: "active",
+      stripe_subscription_id: input.subscriptionId,
+      seam_access_code_id: seamAccessCodeId,
+      payment_status: "current",
+      risk_level: "clear",
+      vault_balance_cents: 0,
+    });
+    if (error) {
+      throw new Error("agreement insert failed");
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message === "agreement insert failed") {
+      throw error;
+    }
+    throw new Error("agreement insert failed");
+  }
+
+  console.log(`[AGREEMENT ENGAGED] agreement ${agreementId}`);
+  return { agreementId, seamAccessCodeId };
+}
+
+async function readTenantDisplayName(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  tenantId: string,
+): Promise<string> {
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", tenantId)
+      .maybeSingle();
+    if (error || !data) {
+      throw new Error("profile read failed");
+    }
+    const fullName = textOrNull(data.full_name);
+    if (fullName) {
+      return fullName;
+    }
+    const email = textOrNull(data.email);
+    if (email) {
+      return email;
+    }
+    return `Tenant-${tenantId.slice(0, 5)}`;
+  } catch (error) {
+    if (error instanceof Error && error.message === "profile read failed") {
+      throw error;
+    }
+    throw new Error("profile read failed");
+  }
+}
+
+async function provisionGuestCode(deviceId: string, tenantName: string): Promise<string | null> {
+  try {
+    const seamAccessCodeId = await createGuestAccessCode(deviceId, tenantName);
+    console.log(`[ACCESS PROVISIONED] Seam code ${seamAccessCodeId}`);
+    return seamAccessCodeId;
+  } catch {
+    console.error("[SEAM HARDWARE TIMEOUT] Guest code was not created. Agreement insert will continue.");
+    return null;
+  }
+}
+
+function textOrNull(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
 }
 
 function splitPayload(split: WeeklySplitCents, hostAccountId: string) {
@@ -193,31 +305,47 @@ function payerKeyFromCustomer(
 }
 
 function parseCreateSubscriptionBody(
-  value: unknown,
+  payload: unknown,
 ): CreateSubscriptionBody | { error: string } {
-  if (value === null || typeof value !== "object") {
-    return { error: "Expected a JSON object" };
+  if (!payload || typeof payload !== "object") {
+    return { error: "Payload must be a valid JSON object" };
   }
-  const body = value as Record<string, unknown>;
-  const customerEmail = body.customerEmail;
-  const hostAccountId = body.hostAccountId;
-  const total = totalAmountToCents(body.total_amount);
-  if (!total.ok) {
-    return { error: total.error };
-  }
-  if (typeof customerEmail !== "string" || !isEmail(customerEmail)) {
-    return { error: "customerEmail must be an email address" };
-  }
-  if (typeof hostAccountId !== "string" || !hostAccountId.startsWith("acct_")) {
-    return { error: "hostAccountId must be a Stripe connected account id" };
-  }
-  return {
-    customerEmail: customerEmail.trim(),
-    hostAccountId: hostAccountId.trim(),
-    totalCents: total.cents,
-  };
-}
 
-function isEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  const p = payload as Record<string, unknown>;
+
+  if (typeof p.customerEmail !== "string" || !p.customerEmail.includes("@")) {
+    return { error: "Missing or invalid customerEmail" };
+  }
+  if (typeof p.hostAccountId !== "string" || !p.hostAccountId.startsWith("acct_")) {
+    return { error: "Missing or invalid Stripe hostAccountId" };
+  }
+  if (
+    typeof p.totalCents !== "number" ||
+    !Number.isSafeInteger(p.totalCents) ||
+    p.totalCents <= 0
+  ) {
+    return { error: "Missing or invalid totalCents amount" };
+  }
+  if (typeof p.tenantId !== "string" || p.tenantId.length === 0) {
+    return { error: "Missing or invalid tenantId" };
+  }
+  if (typeof p.hostId !== "string" || p.hostId.length === 0) {
+    return { error: "Missing or invalid hostId" };
+  }
+  if (typeof p.listingId !== "string" || p.listingId.length === 0) {
+    return { error: "Missing or invalid listingId" };
+  }
+  if (typeof p.seamDeviceId !== "string" || p.seamDeviceId.length === 0) {
+    return { error: "Missing or invalid seamDeviceId" };
+  }
+
+  return {
+    customerEmail: p.customerEmail,
+    hostAccountId: p.hostAccountId,
+    totalCents: p.totalCents,
+    tenantId: p.tenantId,
+    hostId: p.hostId,
+    listingId: p.listingId,
+    seamDeviceId: p.seamDeviceId,
+  };
 }

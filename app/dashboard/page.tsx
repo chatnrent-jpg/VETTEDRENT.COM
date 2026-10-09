@@ -74,18 +74,26 @@ function HostPanel() {
   );
 }
 
+type StayStatus = {
+  paymentStatus: string | null;
+  riskLevel: string | null;
+  vaultBalanceCents: number;
+  seamAccessCodeId: string | null;
+  listingId: string | null;
+};
+
 type LodgerView =
   | { kind: "loading" }
   | { kind: "denied" }
   | { kind: "error" }
-  | { kind: "empty"; balanceCents: number; savingsGoalCents: number | null }
-  | {
+  | ({ kind: "empty"; balanceCents: number; savingsGoalCents: number | null } & StayStatus)
+  | ({
       kind: "ready";
       tenantId: string;
       agreementId: string;
       balanceCents: number;
       savingsGoalCents: number | null;
-    };
+    } & StayStatus);
 
 function LodgerPanel() {
   const [view, setView] = useState<LodgerView>({ kind: "loading" });
@@ -151,8 +159,33 @@ function LodgerPanel() {
           <p className="note">A stay code appears here when an agreement is active.</p>
         </article>
       )}
+      {view.kind === "ready" ? <StayPanel view={view} /> : null}
       <VaultProgress balanceCents={view.balanceCents} savingsGoalCents={view.savingsGoalCents} />
     </section>
+  );
+}
+
+function StayPanel({ view }: { view: StayStatus }) {
+  return (
+    <article className="panel">
+      <h2>Stay</h2>
+      <div className="row">
+        <span>Payment</span>
+        <strong>{view.paymentStatus ?? "Unknown"}</strong>
+      </div>
+      <div className="row">
+        <span>Risk</span>
+        <strong>{view.riskLevel ?? "Unknown"}</strong>
+      </div>
+      <div className="row">
+        <span>Agreement escrow</span>
+        <strong>{formatCentsAsDollars(view.vaultBalanceCents)}</strong>
+      </div>
+      <div className="row">
+        <span>Door code</span>
+        <strong>{view.seamAccessCodeId ?? "Not provisioned"}</strong>
+      </div>
+    </article>
   );
 }
 
@@ -256,10 +289,11 @@ function viewFromPass(body: unknown): LodgerView {
     return { kind: "error" };
   }
   const savingsGoalCents = positiveInteger(record.savings_goal_cents);
+  const stay = stayFromPass(record);
   const tenantId = typeof record.tenantId === "string" ? record.tenantId : null;
   const agreementId = typeof record.agreementId === "string" ? record.agreementId : null;
   if (!tenantId || !agreementId) {
-    return { kind: "empty", balanceCents, savingsGoalCents };
+    return { kind: "empty", balanceCents, savingsGoalCents, ...stay };
   }
   return {
     kind: "ready",
@@ -267,7 +301,27 @@ function viewFromPass(body: unknown): LodgerView {
     agreementId,
     balanceCents,
     savingsGoalCents,
+    ...stay,
   };
+}
+
+function stayFromPass(record: Record<string, unknown>): StayStatus {
+  const vaultBalanceCents = integerValue(record.vaultBalanceCents);
+  return {
+    paymentStatus: optionalText(record.paymentStatus),
+    riskLevel: optionalText(record.riskLevel),
+    vaultBalanceCents: vaultBalanceCents ?? 0,
+    seamAccessCodeId: optionalText(record.seamAccessCodeId),
+    listingId: optionalText(record.listingId),
+  };
+}
+
+function optionalText(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
 }
 
 function positiveInteger(value: unknown): number | null {

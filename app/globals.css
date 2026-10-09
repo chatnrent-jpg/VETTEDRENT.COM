@@ -420,3 +420,38 @@ h2 {
   font-size: 0.95rem;
   line-height: 1.4;
 }
+
+.pass-widget {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.pass-widget-alert {
+  border-color: #6d4038;
+  background: #2a1c1a;
+}
+
+.pass-kicker {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pass-code {
+  margin: 0.35rem 0 0;
+  font-family: Consolas, "Courier New", monospace;
+  overflow-wrap: anywhere;
+}
+
+.pass-amount {
+  margin: 0.15rem 0 0;
+  font-size: 1.6rem;
+  font-weight: 650;
+}
+
+.pass-warning {
+  margin: 0.65rem 0 0;
+  color: var(--danger);
+}

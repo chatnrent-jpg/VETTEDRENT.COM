@@ -24,6 +24,9 @@
     "app/**/*.ts",
     "app/**/*.tsx",
     "lib/**/*.ts",
+    "hooks/**/*.ts",
+    "components/**/*.tsx",
+    "scripts/**/*.ts",
     ".next/types/**/*.ts"
   ],
   "exclude": ["node_modules", "src", "dist", "gamma_switch_dashboard"]

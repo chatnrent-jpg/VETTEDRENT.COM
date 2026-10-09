@@ -12,6 +12,21 @@ type LodgerPass = {
   agreementId: string | null;
   balanceCents: number;
   savings_goal_cents: typeof SAVINGS_GOAL_CENTS;
+  hasActiveStay: boolean;
+  paymentStatus: string | null;
+  riskLevel: string | null;
+  vaultBalanceCents: number;
+  seamAccessCodeId: string | null;
+  listingId: string | null;
+};
+
+type ActiveAgreement = {
+  id: string;
+  paymentStatus: string | null;
+  riskLevel: string | null;
+  vaultBalanceCents: number;
+  seamAccessCodeId: string | null;
+  listingId: string | null;
 };
 
 export async function GET(request: Request) {
@@ -51,23 +66,43 @@ async function loadLodgerPass(
   const profile = await readProfile(supabase, userId);
   const tenantId = profile ? stringField(profile, "id") : null;
   if (!tenantId) {
-    return {
-      tenantId: null,
-      agreementId: null,
-      balanceCents: 0,
-      savings_goal_cents: SAVINGS_GOAL_CENTS,
-    };
+    return emptyPass(null, 0);
   }
 
-  const agreementId = await readActiveAgreementId(supabase, tenantId);
+  const agreement = await readActiveAgreement(supabase, tenantId);
   const ledger = await readLedger(supabase, payerKeys(profile, userId, tenantId));
   const balanceCents = ledger ? integerField(ledger, "vault_balance_cents") ?? 0 : 0;
 
+  if (!agreement) {
+    return emptyPass(tenantId, balanceCents);
+  }
+
   return {
     tenantId,
-    agreementId,
+    agreementId: agreement.id,
     balanceCents,
     savings_goal_cents: SAVINGS_GOAL_CENTS,
+    hasActiveStay: true,
+    paymentStatus: agreement.paymentStatus,
+    riskLevel: agreement.riskLevel,
+    vaultBalanceCents: agreement.vaultBalanceCents,
+    seamAccessCodeId: agreement.seamAccessCodeId,
+    listingId: agreement.listingId,
+  };
+}
+
+function emptyPass(tenantId: string | null, balanceCents: number): LodgerPass {
+  return {
+    tenantId,
+    agreementId: null,
+    balanceCents,
+    savings_goal_cents: SAVINGS_GOAL_CENTS,
+    hasActiveStay: false,
+    paymentStatus: null,
+    riskLevel: null,
+    vaultBalanceCents: 0,
+    seamAccessCodeId: null,
+    listingId: null,
   };
 }
 
@@ -93,14 +128,16 @@ async function readProfile(
   }
 }
 
-async function readActiveAgreementId(
+async function readActiveAgreement(
   supabase: ReturnType<typeof getSupabaseServerClient>,
   tenantId: string,
-): Promise<string | null> {
+): Promise<ActiveAgreement | null> {
   try {
     const { data, error } = await supabase
       .from("agreements")
-      .select("id, tenant_id, status")
+      .select(
+        "id, status, payment_status, risk_level, vault_balance_cents, seam_access_code_id, listing_id",
+      )
       .eq("tenant_id", tenantId)
       .eq("status", "active")
       .limit(1);
@@ -109,7 +146,18 @@ async function readActiveAgreementId(
     }
     const row = Array.isArray(data) ? data[0] : data;
     const record = asRecord(row);
-    return record ? stringField(record, "id") : null;
+    const id = record ? stringField(record, "id") : null;
+    if (!record || !id) {
+      return null;
+    }
+    return {
+      id,
+      paymentStatus: stringField(record, "payment_status"),
+      riskLevel: stringField(record, "risk_level"),
+      vaultBalanceCents: integerField(record, "vault_balance_cents") ?? 0,
+      seamAccessCodeId: stringField(record, "seam_access_code_id"),
+      listingId: stringField(record, "listing_id"),
+    };
   } catch (error) {
     if (error instanceof Error && error.message === "agreement read failed") {
       throw error;
