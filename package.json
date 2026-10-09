@@ -1,0 +1,26 @@
+{
+  "name": "vettedrent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "tsc --noEmit --pretty false"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.117.2",
+    "html5-qrcode": "2.3.8",
+    "next": "15.5.26",
+    "qrcode.react": "^4.2.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "seam": "1.247.0",
+    "stripe": "22.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "@types/react": "19.3.0",
+    "typescript": "^6.0.3"
+  }
+}
