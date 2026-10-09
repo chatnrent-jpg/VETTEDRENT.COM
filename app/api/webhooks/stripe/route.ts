@@ -105,16 +105,22 @@ export async function POST(request: Request) {
   }
 
   if (trigger.type === "invoice.payment_failed") {
-    const agreementId = invoiceLookup?.agreementId ?? null;
-    if (!agreementId) {
-      console.error("agreement update failed");
-      return NextResponse.json(
-        { ok: false, error: "Agreement id is required" },
-        { status: 500 },
-      );
-    }
     try {
+      const agreementId =
+        invoiceLookup?.agreementId ?? (await agreementIdForSubscription(subscriptionId));
+      if (!agreementId) {
+        console.error("agreement update failed");
+        return NextResponse.json(
+          { ok: false, error: "Agreement id is required" },
+          { status: 500 },
+        );
+      }
       const applied = await applyPaymentFailedWarning(agreementId);
+      const risk = await runSovereignRisk({
+        agreementId,
+        subscriptionId,
+        eventId: event.id,
+      });
       processedEventIds.add(event.id);
       return NextResponse.json({
         ok: true,
@@ -123,6 +129,7 @@ export async function POST(request: Request) {
         warningCount: applied.warningCount,
         action: applied.action,
         status: applied.status,
+        risk,
       });
     } catch (error) {
       const safeMessage =
@@ -290,7 +297,282 @@ const SAFE_HANDLER_ERRORS = new Set([
   "listing read failed",
   "seam access wipe failed",
   "agreement audit failed",
+  "platform ledger failed",
+  "host alert failed",
 ]);
+
+/** $300.00 weekly baseline paid to the host from the guarantee fund, in integer cents. */
+const GUARANTEED_WEEKLY_HOST_CENTS = 30000;
+
+type SovereignRiskResult = {
+  paymentStatus: "delinquent";
+  riskLevel: "critical";
+  checkoutAt: string;
+  accessCodeScheduled: boolean;
+  guaranteePosted: boolean;
+  hostAlerted: boolean;
+};
+
+async function agreementIdForSubscription(subscriptionId: string): Promise<string | null> {
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("agreements")
+      .select("id")
+      .eq("stripe_subscription_id", subscriptionId)
+      .maybeSingle();
+    if (error) {
+      throw new Error("agreement read failed");
+    }
+    return textOrNull(data?.id);
+  } catch (error) {
+    if (error instanceof Error && error.message === "agreement read failed") {
+      throw error;
+    }
+    throw new Error("agreement read failed");
+  }
+}
+
+async function runSovereignRisk(input: {
+  agreementId: string;
+  subscriptionId: string;
+  eventId: string;
+}): Promise<SovereignRiskResult> {
+  const supabase = getSupabaseServerClient();
+  const agreement = await readRiskAgreement(supabase, input.agreementId);
+  const failedAt = new Date().toISOString();
+  const checkoutAt = getNextCheckoutWindow();
+
+  try {
+    const { error } = await supabase
+      .from("agreements")
+      .update({
+        payment_status: "delinquent",
+        risk_level: "critical",
+        last_failed_payment_at: failedAt,
+        stripe_subscription_id: input.subscriptionId,
+      })
+      .eq("id", input.agreementId);
+    if (error) {
+      throw new Error("agreement update failed");
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message === "agreement update failed") {
+      throw error;
+    }
+    throw new Error("agreement update failed");
+  }
+
+  const accessCodeScheduled = await scheduleAccessCodeExpiry(
+    agreement.seamAccessCodeId,
+    checkoutAt,
+    input.agreementId,
+  );
+  const guaranteePosted = await postGuaranteePayout(supabase, input.eventId, input.agreementId);
+  const hostAlerted = await alertHost(supabase, {
+    eventId: input.eventId,
+    hostId: agreement.hostId,
+    agreementId: input.agreementId,
+    checkoutAt,
+  });
+
+  return {
+    paymentStatus: "delinquent",
+    riskLevel: "critical",
+    checkoutAt: checkoutAt.toISOString(),
+    accessCodeScheduled,
+    guaranteePosted,
+    hostAlerted,
+  };
+}
+
+async function readRiskAgreement(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  agreementId: string,
+): Promise<{ hostId: string | null; seamAccessCodeId: string | null }> {
+  try {
+    const { data, error } = await supabase
+      .from("agreements")
+      .select("id, host_id, seam_access_code_id")
+      .eq("id", agreementId)
+      .maybeSingle();
+    if (error || !data) {
+      throw new Error("agreement read failed");
+    }
+    return {
+      hostId: textOrNull(data.host_id),
+      seamAccessCodeId: textOrNull(data.seam_access_code_id),
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message === "agreement read failed") {
+      throw error;
+    }
+    throw new Error("agreement read failed");
+  }
+}
+
+async function scheduleAccessCodeExpiry(
+  accessCodeId: string | null,
+  checkoutAt: Date,
+  agreementId: string,
+): Promise<boolean> {
+  if (!accessCodeId || !seamApiKeyConfigured()) {
+    console.error(`[SEAM API ERR] Could not auto-expire access code for agreement ${agreementId}`);
+    return false;
+  }
+  try {
+    const seam = getSeamClient();
+    await seam.accessCodes.update({
+      access_code_id: accessCodeId,
+      ends_at: checkoutAt.toISOString(),
+    });
+    console.error(
+      `[RISK PROTOCOL ACTIVE] Lock scheduled to expire at ${checkoutAt.toISOString()} for agreement ${agreementId}`,
+    );
+    return true;
+  } catch {
+    console.error(`[SEAM API ERR] Could not auto-expire access code for agreement ${agreementId}`);
+    return false;
+  }
+}
+
+async function postGuaranteePayout(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  eventId: string,
+  agreementId: string,
+): Promise<boolean> {
+  try {
+    const { error } = await supabase.from("platform_ledger").insert({
+      stripe_event_id: eventId,
+      agreement_id: agreementId,
+      amount_cents: GUARANTEED_WEEKLY_HOST_CENTS,
+      type: "guaranteed_fund_payout",
+      description: "Automated platform escrow disbursement due to primary guest payment failure.",
+    });
+    if (error && error.code !== "23505") {
+      throw new Error("platform ledger failed");
+    }
+    return true;
+  } catch (error) {
+    if (error instanceof Error && error.message === "platform ledger failed") {
+      throw error;
+    }
+    throw new Error("platform ledger failed");
+  }
+}
+
+async function alertHost(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  input: { eventId: string; hostId: string | null; agreementId: string; checkoutAt: Date },
+): Promise<boolean> {
+  const message = `Critical: weekly payment failed for agreement ${input.agreementId}. The door code expires at the next Monday 11:00 AM checkout (${input.checkoutAt.toISOString()}). A $300 guarantee payout was posted.`;
+  try {
+    const { error } = await supabase.from("host_alerts").insert({
+      stripe_event_id: input.eventId,
+      host_id: input.hostId,
+      agreement_id: input.agreementId,
+      severity: "critical",
+      message,
+    });
+    if (error && error.code !== "23505") {
+      throw new Error("host alert failed");
+    }
+    console.error(message);
+    return true;
+  } catch (error) {
+    if (error instanceof Error && error.message === "host alert failed") {
+      throw error;
+    }
+    throw new Error("host alert failed");
+  }
+}
+
+const EASTERN_WEEKDAY: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
+function getNextCheckoutWindow(now: Date = new Date()): Date {
+  const today = easternCalendar(now);
+  const weekday = EASTERN_WEEKDAY[today.weekday] ?? 0;
+  let daysAhead = (1 + 7 - weekday) % 7;
+  if (daysAhead === 0) {
+    daysAhead = 7;
+  }
+  const monday = addCalendarDays(today.year, today.month, today.day, daysAhead);
+  return easternLocalToUtc(monday.year, monday.month, monday.day, 11, 0);
+}
+
+function easternCalendar(now: Date): { weekday: string; year: number; month: number; day: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const bag: Record<string, string> = {};
+  for (const part of parts) {
+    if (part.type !== "literal") {
+      bag[part.type] = part.value;
+    }
+  }
+  return {
+    weekday: bag.weekday ?? "Sun",
+    year: Number(bag.year),
+    month: Number(bag.month),
+    day: Number(bag.day),
+  };
+}
+
+function addCalendarDays(
+  year: number,
+  month: number,
+  day: number,
+  days: number,
+): { year: number; month: number; day: number } {
+  const shifted = new Date(Date.UTC(year, month - 1, day + days, 12, 0, 0));
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+  };
+}
+
+function easternLocalToUtc(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+): Date {
+  const utcGuess = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+  const offsetMinutes = easternOffsetMinutes(utcGuess);
+  return new Date(utcGuess.getTime() - offsetMinutes * 60_000);
+}
+
+function easternOffsetMinutes(instant: Date): number {
+  const name =
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      timeZoneName: "shortOffset",
+      hour: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(instant)
+      .find((part) => part.type === "timeZoneName")?.value ?? "GMT-5";
+  const match = /(?:GMT|UTC)([+-])(\d{1,2})(?::(\d{2}))?/.exec(name);
+  if (!match) {
+    return -300;
+  }
+  const sign = match[1] === "-" ? -1 : 1;
+  return sign * (Number(match[2]) * 60 + Number(match[3] ?? "0"));
+}
 
 type AgreementTier = {
   warningCount: number;
