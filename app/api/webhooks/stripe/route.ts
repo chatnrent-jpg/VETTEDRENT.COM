@@ -17,12 +17,6 @@ import { transitionWarning, type WarningTrigger } from "@/lib/warnings";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const WARNING_1_MESSAGE =
-  "⚠️ VettedRent System Alert: Your weekly room subscription payment bounced. As a result, your room's Wi-Fi network access has been automatically paused. Please open your VettedRent mobile app to update your card details within 48 hours to restore access and prevent Warning 2 utility restrictions.";
-
-const WARNING_2_MESSAGE =
-  "⚠️⚠️ VettedRent System Alert: Your account balance is now 48 hours past due. Non-essential power outlets in your room have been programmatically disabled. Your $3,000 Guarantee Fund status is currently at risk of forfeiture. Please resolve your invoice balance within the next 48 hours to prevent complete agreement termination and front door lockout.";
-
 type InvoiceLookup = {
   agreementId: string | null;
   customer: string | null;
@@ -214,7 +208,10 @@ async function handleStripeEvent(event: Stripe.Event): Promise<NextResponse> {
   try {
     if (transition.action === "notify") {
       if (transition.nextCount === 1 || transition.nextCount === 2) {
-        await sendWarningSms(transition.nextCount, null);
+        const sent = await sendSMS("", bouncedPaymentAlert(transition.nextCount));
+        if (!sent.success) {
+          console.error("Failed to send warning SMS");
+        }
       }
     }
     if (transition.action === "reset") {
@@ -354,16 +351,8 @@ function subscriptionIdFromInvoice(invoice: Stripe.Invoice): string | null {
   return null;
 }
 
-async function sendWarningSms(warningStep: 1 | 2, phone: string | null): Promise<void> {
-  const message = warningStep === 1 ? WARNING_1_MESSAGE : WARNING_2_MESSAGE;
-  if (!phone) {
-    console.log(`[SMS FALLBACK] To: (no lodger phone) | Message: ${message}`);
-    return;
-  }
-  const result = await sendSMS(phone, message);
-  if (!result.success) {
-    console.error("Failed to send warning SMS");
-  }
+function bouncedPaymentAlert(warningCount: number): string {
+  return `VettedRent Alert: Your weekly stay payment has failed. Warning ${warningCount}/3. To prevent your door access code from expiring on Monday at 11AM, please update your billing info immediately.`;
 }
 
 const SAFE_HANDLER_ERRORS = new Set([
@@ -767,15 +756,28 @@ async function applyPaymentFailedWarning(
   const transition = transitionWarning(agreement.warningCount, {
     type: "invoice.payment_failed",
   });
-  if (transition.nextCount === 1) {
-    await updateAgreementTier(supabase, agreementId, agreement.warningCount, "warning_1", 1, eventId);
-    await sendWarningSms(1, await lodgerPhone(supabase, agreement.tenantId));
-    return { warningCount: 1, expectedCount: agreement.warningCount, action: "notify", status: "warning_1" };
-  }
-  if (transition.nextCount === 2) {
-    await updateAgreementTier(supabase, agreementId, agreement.warningCount, "warning_2", 2, eventId);
-    await sendWarningSms(2, await lodgerPhone(supabase, agreement.tenantId));
-    return { warningCount: 2, expectedCount: agreement.warningCount, action: "notify", status: "warning_2" };
+  if (transition.nextCount === 1 || transition.nextCount === 2) {
+    const warningCount = transition.nextCount;
+    const status = warningCount === 1 ? "warning_1" : "warning_2";
+    await updateAgreementTier(
+      supabase,
+      agreementId,
+      agreement.warningCount,
+      status,
+      warningCount,
+      eventId,
+    );
+    const guest = { phone: await lodgerPhone(supabase, agreement.tenantId) };
+    const sent = await sendSMS(guest.phone ?? "", bouncedPaymentAlert(warningCount));
+    if (!sent.success) {
+      console.error("Failed to send warning SMS");
+    }
+    return {
+      warningCount,
+      expectedCount: agreement.warningCount,
+      action: "notify",
+      status,
+    };
   }
   await updateAgreementTier(
     supabase,
