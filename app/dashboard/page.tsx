@@ -9,8 +9,6 @@ import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 type Role = "host" | "lodger";
 
-const WEEKLY_BILLING_LABEL = "$245";
-
 export default function DashboardPage() {
   // TODO(Henry): replace this local toggle with the Supabase session role.
   const [role, setRole] = useState<Role>("host");
@@ -41,8 +39,7 @@ export default function DashboardPage() {
       </header>
 
       <p className="note">
-        Status values stay disconnected until a Supabase session replaces the
-        toggle.
+        The role switch is local. Weekly rates load from the signed-in host&apos;s listings.
       </p>
 
       {role === "host" ? <HostPanel /> : <LodgerPanel />}
@@ -50,28 +47,183 @@ export default function DashboardPage() {
   );
 }
 
+type HostListing = {
+  id: string;
+  title: string | null;
+  weeklyRateCents: number;
+};
+
+type HostListingsView =
+  | { kind: "loading" }
+  | { kind: "signed_out" }
+  | { kind: "denied" }
+  | { kind: "empty" }
+  | { kind: "error" }
+  | { kind: "ready"; listings: HostListing[] };
+
 function HostPanel() {
+  const [view, setView] = useState<HostListingsView>({ kind: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadHostListings().then((next) => {
+      if (!cancelled) {
+        setView(next);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <section className="stack" aria-label="Host">
       <article className="panel">
         <h2>Property</h2>
         <div className="row">
           <span>Status</span>
-          <strong>Not connected</strong>
+          <strong>{propertyStatus(view)}</strong>
         </div>
       </article>
       <article className="panel">
         <h2>Weekly billing</h2>
-        <div className="row">
-          <span>Rate</span>
-          <span className="chip">{WEEKLY_BILLING_LABEL}</span>
-        </div>
+        <WeeklyRates view={view} />
       </article>
       <Link className="button" href="/host/scanner">
         Open scanner
       </Link>
     </section>
   );
+}
+
+function WeeklyRates({ view }: { view: HostListingsView }) {
+  if (view.kind === "loading") {
+    return <p className="note">Checking listing rates.</p>;
+  }
+  if (view.kind === "signed_out") {
+    return <p className="note">Sign in as a host to see listing rates.</p>;
+  }
+  if (view.kind === "denied") {
+    return <p className="note">Listing rates are limited to host accounts.</p>;
+  }
+  if (view.kind === "error") {
+    return (
+      <p className="error" role="alert">
+        Could not load listing rates.
+      </p>
+    );
+  }
+  if (view.kind === "empty") {
+    return <p className="note">No listing rate is set for this host.</p>;
+  }
+  return (
+    <>
+      {view.listings.map((listing) => (
+        <div className="row" key={listing.id}>
+          <span>{listing.title ?? "Weekly rate"}</span>
+          <span className="chip">{formatCentsAsDollars(listing.weeklyRateCents)}</span>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function propertyStatus(view: HostListingsView): string {
+  if (view.kind === "loading") {
+    return "Checking listings";
+  }
+  if (view.kind === "ready") {
+    if (view.listings.length === 1) {
+      return view.listings[0]?.title ?? "1 listing";
+    }
+    return `${view.listings.length} listings`;
+  }
+  if (view.kind === "empty") {
+    return "No listings";
+  }
+  if (view.kind === "denied") {
+    return "Hosts only";
+  }
+  if (view.kind === "error") {
+    return "Could not load";
+  }
+  return "Not connected";
+}
+
+async function loadHostListings(): Promise<HostListingsView> {
+  let supabase: ReturnType<typeof getSupabaseBrowserClient>;
+  try {
+    supabase = getSupabaseBrowserClient();
+  } catch {
+    return { kind: "signed_out" };
+  }
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) {
+      return { kind: "signed_out" };
+    }
+    const role = await resolveCallerRole(supabase, data.user);
+    if (role !== "host") {
+      return { kind: "denied" };
+    }
+    const session = await supabase.auth.getSession();
+    const token = session.data.session?.access_token;
+    if (session.error || !token) {
+      return { kind: "signed_out" };
+    }
+    const response = await fetch("/api/host/listings", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (response.status === 401) {
+      return { kind: "denied" };
+    }
+    if (!response.ok) {
+      return { kind: "error" };
+    }
+    const body: unknown = await response.json();
+    return viewFromListings(body);
+  } catch {
+    return { kind: "error" };
+  }
+}
+
+function viewFromListings(body: unknown): HostListingsView {
+  if (!body || typeof body !== "object") {
+    return { kind: "error" };
+  }
+  const listings = (body as { listings?: unknown }).listings;
+  if (!Array.isArray(listings)) {
+    return { kind: "error" };
+  }
+  const parsed: HostListing[] = [];
+  for (const row of listings) {
+    const listing = parseHostListing(row);
+    if (!listing) {
+      return { kind: "error" };
+    }
+    parsed.push(listing);
+  }
+  if (parsed.length === 0) {
+    return { kind: "empty" };
+  }
+  return { kind: "ready", listings: parsed };
+}
+
+function parseHostListing(value: unknown): HostListing | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  if (typeof row.id !== "string" || row.id.trim() === "") {
+    return null;
+  }
+  if (typeof row.weeklyRateCents !== "number" || !Number.isSafeInteger(row.weeklyRateCents) || row.weeklyRateCents <= 0) {
+    return null;
+  }
+  const title = typeof row.title === "string" && row.title.trim() !== "" ? row.title.trim() : null;
+  return { id: row.id, title, weeklyRateCents: row.weeklyRateCents };
 }
 
 type StayStatus = {
