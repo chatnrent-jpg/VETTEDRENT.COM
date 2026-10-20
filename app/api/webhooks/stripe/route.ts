@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getSeamClient } from "@/lib/seam";
+import { sendSMS } from "@/lib/sms";
 import { getStripe, splitWeeklyCapture } from "@/lib/stripe";
 import { getSupabaseServerClient } from "@/lib/supabase";
 import { creditVaultCents, type VaultCreditResult } from "@/lib/vault";
@@ -213,7 +214,7 @@ async function handleStripeEvent(event: Stripe.Event): Promise<NextResponse> {
   try {
     if (transition.action === "notify") {
       if (transition.nextCount === 1 || transition.nextCount === 2) {
-        logTwilioPlaceholder(transition.nextCount);
+        await sendWarningSms(transition.nextCount, null);
       }
     }
     if (transition.action === "reset") {
@@ -353,8 +354,16 @@ function subscriptionIdFromInvoice(invoice: Stripe.Invoice): string | null {
   return null;
 }
 
-function logTwilioPlaceholder(warningStep: 1 | 2): void {
-  console.log(warningStep === 1 ? WARNING_1_MESSAGE : WARNING_2_MESSAGE);
+async function sendWarningSms(warningStep: 1 | 2, phone: string | null): Promise<void> {
+  const message = warningStep === 1 ? WARNING_1_MESSAGE : WARNING_2_MESSAGE;
+  if (!phone) {
+    console.log(`[SMS FALLBACK] To: (no lodger phone) | Message: ${message}`);
+    return;
+  }
+  const result = await sendSMS(phone, message);
+  if (!result.success) {
+    console.error("Failed to send warning SMS");
+  }
 }
 
 const SAFE_HANDLER_ERRORS = new Set([
@@ -760,12 +769,12 @@ async function applyPaymentFailedWarning(
   });
   if (transition.nextCount === 1) {
     await updateAgreementTier(supabase, agreementId, agreement.warningCount, "warning_1", 1, eventId);
-    logTwilioPlaceholder(1);
+    await sendWarningSms(1, await lodgerPhone(supabase, agreement.tenantId));
     return { warningCount: 1, expectedCount: agreement.warningCount, action: "notify", status: "warning_1" };
   }
   if (transition.nextCount === 2) {
     await updateAgreementTier(supabase, agreementId, agreement.warningCount, "warning_2", 2, eventId);
-    logTwilioPlaceholder(2);
+    await sendWarningSms(2, await lodgerPhone(supabase, agreement.tenantId));
     return { warningCount: 2, expectedCount: agreement.warningCount, action: "notify", status: "warning_2" };
   }
   await updateAgreementTier(
@@ -788,11 +797,16 @@ async function applyPaymentFailedWarning(
 async function readAgreementWarning(
   supabase: ReturnType<typeof getSupabaseServerClient>,
   agreementId: string,
-): Promise<{ warningCount: number; listingId: string | null; lastEventId: string | null }> {
+): Promise<{
+  warningCount: number;
+  listingId: string | null;
+  lastEventId: string | null;
+  tenantId: string | null;
+}> {
   try {
     const { data, error } = await supabase
       .from("agreements")
-      .select("id, warning_count, listing_id, last_warning_event_id")
+      .select("id, warning_count, listing_id, last_warning_event_id, tenant_id")
       .eq("id", agreementId)
       .maybeSingle();
     if (error || !data) {
@@ -802,6 +816,7 @@ async function readAgreementWarning(
       warningCount: requiredCount(data.warning_count),
       listingId: textOrNull(data.listing_id),
       lastEventId: textOrNull(data.last_warning_event_id),
+      tenantId: textOrNull(data.tenant_id),
     };
   } catch (error) {
     if (error instanceof Error && error.message === "agreement read failed") {
@@ -940,6 +955,30 @@ async function insertDeactivationAudit(
       throw error;
     }
     throw new Error("agreement audit failed");
+  }
+}
+
+async function lodgerPhone(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  tenantId: string | null,
+): Promise<string | null> {
+  if (!tenantId) {
+    return null;
+  }
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("phone")
+      .eq("id", tenantId)
+      .maybeSingle();
+    if (error) {
+      console.error("lodger phone read failed");
+      return null;
+    }
+    return textOrNull(data?.phone);
+  } catch {
+    console.error("lodger phone read failed");
+    return null;
   }
 }
 
