@@ -4,23 +4,17 @@ import { getSeamClient } from "@/lib/seam";
 import { getStripe, splitWeeklyCapture } from "@/lib/stripe";
 import { getSupabaseServerClient } from "@/lib/supabase";
 import { creditVaultCents, type VaultCreditResult } from "@/lib/vault";
+import {
+  claimStripeWebhookEvent,
+  completeStripeWebhookEvent,
+  failStripeWebhookEvent,
+  readSubscriptionWarning,
+  saveSubscriptionWarning,
+} from "@/lib/webhook-state";
 import { transitionWarning, type WarningTrigger } from "@/lib/warnings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-/**
- * TODO(Henry): replace this process-local map with a Supabase table
- * (subscription_id, warning_count, last_event_id).
- */
-export interface SubscriptionWarningRecord {
-  subscription_id: string;
-  warning_count: number;
-  last_event_id: string | null;
-  agreement_id: string | null;
-  customer: string | null;
-  amount_due: number | null;
-}
 
 const WARNING_1_MESSAGE =
   "⚠️ VettedRent System Alert: Your weekly room subscription payment bounced. As a result, your room's Wi-Fi network access has been automatically paused. Please open your VettedRent mobile app to update your card details within 48 hours to restore access and prevent Warning 2 utility restrictions.";
@@ -35,14 +29,6 @@ type InvoiceLookup = {
   amountDue: number | null;
 };
 
-const warningRecords = new Map<string, SubscriptionWarningRecord>();
-
-/**
- * TODO(Henry): persist processed Stripe event.id so retries are idempotent
- * across processes. This set only dedupes inside the current server process.
- */
-const processedEventIds = new Set<string>();
-
 export async function POST(request: Request) {
   const read = await readStripeEvent(request);
   if (!read.ok) {
@@ -50,14 +36,51 @@ export async function POST(request: Request) {
   }
   const event = read.event;
 
-  if (processedEventIds.has(event.id)) {
+  const claim = await claimStripeWebhookEvent(event.id, event.type);
+  if (!claim.ok) {
+    return NextResponse.json({ ok: false, error: claim.error }, { status: 500 });
+  }
+  if (claim.result === "duplicate") {
     return NextResponse.json({ ok: true, duplicate: true });
   }
+  if (claim.result === "in_progress") {
+    return NextResponse.json(
+      { ok: false, error: "Webhook event is already in progress" },
+      { status: 500 },
+    );
+  }
 
+  try {
+    const response = await handleStripeEvent(event);
+    return finishWebhook(event.id, response);
+  } catch (error) {
+    await failStripeWebhookEvent(event.id);
+    const message =
+      error instanceof Error && error.message.includes("not configured")
+        ? error.message
+        : "Webhook handler failed";
+    console.error(message);
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
+}
+
+async function finishWebhook(eventId: string, response: NextResponse): Promise<NextResponse> {
+  if (response.status >= 500) {
+    await failStripeWebhookEvent(eventId);
+    return response;
+  }
+  const completed = await completeStripeWebhookEvent(eventId);
+  if (!completed.ok) {
+    await failStripeWebhookEvent(eventId);
+    return NextResponse.json({ ok: false, error: completed.error }, { status: 500 });
+  }
+  return response;
+}
+
+async function handleStripeEvent(event: Stripe.Event): Promise<NextResponse> {
   if (event.type === "invoice.created") {
     try {
       const stamped = await stampDraftApplicationFee(event.data.object);
-      processedEventIds.add(event.id);
       return NextResponse.json({
         ok: true,
         handled: true,
@@ -86,7 +109,6 @@ export async function POST(request: Request) {
 
   const trigger = triggerFromEvent(event);
   if (!trigger) {
-    processedEventIds.add(event.id);
     return NextResponse.json({ ok: true, handled: false });
   }
 
@@ -115,13 +137,30 @@ export async function POST(request: Request) {
           { status: 500 },
         );
       }
-      const applied = await applyPaymentFailedWarning(agreementId);
+      const prior = await readSubscriptionWarning(subscriptionId);
+      if (!prior.ok) {
+        throw new Error(
+          prior.error.includes("not configured") ? prior.error : "subscription warning failed",
+        );
+      }
+      const applied = await applyPaymentFailedWarning(agreementId, event.id);
+      const saved = await saveSubscriptionWarning({
+        subscriptionId,
+        eventId: event.id,
+        expectedCount: prior.record ? prior.record.warningCount : applied.expectedCount,
+        warningCount: applied.warningCount,
+        agreementId,
+        customer: invoiceLookup?.customer ?? null,
+        amountDue: invoiceLookup?.amountDue ?? null,
+      });
+      if (!saved.ok) {
+        throw new Error("subscription warning failed");
+      }
       const risk = await runSovereignRisk({
         agreementId,
         subscriptionId,
         eventId: event.id,
       });
-      processedEventIds.add(event.id);
       return NextResponse.json({
         ok: true,
         handled: true,
@@ -143,8 +182,33 @@ export async function POST(request: Request) {
     }
   }
 
-  const current = warningRecords.get(subscriptionId);
-  const transition = transitionWarning(current?.warning_count ?? 0, trigger);
+  let current: DurableWarning;
+  try {
+    current = await readDurableWarning(subscriptionId);
+  } catch (error) {
+    const message =
+      error instanceof Error && SAFE_HANDLER_ERRORS.has(error.message)
+        ? error.message
+        : error instanceof Error && error.message.includes("not configured")
+          ? error.message
+          : "Webhook handler failed";
+    console.error(message);
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
+
+  if (current.lastEventId === event.id) {
+    return NextResponse.json({
+      ok: true,
+      handled: true,
+      duplicate: true,
+      subscriptionId,
+      warningCount: current.warningCount,
+      action: "none",
+      ...(vault ? { vault } : {}),
+    });
+  }
+
+  const transition = transitionWarning(current.warningCount, trigger);
 
   try {
     if (transition.action === "notify") {
@@ -153,33 +217,35 @@ export async function POST(request: Request) {
       }
     }
     if (transition.action === "reset") {
-      acknowledgeReset(subscriptionId);
+      await resetOpenAgreementWarnings(subscriptionId, event.id);
+    }
+    const saved = await saveSubscriptionWarning({
+      subscriptionId,
+      eventId: event.id,
+      expectedCount: current.warningCount,
+      warningCount: transition.nextCount,
+      agreementId: invoiceLookup?.agreementId ?? current.agreementId,
+      customer: invoiceLookup?.customer ?? current.customer,
+      amountDue: invoiceLookup?.amountDue ?? current.amountDue,
+    });
+    if (!saved.ok) {
+      throw new Error("subscription warning failed");
     }
   } catch (error) {
     console.error("stripe webhook handler failed");
     const message =
-      error instanceof Error && error.message.includes("not configured")
+      error instanceof Error &&
+      (SAFE_HANDLER_ERRORS.has(error.message) || error.message.includes("not configured"))
         ? error.message
         : "Webhook handler failed";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 
-  const record: SubscriptionWarningRecord = {
-    subscription_id: subscriptionId,
-    warning_count: transition.nextCount,
-    last_event_id: event.id,
-    agreement_id: invoiceLookup?.agreementId ?? null,
-    customer: invoiceLookup?.customer ?? null,
-    amount_due: invoiceLookup?.amountDue ?? null,
-  };
-  warningRecords.set(subscriptionId, record);
-  processedEventIds.add(event.id);
-
   return NextResponse.json({
     ok: true,
     handled: true,
     subscriptionId,
-    warningCount: record.warning_count,
+    warningCount: transition.nextCount,
     action: transition.action,
     ...(vault ? { vault } : {}),
   });
@@ -299,6 +365,7 @@ const SAFE_HANDLER_ERRORS = new Set([
   "agreement audit failed",
   "platform ledger failed",
   "host alert failed",
+  "subscription warning failed",
 ]);
 
 /** $300.00 weekly baseline paid to the host from the guarantee fund, in integer cents. */
@@ -576,25 +643,130 @@ function easternOffsetMinutes(instant: Date): number {
 
 type AgreementTier = {
   warningCount: number;
+  expectedCount: number;
   action: "notify" | "constrain";
   status: "warning_1" | "warning_2" | "terminated";
 };
 
-async function applyPaymentFailedWarning(agreementId: string): Promise<AgreementTier> {
+type DurableWarning = {
+  warningCount: number;
+  lastEventId: string | null;
+  agreementId: string | null;
+  customer: string | null;
+  amountDue: number | null;
+};
+
+async function readDurableWarning(subscriptionId: string): Promise<DurableWarning> {
+  const stored = await readSubscriptionWarning(subscriptionId);
+  if (!stored.ok) {
+    throw new Error(
+      stored.error.includes("not configured") ? stored.error : "subscription warning failed",
+    );
+  }
+  if (stored.record) {
+    return stored.record;
+  }
+  const agreement = await readWarningAgreementBySubscription(subscriptionId);
+  return {
+    warningCount: agreement?.warningCount ?? 0,
+    lastEventId: agreement?.lastEventId ?? null,
+    agreementId: agreement?.agreementId ?? null,
+    customer: null,
+    amountDue: null,
+  };
+}
+
+async function readWarningAgreementBySubscription(subscriptionId: string): Promise<{
+  agreementId: string;
+  warningCount: number;
+  lastEventId: string | null;
+} | null> {
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("agreements")
+      .select("id, warning_count, last_warning_event_id")
+      .eq("stripe_subscription_id", subscriptionId)
+      .limit(1);
+    if (error) {
+      throw new Error("agreement read failed");
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row || typeof row !== "object") {
+      return null;
+    }
+    const record = row as Record<string, unknown>;
+    const agreementId = textOrNull(record.id);
+    if (!agreementId) {
+      return null;
+    }
+    return {
+      agreementId,
+      warningCount: requiredCount(record.warning_count),
+      lastEventId: textOrNull(record.last_warning_event_id),
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message === "agreement read failed") {
+      throw error;
+    }
+    throw new Error("agreement read failed");
+  }
+}
+
+async function resetOpenAgreementWarnings(subscriptionId: string, eventId: string): Promise<void> {
+  try {
+    const supabase = getSupabaseServerClient();
+    const { error } = await supabase
+      .from("agreements")
+      .update({
+        warning_count: 0,
+        status: "active",
+        last_warning_event_id: eventId,
+      })
+      .eq("stripe_subscription_id", subscriptionId)
+      .in("status", ["active", "warning", "warning_1", "warning_2"]);
+    if (error) {
+      throw new Error("agreement update failed");
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message === "agreement update failed") {
+      throw error;
+    }
+    throw new Error("agreement update failed");
+  }
+}
+
+function tierFromCount(count: number, expectedCount: number): AgreementTier {
+  if (count <= 1) {
+    return { warningCount: Math.max(count, 1), expectedCount, action: "notify", status: "warning_1" };
+  }
+  if (count === 2) {
+    return { warningCount: 2, expectedCount, action: "notify", status: "warning_2" };
+  }
+  return { warningCount: count, expectedCount, action: "constrain", status: "terminated" };
+}
+
+async function applyPaymentFailedWarning(
+  agreementId: string,
+  eventId: string,
+): Promise<AgreementTier> {
   const supabase = getSupabaseServerClient();
   const agreement = await readAgreementWarning(supabase, agreementId);
+  if (agreement.lastEventId === eventId) {
+    return tierFromCount(agreement.warningCount, agreement.warningCount);
+  }
   const transition = transitionWarning(agreement.warningCount, {
     type: "invoice.payment_failed",
   });
   if (transition.nextCount === 1) {
-    await updateAgreementTier(supabase, agreementId, agreement.warningCount, "warning_1", 1);
+    await updateAgreementTier(supabase, agreementId, agreement.warningCount, "warning_1", 1, eventId);
     logTwilioPlaceholder(1);
-    return { warningCount: 1, action: "notify", status: "warning_1" };
+    return { warningCount: 1, expectedCount: agreement.warningCount, action: "notify", status: "warning_1" };
   }
   if (transition.nextCount === 2) {
-    await updateAgreementTier(supabase, agreementId, agreement.warningCount, "warning_2", 2);
+    await updateAgreementTier(supabase, agreementId, agreement.warningCount, "warning_2", 2, eventId);
     logTwilioPlaceholder(2);
-    return { warningCount: 2, action: "notify", status: "warning_2" };
+    return { warningCount: 2, expectedCount: agreement.warningCount, action: "notify", status: "warning_2" };
   }
   await updateAgreementTier(
     supabase,
@@ -602,19 +774,25 @@ async function applyPaymentFailedWarning(agreementId: string): Promise<Agreement
     agreement.warningCount,
     "terminated",
     transition.nextCount,
+    eventId,
   );
   await wipeListingAccessCodes(supabase, agreementId, agreement.listingId);
-  return { warningCount: transition.nextCount, action: "constrain", status: "terminated" };
+  return {
+    warningCount: transition.nextCount,
+    expectedCount: agreement.warningCount,
+    action: "constrain",
+    status: "terminated",
+  };
 }
 
 async function readAgreementWarning(
   supabase: ReturnType<typeof getSupabaseServerClient>,
   agreementId: string,
-): Promise<{ warningCount: number; listingId: string | null }> {
+): Promise<{ warningCount: number; listingId: string | null; lastEventId: string | null }> {
   try {
     const { data, error } = await supabase
       .from("agreements")
-      .select("id, warning_count, listing_id")
+      .select("id, warning_count, listing_id, last_warning_event_id")
       .eq("id", agreementId)
       .maybeSingle();
     if (error || !data) {
@@ -623,6 +801,7 @@ async function readAgreementWarning(
     return {
       warningCount: requiredCount(data.warning_count),
       listingId: textOrNull(data.listing_id),
+      lastEventId: textOrNull(data.last_warning_event_id),
     };
   } catch (error) {
     if (error instanceof Error && error.message === "agreement read failed") {
@@ -638,11 +817,16 @@ async function updateAgreementTier(
   currentCount: number,
   status: AgreementTier["status"],
   warningCount: number,
+  eventId: string,
 ): Promise<void> {
   try {
     const { data, error } = await supabase
       .from("agreements")
-      .update({ status, warning_count: warningCount })
+      .update({
+        status,
+        warning_count: warningCount,
+        last_warning_event_id: eventId,
+      })
       .eq("id", agreementId)
       .eq("warning_count", currentCount)
       .select("id")
@@ -920,7 +1104,3 @@ function amountDueFromInvoice(invoice: Stripe.Invoice): number | null {
   return null;
 }
 
-function acknowledgeReset(subscriptionId: string): void {
-  // TODO(Henry): clear any host/lodger notice tied to this subscription.
-  void subscriptionId;
-}
