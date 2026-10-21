@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     }
 
     const decision = await evaluateCashVelocity(parsed.accessToken, parsed.weeklyTargetCents);
-    await recordUnderwriting(supabase, userId, decision);
+    await recordUnderwriting(supabase, userId, decision, parsed.accessToken);
 
     return NextResponse.json({
       ok: true,
@@ -163,6 +163,7 @@ async function recordUnderwriting(
   supabase: ReturnType<typeof getSupabaseServerClient>,
   userId: string,
   decision: VelocityDecision,
+  accessToken: string,
 ): Promise<void> {
   try {
     const { data, error } = await supabase
@@ -171,6 +172,7 @@ async function recordUnderwriting(
         underwriting_approved: decision.approved,
         calculated_monthly_inflow_cents: decision.monthlyInflowCents,
         underwriting_checked_at: new Date().toISOString(),
+        plaid_access_token: accessToken,
       })
       .eq("id", userId)
       .select("id")

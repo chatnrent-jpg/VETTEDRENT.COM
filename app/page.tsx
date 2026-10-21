@@ -9,6 +9,9 @@ export default function HomePage() {
         <Link className="button" href="/dashboard">
           Open dashboard
         </Link>
+        <Link className="button" href="/underwriting">
+          Connect a bank
+        </Link>
       </div>
     </main>
   );

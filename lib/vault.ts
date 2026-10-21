@@ -71,6 +71,63 @@ export async function creditVaultCents(input: {
   }
 }
 
+/**
+ * Add vaultCents to agreements.vault_balance_cents once per Stripe invoice id.
+ * A retry with the same invoice id does not add the share again.
+ */
+export async function creditAgreementVault(input: {
+  agreementId: string;
+  invoiceId: string;
+  vaultCents: number;
+}): Promise<VaultCreditResult> {
+  const agreementId = input.agreementId.trim();
+  const invoiceId = input.invoiceId.trim();
+  if (!agreementId) {
+    return { ok: false, error: "agreement id is required" };
+  }
+  if (!invoiceId) {
+    return { ok: false, error: "invoice id is required" };
+  }
+  if (!Number.isSafeInteger(input.vaultCents) || input.vaultCents < 0) {
+    return { ok: false, error: "vault cents must be a non-negative integer" };
+  }
+
+  const missing = missingSupabaseEnv();
+  if (missing) {
+    return { ok: false, error: missing };
+  }
+
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase.rpc("credit_agreement_vault", {
+      p_agreement_id: agreementId,
+      p_invoice_id: invoiceId,
+      p_vault_cents: input.vaultCents,
+    });
+    if (error) {
+      console.error("agreement escrow sync failed");
+      return { ok: false, error: "Agreement escrow sync failed" };
+    }
+    const row = firstRow(data);
+    const balance = parseCents(row?.vault_balance_cents);
+    if (balance === null) {
+      console.error("agreement escrow sync failed");
+      return { ok: false, error: "Agreement escrow sync failed" };
+    }
+    return {
+      ok: true,
+      alreadyCredited: row?.already_credited === true,
+      vaultBalanceCents: balance,
+    };
+  } catch (error) {
+    console.error("agreement escrow sync failed");
+    if (error instanceof Error && error.message.includes("not configured")) {
+      return { ok: false, error: error.message };
+    }
+    return { ok: false, error: "Agreement escrow sync failed" };
+  }
+}
+
 function missingSupabaseEnv(): string | null {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
     return "NEXT_PUBLIC_SUPABASE_URL is not configured";

@@ -136,6 +136,16 @@ h2 {
   justify-content: center;
 }
 
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.text-link {
+  align-self: center;
+  color: var(--muted);
+}
+
 .actions {
   display: flex;
   gap: 0.5rem;

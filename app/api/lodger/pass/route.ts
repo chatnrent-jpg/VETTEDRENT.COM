@@ -113,7 +113,7 @@ async function readProfile(
   try {
     const { data, error } = await supabase
       .from("profiles")
-      .select("*")
+      .select("id, payer_key, stripe_customer_id, customer_id")
       .eq("id", userId)
       .maybeSingle();
     if (error) {

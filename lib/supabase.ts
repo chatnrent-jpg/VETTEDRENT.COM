@@ -3,6 +3,25 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 let browserClient: SupabaseClient | null = null;
 
 /**
+ * sb_publishable_ and sb_secret_ keys are not JWTs. They belong in the apikey
+ * header only. Sending one as Authorization Bearer makes Supabase return
+ * "Invalid API key".
+ */
+function supabaseFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  const apiKey = headers.get("apikey");
+  const authorization = headers.get("Authorization");
+  if (
+    apiKey &&
+    authorization === `Bearer ${apiKey}` &&
+    (apiKey.startsWith("sb_publishable_") || apiKey.startsWith("sb_secret_"))
+  ) {
+    headers.delete("Authorization");
+  }
+  return fetch(input, { ...init, headers });
+}
+
+/**
  * Browser Supabase client. Uses the anon key and the library session
  * (Authorization bearer on later API calls). Never uses the service role key.
  */
@@ -22,6 +41,7 @@ export function getSupabaseBrowserClient(): SupabaseClient {
         autoRefreshToken: true,
         detectSessionInUrl: true,
       },
+      global: { fetch: supabaseFetch },
     });
   }
   return browserClient;
@@ -44,5 +64,7 @@ export function getSupabaseServerClient(): SupabaseClient {
       persistSession: false,
       autoRefreshToken: false,
     },
+    global: { fetch: supabaseFetch },
   });
 }
+

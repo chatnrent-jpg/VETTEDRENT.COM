@@ -3,16 +3,13 @@ import type Stripe from "stripe";
 import { getSeamClient } from "@/lib/seam";
 import { getStripe, splitWeeklyCapture } from "@/lib/stripe";
 import { getSupabaseServerClient } from "@/lib/supabase";
-import { creditVaultCents, type VaultCreditResult } from "@/lib/vault";
+import { creditAgreementVault, creditVaultCents, type VaultCreditResult } from "@/lib/vault";
 import { transitionWarning, type WarningTrigger } from "@/lib/warnings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/**
- * TODO(Henry): replace this process-local map with a Supabase table
- * (subscription_id, warning_count, last_event_id).
- */
+/** Row in public.subscription_warnings. One record per Stripe subscription. */
 export interface SubscriptionWarningRecord {
   subscription_id: string;
   warning_count: number;
@@ -35,14 +32,6 @@ type InvoiceLookup = {
   amountDue: number | null;
 };
 
-const warningRecords = new Map<string, SubscriptionWarningRecord>();
-
-/**
- * TODO(Henry): persist processed Stripe event.id so retries are idempotent
- * across processes. This set only dedupes inside the current server process.
- */
-const processedEventIds = new Set<string>();
-
 export async function POST(request: Request) {
   const read = await readStripeEvent(request);
   if (!read.ok) {
@@ -50,14 +39,36 @@ export async function POST(request: Request) {
   }
   const event = read.event;
 
-  if (processedEventIds.has(event.id)) {
-    return NextResponse.json({ ok: true, duplicate: true });
+  let supabase: ReturnType<typeof getSupabaseServerClient>;
+  try {
+    supabase = getSupabaseServerClient();
+  } catch (error) {
+    console.error("processed event lookup failed");
+    const message =
+      error instanceof Error && error.message.includes("not configured")
+        ? error.message
+        : "Database lookup failure";
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
+
+  try {
+    if (await eventAlreadyProcessed(supabase, event.id)) {
+      return NextResponse.json({ ok: true, duplicate: true });
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("not configured")) {
+      console.error(error.message);
+      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    }
+    console.warn(
+      "processed_stripe_events lookup failed. Continuing local webhook routing.",
+    );
   }
 
   if (event.type === "invoice.created") {
     try {
       const stamped = await stampDraftApplicationFee(event.data.object);
-      processedEventIds.add(event.id);
+      await recordProcessedEvent(supabase, event.id, event.type);
       return NextResponse.json({
         ok: true,
         handled: true,
@@ -75,6 +86,7 @@ export async function POST(request: Request) {
 
   let vault: VaultCreditResult | { ok: true; credited: false; reason: string } | null =
     null;
+  let agreementVault: VaultCreditResult | { ok: true; synced: false } | null = null;
   if (event.type === "invoice.paid") {
     const credit = await creditPaidInvoice(event.data.object);
     if (!credit.ok) {
@@ -82,11 +94,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: credit.error }, { status: 500 });
     }
     vault = credit;
+
+    const synced = await syncPaidAgreementEscrow(event.data.object);
+    if (!synced.ok) {
+      console.error("agreement escrow sync failed");
+      return NextResponse.json({ ok: false, error: synced.error }, { status: 500 });
+    }
+    agreementVault = synced;
   }
 
   const trigger = triggerFromEvent(event);
   if (!trigger) {
-    processedEventIds.add(event.id);
+    const recorded = await recordProcessedEventResponse(supabase, event.id, event.type);
+    if (recorded) {
+      return recorded;
+    }
     return NextResponse.json({ ok: true, handled: false });
   }
 
@@ -116,12 +138,38 @@ export async function POST(request: Request) {
         );
       }
       const applied = await applyPaymentFailedWarning(agreementId);
+      try {
+        await saveSubscriptionWarning(supabase, {
+          subscription_id: subscriptionId,
+          warning_count: applied.warningCount,
+          last_event_id: event.id,
+          agreement_id: agreementId,
+          customer: invoiceLookup?.customer ?? null,
+          amount_due: invoiceLookup?.amountDue ?? null,
+        });
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("not configured")) {
+          throw error;
+        }
+        console.warn(
+          "subscription_warnings insert hit a foreign key or lookup failure. Continuing local webhook routing.",
+        );
+      }
       const risk = await runSovereignRisk({
         agreementId,
         subscriptionId,
         eventId: event.id,
       });
-      processedEventIds.add(event.id);
+      try {
+        await recordProcessedEvent(supabase, event.id, event.type);
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("not configured")) {
+          throw error;
+        }
+        console.warn(
+          "processed_stripe_events insert hit a foreign key or lookup failure. Continuing local webhook routing.",
+        );
+      }
       return NextResponse.json({
         ok: true,
         handled: true,
@@ -143,7 +191,17 @@ export async function POST(request: Request) {
     }
   }
 
-  const current = warningRecords.get(subscriptionId);
+  let current: SubscriptionWarningRecord | null;
+  try {
+    current = await readSubscriptionWarning(supabase, subscriptionId);
+  } catch (error) {
+    console.error("subscription warning read failed");
+    const message =
+      error instanceof Error && error.message.includes("not configured")
+        ? error.message
+        : "subscription warning read failed";
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
   const transition = transitionWarning(current?.warning_count ?? 0, trigger);
 
   try {
@@ -172,8 +230,21 @@ export async function POST(request: Request) {
     customer: invoiceLookup?.customer ?? null,
     amount_due: invoiceLookup?.amountDue ?? null,
   };
-  warningRecords.set(subscriptionId, record);
-  processedEventIds.add(event.id);
+  try {
+    await saveSubscriptionWarning(supabase, record);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("not configured")) {
+      console.error(error.message);
+      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    }
+    console.warn(
+      "subscription_warnings insert hit a foreign key or lookup failure. Continuing local webhook routing.",
+    );
+  }
+  const recorded = await recordProcessedEventResponse(supabase, event.id, event.type);
+  if (recorded) {
+    return recorded;
+  }
 
   return NextResponse.json({
     ok: true,
@@ -182,6 +253,7 @@ export async function POST(request: Request) {
     warningCount: record.warning_count,
     action: transition.action,
     ...(vault ? { vault } : {}),
+    ...(agreementVault ? { agreementVault } : {}),
   });
 }
 
@@ -216,6 +288,257 @@ async function creditPaidInvoice(
     invoiceId: invoice.id,
     vaultCents: split.vaultCents,
   });
+}
+
+async function syncPaidAgreementEscrow(
+  invoice: Stripe.Invoice,
+): Promise<VaultCreditResult | { ok: true; synced: false }> {
+  if (!Number.isSafeInteger(invoice.amount_paid) || invoice.amount_paid < 0) {
+    return { ok: false, error: "Agreement escrow sync failed" };
+  }
+  const invoiceId = typeof invoice.id === "string" ? invoice.id.trim() : "";
+  if (invoiceId === "") {
+    return { ok: false, error: "Agreement escrow sync failed" };
+  }
+
+  let agreementId = agreementIdFromInvoice(invoice);
+  if (!agreementId) {
+    const subscriptionId = subscriptionIdFromInvoice(invoice);
+    if (subscriptionId) {
+      try {
+        agreementId = await agreementIdForSubscription(subscriptionId);
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("not configured")) {
+          return { ok: false, error: error.message };
+        }
+        return { ok: false, error: "Agreement escrow sync failed" };
+      }
+    }
+  }
+  if (!agreementId) {
+    return { ok: true, synced: false };
+  }
+
+  const split = splitWeeklyCapture(invoice.amount_paid);
+  return creditAgreementVault({
+    agreementId,
+    invoiceId,
+    vaultCents: split.vaultCents,
+  });
+}
+
+async function readSubscriptionWarning(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  subscriptionId: string,
+): Promise<SubscriptionWarningRecord | null> {
+  try {
+    const { data, error } = await supabase
+      .from("subscription_warnings")
+      .select("subscription_id, warning_count, last_event_id, agreement_id, customer, amount_due")
+      .eq("subscription_id", subscriptionId)
+      .maybeSingle();
+    if (error) {
+      throw new Error("subscription warning read failed");
+    }
+    if (!data) {
+      return null;
+    }
+    const lastEventId = textOrNull(data.last_event_id);
+    if (!lastEventId) {
+      throw new Error("subscription warning read failed");
+    }
+    return {
+      subscription_id: subscriptionId,
+      warning_count: nonNegativeInteger(data.warning_count, "subscription warning read failed"),
+      last_event_id: lastEventId,
+      agreement_id: textOrNull(data.agreement_id),
+      customer: textOrNull(data.customer),
+      amount_due: nullableInteger(data.amount_due),
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message === "subscription warning read failed") {
+      throw error;
+    }
+    throw new Error("subscription warning read failed");
+  }
+}
+
+async function saveSubscriptionWarning(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  record: SubscriptionWarningRecord,
+): Promise<void> {
+  const lastEventId = record.last_event_id?.trim() ?? "";
+  if (lastEventId === "") {
+    throw new Error("subscription warning record failed");
+  }
+  const row = {
+    subscription_id: record.subscription_id,
+    warning_count: record.warning_count,
+    last_event_id: lastEventId,
+    agreement_id: record.agreement_id,
+    customer: record.customer,
+    amount_due: record.amount_due,
+    updated_at: new Date().toISOString(),
+  };
+  try {
+    const saved = await supabase
+      .from("subscription_warnings")
+      .upsert(row, { onConflict: "subscription_id" });
+    if (!saved.error) {
+      return;
+    }
+    if (saved.error.code === "23503" && row.agreement_id) {
+      const withoutAgreement = await supabase
+        .from("subscription_warnings")
+        .upsert({ ...row, agreement_id: null }, { onConflict: "subscription_id" });
+      if (!withoutAgreement.error) {
+        return;
+      }
+      if (isForeignKeyOrLookup(withoutAgreement.error)) {
+        console.warn(
+          "subscription_warnings insert hit a foreign key or lookup failure. Continuing local webhook routing.",
+        );
+        return;
+      }
+    }
+    if (isForeignKeyOrLookup(saved.error)) {
+      console.warn(
+        "subscription_warnings insert hit a foreign key or lookup failure. Continuing local webhook routing.",
+      );
+      return;
+    }
+    throw new Error("subscription warning record failed");
+  } catch (error) {
+    if (error instanceof Error && error.message === "subscription warning record failed") {
+      throw error;
+    }
+    console.warn(
+      "subscription_warnings insert hit a lookup failure. Continuing local webhook routing.",
+    );
+  }
+}
+
+function nonNegativeInteger(value: unknown, failure: string): number {
+  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) {
+    return value;
+  }
+  if (typeof value === "string" && /^\d+$/.test(value)) {
+    const parsed = Number(value);
+    if (Number.isSafeInteger(parsed)) {
+      return parsed;
+    }
+  }
+  throw new Error(failure);
+}
+
+function nullableInteger(value: unknown): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === "number" && Number.isSafeInteger(value)) {
+    return value;
+  }
+  if (typeof value === "string" && /^-?\d+$/.test(value)) {
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+async function eventAlreadyProcessed(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  eventId: string,
+): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from("processed_stripe_events")
+      .select("id")
+      .eq("id", eventId)
+      .maybeSingle();
+    if (error) {
+      if (isForeignKeyOrLookup(error)) {
+        console.warn(
+          "processed_stripe_events lookup failed. Continuing local webhook routing.",
+        );
+        return false;
+      }
+      throw new Error("processed event lookup failed");
+    }
+    return data !== null;
+  } catch (error) {
+    if (error instanceof Error && error.message === "processed event lookup failed") {
+      throw error;
+    }
+    console.warn(
+      "processed_stripe_events lookup failed. Continuing local webhook routing.",
+    );
+    return false;
+  }
+}
+
+async function recordProcessedEventResponse(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  eventId: string,
+  eventType: string,
+): Promise<NextResponse | null> {
+  try {
+    await recordProcessedEvent(supabase, eventId, eventType);
+    return null;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("not configured")) {
+      console.error(error.message);
+      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    }
+    console.warn(
+      "processed_stripe_events insert hit a foreign key or lookup failure. Continuing local webhook routing.",
+    );
+    return null;
+  }
+}
+
+async function recordProcessedEvent(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  eventId: string,
+  eventType: string,
+): Promise<void> {
+  try {
+    const { error } = await supabase.from("processed_stripe_events").insert({
+      id: eventId,
+      event_type: eventType,
+    });
+    if (!error || error.code === "23505") {
+      return;
+    }
+    if (isForeignKeyOrLookup(error)) {
+      console.warn(
+        "processed_stripe_events insert hit a foreign key or lookup failure. Continuing local webhook routing.",
+      );
+      return;
+    }
+    throw new Error("processed event record failed");
+  } catch (error) {
+    if (error instanceof Error && error.message === "processed event record failed") {
+      throw error;
+    }
+    console.warn(
+      "processed_stripe_events insert hit a lookup failure. Continuing local webhook routing.",
+    );
+  }
+}
+
+function isForeignKeyOrLookup(error: { code?: string; message?: string }): boolean {
+  const code = error.code ?? "";
+  const message = error.message?.toLowerCase() ?? "";
+  if (code === "23503" || code === "PGRST205" || code === "42P01") {
+    return true;
+  }
+  return (
+    message.includes("foreign key") ||
+    message.includes("lookup") ||
+    message.includes("could not find the table") ||
+    message.includes("schema cache") ||
+    message.includes("does not exist")
+  );
 }
 
 function payerKeyFromCustomer(customer: Stripe.Invoice["customer"]): string | null {
@@ -299,6 +622,9 @@ const SAFE_HANDLER_ERRORS = new Set([
   "agreement audit failed",
   "platform ledger failed",
   "host alert failed",
+  "processed event record failed",
+  "subscription warning read failed",
+  "subscription warning record failed",
 ]);
 
 /** $300.00 weekly baseline paid to the host from the guarantee fund, in integer cents. */

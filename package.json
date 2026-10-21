@@ -17,6 +17,7 @@
     "qrcode.react": "^4.2.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "react-plaid-link": "^4.1.1",
     "seam": "1.247.0",
     "stripe": "22.6.2"
   },

@@ -161,6 +161,9 @@ function LodgerPanel() {
       )}
       {view.kind === "ready" ? <StayPanel view={view} /> : null}
       <VaultProgress balanceCents={view.balanceCents} savingsGoalCents={view.savingsGoalCents} />
+      <Link className="button" href="/underwriting">
+        Connect a bank
+      </Link>
     </section>
   );
 }

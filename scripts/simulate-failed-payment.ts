@@ -1,62 +1,91 @@
 import { readFileSync } from "node:fs";
-import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
+import { getSupabaseServerClient } from "../lib/supabase.ts";
 
 const LOCAL_API_URL = "http://localhost:3000/api/webhooks/stripe";
 const MOCK_AGREEMENT_ID = "00000000-0000-0000-0000-000000000000";
-const MOCK_TENANT_ID = "tenant_sim_nurse";
 const MOCK_SUBSCRIPTION_ID = "sub_test_sovereign_risk_9999";
 const MOCK_SEAM_ACCESS_CODE_ID = "access_code_mock_12345";
 const MOCK_VAULT_BALANCE_CENTS = 37500;
+const SIM_LODGERS_EMAIL = "sim-lodger@vettedrent.test";
+const SMS_BODY =
+  "VettedRent: your weekly room payment bounced. Open the app and update your card within 48 hours.";
+
+type TwilioMessage = {
+  sid?: string;
+  status?: string;
+  error_code?: number | null;
+  error_message?: string | null;
+};
 
 loadLocalEnv();
 
+async function sendSMS(phone: string, body: string): Promise<void> {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim() ?? "";
+  const authToken = process.env.TWILIO_AUTH_TOKEN?.trim() ?? "";
+  const fromNumber = process.env.TWILIO_PHONE_NUMBER?.trim() ?? "";
+  if (accountSid === "" || authToken === "" || fromNumber === "") {
+    console.error(
+      "Twilio is not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER.",
+    );
+    process.exit(1);
+  }
+
+  const credentials = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+  const form = new URLSearchParams({ To: phone, From: fromNumber, Body: body });
+  let response: Response;
+  try {
+    response = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Messages.json`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${credentials}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: form,
+      },
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "request failed";
+    console.error(`Twilio SMS failed: ${message}`);
+    process.exit(1);
+  }
+
+  if (!response.ok) {
+    const detail = await response.text();
+    console.error(`Twilio SMS failed: ${response.status} ${detail}`);
+    process.exit(1);
+  }
+  const created = (await response.json()) as TwilioMessage;
+  const messageSid = created.sid?.trim() ?? "";
+  console.log(`Twilio accepted ${messageSid} with status ${created.status ?? "unknown"}.`);
+
+  if (messageSid !== "") {
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+    const check = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Messages/${encodeURIComponent(messageSid)}.json`,
+      { headers: { Authorization: `Basic ${credentials}` } },
+    );
+    if (check.ok) {
+      const row = (await check.json()) as TwilioMessage;
+      const errorCode = row.error_code ?? "";
+      const errorMessage = row.error_message?.trim() ?? "";
+      console.log(`Twilio delivery ${row.status ?? "unknown"} ${errorCode} ${errorMessage}`.trim());
+      if (row.status === "undelivered" || row.status === "failed") {
+        process.exit(1);
+      }
+    }
+  }
+  console.log(`sendSMS ${phone}`);
+  console.log(body);
+}
+
 async function runSimulation(): Promise<void> {
   console.log("Starting sovereign-risk payment failure simulation.");
+  await stageAgreement();
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl) {
-    console.error("NEXT_PUBLIC_SUPABASE_URL is missing.");
-    process.exit(1);
-  }
-  if (!supabaseServiceKey) {
-    console.error("SUPABASE_SERVICE_ROLE_KEY is missing.");
-    process.exit(1);
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  console.log("Staging the mock agreement.");
-
-  const cleared = await supabase
-    .from("agreements")
-    .delete()
-    .eq("stripe_subscription_id", MOCK_SUBSCRIPTION_ID);
-  if (cleared.error) {
-    console.error(`Database staging failed: ${cleared.error.message}`);
-    process.exit(1);
-  }
-
-  const staged = await supabase.from("agreements").upsert(
-    {
-      id: MOCK_AGREEMENT_ID,
-      tenant_id: MOCK_TENANT_ID,
-      status: "active",
-      tenant_name: "Simulated Nurse Test Account",
-      stripe_subscription_id: MOCK_SUBSCRIPTION_ID,
-      seam_access_code_id: MOCK_SEAM_ACCESS_CODE_ID,
-      payment_status: "current",
-      risk_level: "clear",
-      vault_balance_cents: MOCK_VAULT_BALANCE_CENTS,
-    },
-    { onConflict: "id" },
-  );
-  if (staged.error) {
-    console.error(`Database staging failed: ${staged.error.message}`);
-    process.exit(1);
-  }
-  console.log("Mock agreement is current / clear.");
-
+  const guestPhone = "+13017447404";
   const eventId = `evt_test_bounce_${Date.now()}`;
   const payload = {
     id: eventId,
@@ -72,6 +101,10 @@ async function runSimulation(): Promise<void> {
         customer: "cus_mock_user_123",
         amount_due: MOCK_VAULT_BALANCE_CENTS,
         status: "open",
+        guestPhone,
+        metadata: {
+          agreement_id: MOCK_AGREEMENT_ID,
+        },
       },
     },
   };
@@ -87,6 +120,7 @@ async function runSimulation(): Promise<void> {
     console.log("STRIPE_WEBHOOK_SECRET is unset. Sending an unsigned event for next dev.");
   }
 
+  await sendSMS(guestPhone, SMS_BODY);
   console.log(`Dispatching invoice.payment_failed to ${LOCAL_API_URL}.`);
   let response: Response;
   try {
@@ -105,39 +139,87 @@ async function runSimulation(): Promise<void> {
   console.log(`Route response code: ${response.status}`);
   console.log(`Route response body: ${responseText}`);
   if (!response.ok) {
-    console.error("Simulation failed. The webhook returned an error.");
+    process.exit(1);
+  }
+}
+
+async function stageAgreement(): Promise<void> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+  if (supabaseUrl === "" || serviceKey === "") {
+    console.error("Supabase URL and service role key are required to stage the agreement.");
     process.exit(1);
   }
 
-  const agreement = await supabase
-    .from("agreements")
-    .select("payment_status, risk_level, seam_access_code_id")
-    .eq("id", MOCK_AGREEMENT_ID)
-    .maybeSingle();
-  if (agreement.error || !agreement.data) {
-    console.error("The webhook returned success, but the agreement could not be read back.");
-    process.exit(1);
-  }
-
-  const ledger = await supabase
-    .from("platform_ledger")
-    .select("amount_cents, type")
-    .eq("stripe_event_id", eventId)
-    .maybeSingle();
-
-  console.log(
-    `Agreement ${MOCK_SUBSCRIPTION_ID} is now ${agreement.data.payment_status} / ${agreement.data.risk_level}.`,
+  const supabase = getSupabaseServerClient();
+  const tenantId = await ensureProfileId(supabase);
+  const staged = await supabase.from("agreements").upsert(
+    {
+      id: MOCK_AGREEMENT_ID,
+      tenant_id: tenantId,
+      status: "active",
+      tenant_name: "Simulated Nurse Test Account",
+      stripe_subscription_id: MOCK_SUBSCRIPTION_ID,
+      seam_access_code_id: MOCK_SEAM_ACCESS_CODE_ID,
+      payment_status: "current",
+      risk_level: "clear",
+      vault_balance_cents: MOCK_VAULT_BALANCE_CENTS,
+      warning_count: 0,
+    },
+    { onConflict: "id" },
   );
-  if (ledger.data) {
-    console.log(
-      `platform_ledger recorded ${ledger.data.amount_cents} cents as ${ledger.data.type}.`,
+  if (staged.error) {
+    console.error(`Could not stage the agreement: ${staged.error.message}`);
+    process.exit(1);
+  }
+  console.log("Agreement row is ready.");
+}
+
+async function ensureProfileId(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+): Promise<string> {
+  const existing = await supabase.from("profiles").select("id").limit(1).maybeSingle();
+  if (existing.error) {
+    console.error(`Could not read profiles: ${existing.error.message}`);
+    process.exit(1);
+  }
+  const existingId = typeof existing.data?.id === "string" ? existing.data.id.trim() : "";
+  if (existingId !== "") {
+    return existingId;
+  }
+
+  const created = await supabase.auth.admin.createUser({
+    email: SIM_LODGERS_EMAIL,
+    email_confirm: true,
+    user_metadata: { full_name: "Simulated Nurse Test Account" },
+  });
+  let userId = created.data.user?.id ?? "";
+  if (userId === "") {
+    const listed = await supabase.auth.admin.listUsers({ page: 1, perPage: 200 });
+    const match = listed.data.users.find((user) => user.email === SIM_LODGERS_EMAIL);
+    userId = match?.id ?? "";
+  }
+  if (userId === "") {
+    console.error(
+      `Could not create the test lodger: ${created.error?.message ?? "no user id"}`,
     );
-  } else {
-    console.log("platform_ledger has no row for this event.");
+    process.exit(1);
   }
-  console.log(
-    "The next dev terminal shows whether Seam scheduled the mock door code to expire. A fake Seam code id is rejected and the agreement still flips to delinquent.",
+
+  const saved = await supabase.from("profiles").upsert(
+    {
+      id: userId,
+      email: SIM_LODGERS_EMAIL,
+      full_name: "Simulated Nurse Test Account",
+      role: "lodger",
+    },
+    { onConflict: "id" },
   );
+  if (saved.error) {
+    console.error(`Could not save the test profile: ${saved.error.message}`);
+    process.exit(1);
+  }
+  return userId;
 }
 
 function loadLocalEnv(): void {
