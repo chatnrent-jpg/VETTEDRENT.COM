@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { isHostRole, resolveCallerRole } from "@/lib/host-access";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { ActiveStayCard } from "@/components/active-stay-card";
 
 const REGION_ID = "host-qr-region";
 
@@ -72,10 +73,15 @@ function HostScanner({ onDenied }: { onDenied: () => void }) {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const handlingRef = useRef(false);
   const lastBadRef = useRef<string | null>(null);
+  const lockedRef = useRef<ScanIds | null>(null);
   const [running, setRunning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [ids, setIds] = useState<ScanIds | null>(null);
   const [result, setResult] = useState<ScanResult | null>(null);
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const [photoKind, setPhotoKind] = useState<"face" | "id">("face");
+  const [saving, setSaving] = useState(false);
+  const [saveNote, setSaveNote] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -88,7 +94,7 @@ function HostScanner({ onDenied }: { onDenied: () => void }) {
   }, []);
 
   async function startScanner() {
-    if (scannerRef.current || result) {
+    if (scannerRef.current) {
       return;
     }
     const allowed = await callerIsHost();
@@ -133,6 +139,14 @@ function HostScanner({ onDenied }: { onDenied: () => void }) {
       }
       return;
     }
+    const locked = lockedRef.current;
+    if (
+      locked &&
+      locked.agreement_id === parsed.agreement_id &&
+      locked.tenant_id === parsed.tenant_id
+    ) {
+      return;
+    }
     handlingRef.current = true;
     lastBadRef.current = null;
     setScanError(null);
@@ -140,16 +154,18 @@ function HostScanner({ onDenied }: { onDenied: () => void }) {
   }
 
   async function acceptScan(parsed: ScanIds) {
-    await stopCamera();
     try {
       const verified = await verifyScan(parsed);
+      lockedRef.current = parsed;
       setIds(parsed);
       setResult(verified);
+      setSaveNote(null);
     } catch (caught) {
-      handlingRef.current = false;
       setScanError(
         caught instanceof Error ? caught.message : "Could not verify this agreement",
       );
+    } finally {
+      handlingRef.current = false;
     }
   }
 
@@ -168,9 +184,43 @@ function HostScanner({ onDenied }: { onDenied: () => void }) {
   }
 
   function dismissResult() {
+    lockedRef.current = null;
     setResult(null);
     setIds(null);
     handlingRef.current = false;
+  }
+
+  function capturePhoto(kind: "face" | "id") {
+    if (!running) {
+      return;
+    }
+    const frame = captureVideoFrame(REGION_ID);
+    if (!frame) {
+      setScanError("The camera has no frame yet.");
+      return;
+    }
+    setScanError(null);
+    setSaveNote(null);
+    setPhotoKind(kind);
+    setCapturedPhoto(frame);
+  }
+
+  async function savePhotoToStay() {
+    if (!capturedPhoto || !ids || saving) {
+      return;
+    }
+    setSaving(true);
+    setScanError(null);
+    setSaveNote(null);
+    try {
+      await persistStayPhoto(ids, photoKind, capturedPhoto);
+      setCapturedPhoto(null);
+      setSaveNote("Saved to this stay.");
+    } catch (caught) {
+      setScanError(caught instanceof Error ? caught.message : "Could not save the photo.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -196,34 +246,62 @@ function HostScanner({ onDenied }: { onDenied: () => void }) {
       </div>
 
       <div className="actions">
-        <button
-          type="button"
-          onClick={() => void startScanner()}
-          disabled={running || result !== null}
-        >
+        <button type="button" onClick={() => void startScanner()} disabled={running}>
           Start
         </button>
         <button type="button" onClick={() => void stopCamera()} disabled={!running}>
           Stop
         </button>
       </div>
+      <div className="actions">
+        <button type="button" onClick={() => capturePhoto("face")} disabled={!running}>
+          Capture face
+        </button>
+        <button type="button" onClick={() => capturePhoto("id")} disabled={!running}>
+          Capture ID
+        </button>
+      </div>
+      <button
+        className="button"
+        type="button"
+        onClick={() => void savePhotoToStay()}
+        disabled={!capturedPhoto || !ids || saving}
+      >
+        {saving ? "Saving" : "Save to stay"}
+      </button>
 
       {scanError ? (
         <p className="error" role="alert">
           {scanError}
         </p>
+      ) : saveNote ? (
+        <p className="note">{saveNote}</p>
       ) : (
-        <p className="note">The camera reads the code. It does not run it.</p>
+        <p className="note">
+          Lock an agreement code, then capture a face or an ID. Save stores the photo on that stay.
+        </p>
       )}
 
-      {result && ids ? (
-        <StatusDialog ids={ids} result={result} onDismiss={dismissResult} />
+      {capturedPhoto ? (
+        <figure className="face-capture">
+          <img src={capturedPhoto} alt={photoKind === "face" ? "Captured face" : "Captured identification"} />
+          <figcaption className="note">
+            {ids
+              ? "This photo stays on screen until it is saved to the locked stay."
+              : "Lock an agreement code before this photo can be saved."}
+          </figcaption>
+        </figure>
       ) : null}
+
+      {result && ids ? (
+        <StayLock ids={ids} result={result} onDismiss={dismissResult} />
+      ) : null}
+      <ActiveStayCard />
     </main>
   );
 }
 
-function StatusDialog({
+function StayLock({
   ids,
   result,
   onDismiss,
@@ -232,39 +310,25 @@ function StatusDialog({
   result: ScanResult;
   onDismiss: () => void;
 }) {
-  const dismissRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    dismissRef.current?.focus();
-  }, []);
-
   return (
-    <div className="alert-scrim">
-      <div
-        className="alert-panel"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="scan-status-title"
-        data-status={result.status}
-      >
-        <p className="alert-kicker">{STATUS_LABEL[result.status]}</p>
-        <h2 id="scan-status-title">{STATUS_LABEL[result.status]}</h2>
-        {result.tenantName ? <p className="lede">{result.tenantName}</p> : null}
-        <dl className="scan-ids">
-          <div>
-            <dt>Tenant</dt>
-            <dd>{ids.tenant_id}</dd>
-          </div>
-          <div>
-            <dt>Agreement</dt>
-            <dd>{ids.agreement_id}</dd>
-          </div>
-        </dl>
-        <button ref={dismissRef} className="button" type="button" onClick={onDismiss}>
-          Scan another
-        </button>
-      </div>
-    </div>
+    <article className="panel" aria-live="polite">
+      <p className="alert-kicker">Stay locked</p>
+      <h2>{STATUS_LABEL[result.status]}</h2>
+      {result.tenantName ? <p className="lede">{result.tenantName}</p> : null}
+      <dl className="scan-ids">
+        <div>
+          <dt>Tenant</dt>
+          <dd>{ids.tenant_id}</dd>
+        </div>
+        <div>
+          <dt>Agreement</dt>
+          <dd>{ids.agreement_id}</dd>
+        </div>
+      </dl>
+      <button className="text-button" type="button" onClick={onDismiss}>
+        Scan another
+      </button>
+    </article>
   );
 }
 
@@ -303,6 +367,44 @@ function parseScanPayload(text: string): ScanIds | null {
     tenant_id: record.tenant_id.trim(),
     agreement_id: record.agreement_id.trim(),
   };
+}
+
+async function persistStayPhoto(
+  ids: ScanIds,
+  photoKind: "face" | "id",
+  image: string,
+): Promise<void> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (error || !token) {
+    throw new Error("Host session required");
+  }
+  const response = await fetch("/api/host/stay-photo", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      tenant_id: ids.tenant_id,
+      agreement_id: ids.agreement_id,
+      photoKind,
+      image,
+    }),
+  });
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(messageForPhotoStatus(response.status, message));
+  }
+}
+
+function messageForPhotoStatus(status: number, body: string): string {
+  if (body.includes("Stay photo columns are not ready.")) {
+    return "Stay photo columns are not ready.";
+  }
+  return messageForStatus(status);
 }
 
 async function verifyScan(ids: ScanIds): Promise<ScanResult> {
@@ -363,6 +465,26 @@ function isScanResult(value: unknown): value is ScanResult {
     return false;
   }
   return true;
+}
+
+function captureVideoFrame(regionId: string): string | null {
+  const region = document.getElementById(regionId);
+  const video = region?.querySelector("video");
+  if (!(video instanceof HTMLVideoElement) || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+    return null;
+  }
+  if (video.videoWidth === 0 || video.videoHeight === 0) {
+    return null;
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return null;
+  }
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.92);
 }
 
 async function stopQuietly(scanner: Html5Qrcode): Promise<void> {

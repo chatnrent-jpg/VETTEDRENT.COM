@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import { isHostRole, resolveCallerRole } from "@/lib/host-access";
+import { displayStayStatus } from "@/lib/stay-status";
 import { getSupabaseServerClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const AGREEMENT_STATUSES = ["active", "warning", "terminated"] as const;
-type AgreementStatus = (typeof AGREEMENT_STATUSES)[number];
 
 type ScanBody = {
   tenant_id: string;
@@ -61,7 +59,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No agreement matches this code" }, { status: 404 });
     }
 
-    const status = agreementStatus(data.status);
+    const status = displayStayStatus(data.status);
     if (!status) {
       console.error("verify scan failed");
       return NextResponse.json(
@@ -107,15 +105,6 @@ function parseScanBody(value: unknown): ScanBody | { error: string } {
     tenant_id: body.tenant_id.trim(),
     agreement_id: body.agreement_id.trim(),
   };
-}
-
-function agreementStatus(value: unknown): AgreementStatus | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-  return AGREEMENT_STATUSES.includes(value as AgreementStatus)
-    ? (value as AgreementStatus)
-    : null;
 }
 
 function readTenantName(value: unknown): string | null {

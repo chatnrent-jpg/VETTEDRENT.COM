@@ -2,76 +2,321 @@
 
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Progress } from "@/components/ui/progress";
+import { ActiveStayCard } from "@/components/active-stay-card";
 import { resolveCallerRole } from "@/lib/host-access";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 
-type Role = "host" | "lodger";
+type Gate = "checking" | "signed-out" | "host" | "lodger" | "unknown";
 
-const WEEKLY_BILLING_LABEL = "$245";
+type HostListingView =
+  | { kind: "loading" }
+  | { kind: "error" }
+  | { kind: "empty" }
+  | {
+      kind: "ready";
+      name: string;
+      lockConnected: boolean;
+      weeklyPriceCents: number | null;
+    };
 
 export default function DashboardPage() {
-  // TODO(Henry): replace this local toggle with the Supabase session role.
-  const [role, setRole] = useState<Role>("host");
+  const [gate, setGate] = useState<Gate>("checking");
+
+  useEffect(() => {
+    let cancelled = false;
+    let unsubscribe = () => {};
+    try {
+      const supabase = getSupabaseBrowserClient();
+      void readSessionGate().then((next) => {
+        if (!cancelled) {
+          setGate(next);
+        }
+      });
+      const { data } = supabase.auth.onAuthStateChange(() => {
+        void readSessionGate().then((next) => {
+          if (!cancelled) {
+            setGate(next);
+          }
+        });
+      });
+      unsubscribe = () => data.subscription.unsubscribe();
+    } catch {
+      setGate("signed-out");
+    }
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
 
   return (
     <main className="shell">
       <header className="topbar">
         <div>
           <h1>Dashboard</h1>
-          <p className="note">Shared shell. Panels follow the selected role.</p>
+          <p className="note">
+            {gate === "host"
+              ? "Host account."
+              : gate === "lodger"
+                ? "Lodger account."
+                : "Sign in to open your stay."}
+          </p>
         </div>
-        <div className="toggle" role="group" aria-label="Role">
-          <button
-            type="button"
-            aria-pressed={role === "host"}
-            onClick={() => setRole("host")}
-          >
-            Host
-          </button>
-          <button
-            type="button"
-            aria-pressed={role === "lodger"}
-            onClick={() => setRole("lodger")}
-          >
-            Lodger
-          </button>
-        </div>
+        {gate === "host" || gate === "lodger" ? <SignOutButton /> : null}
       </header>
 
-      <p className="note">
-        Status values stay disconnected until a Supabase session replaces the
-        toggle.
-      </p>
-
-      {role === "host" ? <HostPanel /> : <LodgerPanel />}
+      {gate === "checking" ? <p className="note">Checking your session.</p> : null}
+      {gate === "signed-out" ? <SignInPanel /> : null}
+      {gate === "unknown" ? (
+        <article className="panel">
+          <h2>Account not assigned</h2>
+          <p className="note">This account is not a host or a lodger yet.</p>
+        </article>
+      ) : null}
+      {gate === "host" ? <HostPanel /> : null}
+      {gate === "lodger" ? <LodgerPanel /> : null}
     </main>
   );
 }
 
+function signInErrorMessage(signError: { code?: string; message?: string }): string {
+  const code = signError.code ?? "";
+  const message = signError.message ?? "";
+  if (code === "over_email_send_rate_limit" || message.includes("rate limit")) {
+    return "Too many sign-in emails. Wait, then try this address once.";
+  }
+  if (code === "email_address_invalid" || message.includes("invalid")) {
+    return "Use a real email address.";
+  }
+  return "Could not send the sign-in link.";
+}
+
+function SignInPanel() {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = email.trim();
+    if (trimmed === "") {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: signError } = await supabase.auth.signInWithOtp({
+        email: trimmed,
+        options: { emailRedirectTo: `${window.location.origin}/dashboard` },
+      });
+      if (signError) {
+        setError(signInErrorMessage(signError));
+        return;
+      }
+      setSent(true);
+    } catch {
+      setError("Could not send the sign-in link.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (sent) {
+    return (
+      <article className="panel">
+        <h2>Check your email</h2>
+        <p className="note">Open the sign-in link to return to this dashboard.</p>
+      </article>
+    );
+  }
+
+  return (
+    <form className="panel stack" onSubmit={submit}>
+      <h2>Sign in</h2>
+      <label className="field">
+        <span>Email</span>
+        <input
+          type="email"
+          name="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+        />
+      </label>
+      {error ? (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <button className="button" type="submit" disabled={busy}>
+        {busy ? "Sending" : "Email me a link"}
+      </button>
+    </form>
+  );
+}
+
+function SignOutButton() {
+  const [busy, setBusy] = useState(false);
+
+  async function signOut() {
+    setBusy(true);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      await supabase.auth.signOut();
+    } catch {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button className="text-button" type="button" onClick={() => void signOut()} disabled={busy}>
+      Sign out
+    </button>
+  );
+}
+
+async function readSessionGate(): Promise<Gate> {
+  try {
+    const supabase = getSupabaseBrowserClient();
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) {
+      return "signed-out";
+    }
+    const role = await resolveCallerRole(supabase, data.user);
+    if (role === "host") {
+      return "host";
+    }
+    if (role === "lodger") {
+      return "lodger";
+    }
+    return "unknown";
+  } catch {
+    return "signed-out";
+  }
+}
+
 function HostPanel() {
+  const [listing, setListing] = useState<HostListingView>({ kind: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadHostListing().then((next) => {
+      if (!cancelled) {
+        setListing(next);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <section className="stack" aria-label="Host">
       <article className="panel">
         <h2>Property</h2>
-        <div className="row">
-          <span>Status</span>
-          <strong>Not connected</strong>
-        </div>
+        {listing.kind === "loading" ? <p className="note">Checking your listing.</p> : null}
+        {listing.kind === "error" ? (
+          <p className="error" role="alert">
+            Could not load the property.
+          </p>
+        ) : null}
+        {listing.kind === "empty" ? (
+          <p className="note">No listing is tied to this host yet.</p>
+        ) : null}
+        {listing.kind === "ready" ? (
+          <>
+            <div className="row">
+              <span>Name</span>
+              <strong>{listing.name}</strong>
+            </div>
+            <div className="row">
+              <span>Lock</span>
+              <strong>{listing.lockConnected ? "Connected" : "Not connected"}</strong>
+            </div>
+          </>
+        ) : null}
       </article>
       <article className="panel">
         <h2>Weekly billing</h2>
         <div className="row">
           <span>Rate</span>
-          <span className="chip">{WEEKLY_BILLING_LABEL}</span>
+          {listing.kind === "ready" && listing.weeklyPriceCents !== null ? (
+            <span className="chip">{formatCentsAsDollars(listing.weeklyPriceCents)}</span>
+          ) : (
+            <strong>{listing.kind === "loading" ? "Checking" : "Not set"}</strong>
+          )}
         </div>
       </article>
+      <ActiveStayCard />
       <Link className="button" href="/host/scanner">
         Open scanner
       </Link>
     </section>
   );
+}
+
+async function loadHostListing(): Promise<HostListingView> {
+  try {
+    const supabase = getSupabaseBrowserClient();
+    const { data, error } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (error || !token) {
+      return { kind: "error" };
+    }
+    const response = await fetch("/api/host/listing", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      return { kind: "error" };
+    }
+    const body: unknown = await response.json();
+    return hostListingFromBody(body);
+  } catch {
+    return { kind: "error" };
+  }
+}
+
+function hostListingFromBody(body: unknown): HostListingView {
+  if (!body || typeof body !== "object") {
+    return { kind: "error" };
+  }
+  const listing = (body as { listing?: unknown }).listing;
+  if (listing === null) {
+    return { kind: "empty" };
+  }
+  if (!listing || typeof listing !== "object") {
+    return { kind: "error" };
+  }
+  const record = listing as Record<string, unknown>;
+  const name = typeof record.name === "string" ? record.name.trim() : "";
+  if (name === "" || typeof record.lockConnected !== "boolean") {
+    return { kind: "error" };
+  }
+  if (record.weeklyPriceCents === null) {
+    return {
+      kind: "ready",
+      name,
+      lockConnected: record.lockConnected,
+      weeklyPriceCents: null,
+    };
+  }
+  const weeklyPriceCents = positiveInteger(record.weeklyPriceCents);
+  if (weeklyPriceCents === null) {
+    return { kind: "error" };
+  }
+  return {
+    kind: "ready",
+    name,
+    lockConnected: record.lockConnected,
+    weeklyPriceCents,
+  };
 }
 
 type StayStatus = {
