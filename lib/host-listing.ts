@@ -24,6 +24,9 @@ export async function getActiveHostProperty(
     return null;
   }
   const listed = weeklyPriceCents(row.weekly_price_cents);
+  if (typeof row.id !== "string" || row.id.trim() === "") {
+    return null;
+  }
   const agreed = listed === null ? await agreementWeeklyCents(supabase, row.id) : null;
   return propertyFromRow(row, listed ?? agreed ?? WEEKLY_STAY_CENTS);
 }

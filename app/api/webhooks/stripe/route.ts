@@ -1,29 +1,21 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getSeamClient } from "@/lib/seam";
+import { sendSMS } from "@/lib/sms";
 import { getStripe, splitWeeklyCapture } from "@/lib/stripe";
 import { getSupabaseServerClient } from "@/lib/supabase";
 import { creditAgreementVault, creditVaultCents, type VaultCreditResult } from "@/lib/vault";
+import {
+  claimStripeWebhookEvent,
+  completeStripeWebhookEvent,
+  failStripeWebhookEvent,
+  readSubscriptionWarning,
+  saveSubscriptionWarning,
+} from "@/lib/webhook-state";
 import { transitionWarning, type WarningTrigger } from "@/lib/warnings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-/** Row in public.subscription_warnings. One record per Stripe subscription. */
-export interface SubscriptionWarningRecord {
-  subscription_id: string;
-  warning_count: number;
-  last_event_id: string | null;
-  agreement_id: string | null;
-  customer: string | null;
-  amount_due: number | null;
-}
-
-const WARNING_1_MESSAGE =
-  "⚠️ VettedRent System Alert: Your weekly room subscription payment bounced. As a result, your room's Wi-Fi network access has been automatically paused. Please open your VettedRent mobile app to update your card details within 48 hours to restore access and prevent Warning 2 utility restrictions.";
-
-const WARNING_2_MESSAGE =
-  "⚠️⚠️ VettedRent System Alert: Your account balance is now 48 hours past due. Non-essential power outlets in your room have been programmatically disabled. Your $3,000 Guarantee Fund status is currently at risk of forfeiture. Please resolve your invoice balance within the next 48 hours to prevent complete agreement termination and front door lockout.";
 
 type InvoiceLookup = {
   agreementId: string | null;
@@ -39,36 +31,51 @@ export async function POST(request: Request) {
   }
   const event = read.event;
 
-  let supabase: ReturnType<typeof getSupabaseServerClient>;
-  try {
-    supabase = getSupabaseServerClient();
-  } catch (error) {
-    console.error("processed event lookup failed");
-    const message =
-      error instanceof Error && error.message.includes("not configured")
-        ? error.message
-        : "Database lookup failure";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  const claim = await claimStripeWebhookEvent(event.id, event.type);
+  if (!claim.ok) {
+    return NextResponse.json({ ok: false, error: claim.error }, { status: 500 });
   }
-
-  try {
-    if (await eventAlreadyProcessed(supabase, event.id)) {
-      return NextResponse.json({ ok: true, duplicate: true });
-    }
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("not configured")) {
-      console.error(error.message);
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    }
-    console.warn(
-      "processed_stripe_events lookup failed. Continuing local webhook routing.",
+  if (claim.result === "duplicate") {
+    return NextResponse.json({ ok: true, duplicate: true });
+  }
+  if (claim.result === "in_progress") {
+    return NextResponse.json(
+      { ok: false, error: "Webhook event is already in progress" },
+      { status: 500 },
     );
   }
 
+  try {
+    const response = await handleStripeEvent(event);
+    return finishWebhook(event.id, response);
+  } catch (error) {
+    await failStripeWebhookEvent(event.id);
+    const message =
+      error instanceof Error && error.message.includes("not configured")
+        ? error.message
+        : "Webhook handler failed";
+    console.error(message);
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
+}
+
+async function finishWebhook(eventId: string, response: NextResponse): Promise<NextResponse> {
+  if (response.status >= 500) {
+    await failStripeWebhookEvent(eventId);
+    return response;
+  }
+  const completed = await completeStripeWebhookEvent(eventId);
+  if (!completed.ok) {
+    await failStripeWebhookEvent(eventId);
+    return NextResponse.json({ ok: false, error: completed.error }, { status: 500 });
+  }
+  return response;
+}
+
+async function handleStripeEvent(event: Stripe.Event): Promise<NextResponse> {
   if (event.type === "invoice.created") {
     try {
       const stamped = await stampDraftApplicationFee(event.data.object);
-      await recordProcessedEvent(supabase, event.id, event.type);
       return NextResponse.json({
         ok: true,
         handled: true,
@@ -105,10 +112,6 @@ export async function POST(request: Request) {
 
   const trigger = triggerFromEvent(event);
   if (!trigger) {
-    const recorded = await recordProcessedEventResponse(supabase, event.id, event.type);
-    if (recorded) {
-      return recorded;
-    }
     return NextResponse.json({ ok: true, handled: false });
   }
 
@@ -137,39 +140,30 @@ export async function POST(request: Request) {
           { status: 500 },
         );
       }
-      const applied = await applyPaymentFailedWarning(agreementId);
-      try {
-        await saveSubscriptionWarning(supabase, {
-          subscription_id: subscriptionId,
-          warning_count: applied.warningCount,
-          last_event_id: event.id,
-          agreement_id: agreementId,
-          customer: invoiceLookup?.customer ?? null,
-          amount_due: invoiceLookup?.amountDue ?? null,
-        });
-      } catch (error) {
-        if (error instanceof Error && error.message.includes("not configured")) {
-          throw error;
-        }
-        console.warn(
-          "subscription_warnings insert hit a foreign key or lookup failure. Continuing local webhook routing.",
+      const prior = await readSubscriptionWarning(subscriptionId);
+      if (!prior.ok) {
+        throw new Error(
+          prior.error.includes("not configured") ? prior.error : "subscription warning failed",
         );
+      }
+      const applied = await applyPaymentFailedWarning(agreementId, event.id);
+      const saved = await saveSubscriptionWarning({
+        subscriptionId,
+        eventId: event.id,
+        expectedCount: prior.record ? prior.record.warningCount : applied.expectedCount,
+        warningCount: applied.warningCount,
+        agreementId,
+        customer: invoiceLookup?.customer ?? null,
+        amountDue: invoiceLookup?.amountDue ?? null,
+      });
+      if (!saved.ok) {
+        throw new Error("subscription warning failed");
       }
       const risk = await runSovereignRisk({
         agreementId,
         subscriptionId,
         eventId: event.id,
       });
-      try {
-        await recordProcessedEvent(supabase, event.id, event.type);
-      } catch (error) {
-        if (error instanceof Error && error.message.includes("not configured")) {
-          throw error;
-        }
-        console.warn(
-          "processed_stripe_events insert hit a foreign key or lookup failure. Continuing local webhook routing.",
-        );
-      }
       return NextResponse.json({
         ok: true,
         handled: true,
@@ -191,66 +185,74 @@ export async function POST(request: Request) {
     }
   }
 
-  let current: SubscriptionWarningRecord | null;
+  let current: DurableWarning;
   try {
-    current = await readSubscriptionWarning(supabase, subscriptionId);
+    current = await readDurableWarning(subscriptionId);
   } catch (error) {
-    console.error("subscription warning read failed");
     const message =
-      error instanceof Error && error.message.includes("not configured")
+      error instanceof Error && SAFE_HANDLER_ERRORS.has(error.message)
         ? error.message
-        : "subscription warning read failed";
+        : error instanceof Error && error.message.includes("not configured")
+          ? error.message
+          : "Webhook handler failed";
+    console.error(message);
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
-  const transition = transitionWarning(current?.warning_count ?? 0, trigger);
+
+  if (current.lastEventId === event.id) {
+    return NextResponse.json({
+      ok: true,
+      handled: true,
+      duplicate: true,
+      subscriptionId,
+      warningCount: current.warningCount,
+      action: "none",
+      ...(vault ? { vault } : {}),
+      ...(agreementVault ? { agreementVault } : {}),
+    });
+  }
+
+  const transition = transitionWarning(current.warningCount, trigger);
 
   try {
     if (transition.action === "notify") {
       if (transition.nextCount === 1 || transition.nextCount === 2) {
-        logTwilioPlaceholder(transition.nextCount);
+        const sent = await sendSMS("", bouncedPaymentAlert(transition.nextCount));
+        if (!sent.success) {
+          console.error("Failed to send warning SMS");
+        }
       }
     }
     if (transition.action === "reset") {
-      acknowledgeReset(subscriptionId);
+      await resetOpenAgreementWarnings(subscriptionId, event.id);
+    }
+    const saved = await saveSubscriptionWarning({
+      subscriptionId,
+      eventId: event.id,
+      expectedCount: current.warningCount,
+      warningCount: transition.nextCount,
+      agreementId: invoiceLookup?.agreementId ?? current.agreementId,
+      customer: invoiceLookup?.customer ?? current.customer,
+      amountDue: invoiceLookup?.amountDue ?? current.amountDue,
+    });
+    if (!saved.ok) {
+      throw new Error("subscription warning failed");
     }
   } catch (error) {
     console.error("stripe webhook handler failed");
     const message =
-      error instanceof Error && error.message.includes("not configured")
+      error instanceof Error &&
+      (SAFE_HANDLER_ERRORS.has(error.message) || error.message.includes("not configured"))
         ? error.message
         : "Webhook handler failed";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
-  }
-
-  const record: SubscriptionWarningRecord = {
-    subscription_id: subscriptionId,
-    warning_count: transition.nextCount,
-    last_event_id: event.id,
-    agreement_id: invoiceLookup?.agreementId ?? null,
-    customer: invoiceLookup?.customer ?? null,
-    amount_due: invoiceLookup?.amountDue ?? null,
-  };
-  try {
-    await saveSubscriptionWarning(supabase, record);
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("not configured")) {
-      console.error(error.message);
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    }
-    console.warn(
-      "subscription_warnings insert hit a foreign key or lookup failure. Continuing local webhook routing.",
-    );
-  }
-  const recorded = await recordProcessedEventResponse(supabase, event.id, event.type);
-  if (recorded) {
-    return recorded;
   }
 
   return NextResponse.json({
     ok: true,
     handled: true,
     subscriptionId,
-    warningCount: record.warning_count,
+    warningCount: transition.nextCount,
     action: transition.action,
     ...(vault ? { vault } : {}),
     ...(agreementVault ? { agreementVault } : {}),
@@ -327,220 +329,6 @@ async function syncPaidAgreementEscrow(
   });
 }
 
-async function readSubscriptionWarning(
-  supabase: ReturnType<typeof getSupabaseServerClient>,
-  subscriptionId: string,
-): Promise<SubscriptionWarningRecord | null> {
-  try {
-    const { data, error } = await supabase
-      .from("subscription_warnings")
-      .select("subscription_id, warning_count, last_event_id, agreement_id, customer, amount_due")
-      .eq("subscription_id", subscriptionId)
-      .maybeSingle();
-    if (error) {
-      throw new Error("subscription warning read failed");
-    }
-    if (!data) {
-      return null;
-    }
-    const lastEventId = textOrNull(data.last_event_id);
-    if (!lastEventId) {
-      throw new Error("subscription warning read failed");
-    }
-    return {
-      subscription_id: subscriptionId,
-      warning_count: nonNegativeInteger(data.warning_count, "subscription warning read failed"),
-      last_event_id: lastEventId,
-      agreement_id: textOrNull(data.agreement_id),
-      customer: textOrNull(data.customer),
-      amount_due: nullableInteger(data.amount_due),
-    };
-  } catch (error) {
-    if (error instanceof Error && error.message === "subscription warning read failed") {
-      throw error;
-    }
-    throw new Error("subscription warning read failed");
-  }
-}
-
-async function saveSubscriptionWarning(
-  supabase: ReturnType<typeof getSupabaseServerClient>,
-  record: SubscriptionWarningRecord,
-): Promise<void> {
-  const lastEventId = record.last_event_id?.trim() ?? "";
-  if (lastEventId === "") {
-    throw new Error("subscription warning record failed");
-  }
-  const row = {
-    subscription_id: record.subscription_id,
-    warning_count: record.warning_count,
-    last_event_id: lastEventId,
-    agreement_id: record.agreement_id,
-    customer: record.customer,
-    amount_due: record.amount_due,
-    updated_at: new Date().toISOString(),
-  };
-  try {
-    const saved = await supabase
-      .from("subscription_warnings")
-      .upsert(row, { onConflict: "subscription_id" });
-    if (!saved.error) {
-      return;
-    }
-    if (saved.error.code === "23503" && row.agreement_id) {
-      const withoutAgreement = await supabase
-        .from("subscription_warnings")
-        .upsert({ ...row, agreement_id: null }, { onConflict: "subscription_id" });
-      if (!withoutAgreement.error) {
-        return;
-      }
-      if (isForeignKeyOrLookup(withoutAgreement.error)) {
-        console.warn(
-          "subscription_warnings insert hit a foreign key or lookup failure. Continuing local webhook routing.",
-        );
-        return;
-      }
-    }
-    if (isForeignKeyOrLookup(saved.error)) {
-      console.warn(
-        "subscription_warnings insert hit a foreign key or lookup failure. Continuing local webhook routing.",
-      );
-      return;
-    }
-    throw new Error("subscription warning record failed");
-  } catch (error) {
-    if (error instanceof Error && error.message === "subscription warning record failed") {
-      throw error;
-    }
-    console.warn(
-      "subscription_warnings insert hit a lookup failure. Continuing local webhook routing.",
-    );
-  }
-}
-
-function nonNegativeInteger(value: unknown, failure: string): number {
-  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) {
-    return value;
-  }
-  if (typeof value === "string" && /^\d+$/.test(value)) {
-    const parsed = Number(value);
-    if (Number.isSafeInteger(parsed)) {
-      return parsed;
-    }
-  }
-  throw new Error(failure);
-}
-
-function nullableInteger(value: unknown): number | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  if (typeof value === "number" && Number.isSafeInteger(value)) {
-    return value;
-  }
-  if (typeof value === "string" && /^-?\d+$/.test(value)) {
-    const parsed = Number(value);
-    return Number.isSafeInteger(parsed) ? parsed : null;
-  }
-  return null;
-}
-
-async function eventAlreadyProcessed(
-  supabase: ReturnType<typeof getSupabaseServerClient>,
-  eventId: string,
-): Promise<boolean> {
-  try {
-    const { data, error } = await supabase
-      .from("processed_stripe_events")
-      .select("id")
-      .eq("id", eventId)
-      .maybeSingle();
-    if (error) {
-      if (isForeignKeyOrLookup(error)) {
-        console.warn(
-          "processed_stripe_events lookup failed. Continuing local webhook routing.",
-        );
-        return false;
-      }
-      throw new Error("processed event lookup failed");
-    }
-    return data !== null;
-  } catch (error) {
-    if (error instanceof Error && error.message === "processed event lookup failed") {
-      throw error;
-    }
-    console.warn(
-      "processed_stripe_events lookup failed. Continuing local webhook routing.",
-    );
-    return false;
-  }
-}
-
-async function recordProcessedEventResponse(
-  supabase: ReturnType<typeof getSupabaseServerClient>,
-  eventId: string,
-  eventType: string,
-): Promise<NextResponse | null> {
-  try {
-    await recordProcessedEvent(supabase, eventId, eventType);
-    return null;
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("not configured")) {
-      console.error(error.message);
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    }
-    console.warn(
-      "processed_stripe_events insert hit a foreign key or lookup failure. Continuing local webhook routing.",
-    );
-    return null;
-  }
-}
-
-async function recordProcessedEvent(
-  supabase: ReturnType<typeof getSupabaseServerClient>,
-  eventId: string,
-  eventType: string,
-): Promise<void> {
-  try {
-    const { error } = await supabase.from("processed_stripe_events").insert({
-      id: eventId,
-      event_type: eventType,
-    });
-    if (!error || error.code === "23505") {
-      return;
-    }
-    if (isForeignKeyOrLookup(error)) {
-      console.warn(
-        "processed_stripe_events insert hit a foreign key or lookup failure. Continuing local webhook routing.",
-      );
-      return;
-    }
-    throw new Error("processed event record failed");
-  } catch (error) {
-    if (error instanceof Error && error.message === "processed event record failed") {
-      throw error;
-    }
-    console.warn(
-      "processed_stripe_events insert hit a lookup failure. Continuing local webhook routing.",
-    );
-  }
-}
-
-function isForeignKeyOrLookup(error: { code?: string; message?: string }): boolean {
-  const code = error.code ?? "";
-  const message = error.message?.toLowerCase() ?? "";
-  if (code === "23503" || code === "PGRST205" || code === "42P01") {
-    return true;
-  }
-  return (
-    message.includes("foreign key") ||
-    message.includes("lookup") ||
-    message.includes("could not find the table") ||
-    message.includes("schema cache") ||
-    message.includes("does not exist")
-  );
-}
-
 function payerKeyFromCustomer(customer: Stripe.Invoice["customer"]): string | null {
   if (typeof customer === "string") {
     return customer;
@@ -610,8 +398,8 @@ function subscriptionIdFromInvoice(invoice: Stripe.Invoice): string | null {
   return null;
 }
 
-function logTwilioPlaceholder(warningStep: 1 | 2): void {
-  console.log(warningStep === 1 ? WARNING_1_MESSAGE : WARNING_2_MESSAGE);
+function bouncedPaymentAlert(warningCount: number): string {
+  return `VettedRent Alert: Your weekly stay payment has failed. Warning ${warningCount}/3. To prevent your door access code from expiring on Monday at 11AM, please update your billing info immediately.`;
 }
 
 const SAFE_HANDLER_ERRORS = new Set([
@@ -622,9 +410,7 @@ const SAFE_HANDLER_ERRORS = new Set([
   "agreement audit failed",
   "platform ledger failed",
   "host alert failed",
-  "processed event record failed",
-  "subscription warning read failed",
-  "subscription warning record failed",
+  "subscription warning failed",
 ]);
 
 /** $300.00 weekly baseline paid to the host from the guarantee fund, in integer cents. */
@@ -902,25 +688,143 @@ function easternOffsetMinutes(instant: Date): number {
 
 type AgreementTier = {
   warningCount: number;
+  expectedCount: number;
   action: "notify" | "constrain";
   status: "warning_1" | "warning_2" | "terminated";
 };
 
-async function applyPaymentFailedWarning(agreementId: string): Promise<AgreementTier> {
+type DurableWarning = {
+  warningCount: number;
+  lastEventId: string | null;
+  agreementId: string | null;
+  customer: string | null;
+  amountDue: number | null;
+};
+
+async function readDurableWarning(subscriptionId: string): Promise<DurableWarning> {
+  const stored = await readSubscriptionWarning(subscriptionId);
+  if (!stored.ok) {
+    throw new Error(
+      stored.error.includes("not configured") ? stored.error : "subscription warning failed",
+    );
+  }
+  if (stored.record) {
+    return stored.record;
+  }
+  const agreement = await readWarningAgreementBySubscription(subscriptionId);
+  return {
+    warningCount: agreement?.warningCount ?? 0,
+    lastEventId: agreement?.lastEventId ?? null,
+    agreementId: agreement?.agreementId ?? null,
+    customer: null,
+    amountDue: null,
+  };
+}
+
+async function readWarningAgreementBySubscription(subscriptionId: string): Promise<{
+  agreementId: string;
+  warningCount: number;
+  lastEventId: string | null;
+} | null> {
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("agreements")
+      .select("id, warning_count, last_warning_event_id")
+      .eq("stripe_subscription_id", subscriptionId)
+      .limit(1);
+    if (error) {
+      throw new Error("agreement read failed");
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row || typeof row !== "object") {
+      return null;
+    }
+    const record = row as Record<string, unknown>;
+    const agreementId = textOrNull(record.id);
+    if (!agreementId) {
+      return null;
+    }
+    return {
+      agreementId,
+      warningCount: requiredCount(record.warning_count),
+      lastEventId: textOrNull(record.last_warning_event_id),
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message === "agreement read failed") {
+      throw error;
+    }
+    throw new Error("agreement read failed");
+  }
+}
+
+async function resetOpenAgreementWarnings(subscriptionId: string, eventId: string): Promise<void> {
+  try {
+    const supabase = getSupabaseServerClient();
+    const { error } = await supabase
+      .from("agreements")
+      .update({
+        warning_count: 0,
+        status: "active",
+        last_warning_event_id: eventId,
+      })
+      .eq("stripe_subscription_id", subscriptionId)
+      .in("status", ["active", "warning", "warning_1", "warning_2"]);
+    if (error) {
+      throw new Error("agreement update failed");
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message === "agreement update failed") {
+      throw error;
+    }
+    throw new Error("agreement update failed");
+  }
+}
+
+function tierFromCount(count: number, expectedCount: number): AgreementTier {
+  if (count <= 1) {
+    return { warningCount: Math.max(count, 1), expectedCount, action: "notify", status: "warning_1" };
+  }
+  if (count === 2) {
+    return { warningCount: 2, expectedCount, action: "notify", status: "warning_2" };
+  }
+  return { warningCount: count, expectedCount, action: "constrain", status: "terminated" };
+}
+
+async function applyPaymentFailedWarning(
+  agreementId: string,
+  eventId: string,
+): Promise<AgreementTier> {
   const supabase = getSupabaseServerClient();
   const agreement = await readAgreementWarning(supabase, agreementId);
+  if (agreement.lastEventId === eventId) {
+    return tierFromCount(agreement.warningCount, agreement.warningCount);
+  }
   const transition = transitionWarning(agreement.warningCount, {
     type: "invoice.payment_failed",
   });
-  if (transition.nextCount === 1) {
-    await updateAgreementTier(supabase, agreementId, agreement.warningCount, "warning_1", 1);
-    logTwilioPlaceholder(1);
-    return { warningCount: 1, action: "notify", status: "warning_1" };
-  }
-  if (transition.nextCount === 2) {
-    await updateAgreementTier(supabase, agreementId, agreement.warningCount, "warning_2", 2);
-    logTwilioPlaceholder(2);
-    return { warningCount: 2, action: "notify", status: "warning_2" };
+  if (transition.nextCount === 1 || transition.nextCount === 2) {
+    const warningCount = transition.nextCount;
+    const status = warningCount === 1 ? "warning_1" : "warning_2";
+    await updateAgreementTier(
+      supabase,
+      agreementId,
+      agreement.warningCount,
+      status,
+      warningCount,
+      eventId,
+    );
+    const guest = { phone: await lodgerPhone(supabase, agreement.tenantId) };
+    const sent = await sendSMS(guest.phone ?? "", bouncedPaymentAlert(warningCount));
+    if (!sent.success) {
+      console.error("Failed to send warning SMS");
+    }
+    return {
+      warningCount,
+      expectedCount: agreement.warningCount,
+      action: "notify",
+      status,
+    };
   }
   await updateAgreementTier(
     supabase,
@@ -928,19 +832,30 @@ async function applyPaymentFailedWarning(agreementId: string): Promise<Agreement
     agreement.warningCount,
     "terminated",
     transition.nextCount,
+    eventId,
   );
   await wipeListingAccessCodes(supabase, agreementId, agreement.listingId);
-  return { warningCount: transition.nextCount, action: "constrain", status: "terminated" };
+  return {
+    warningCount: transition.nextCount,
+    expectedCount: agreement.warningCount,
+    action: "constrain",
+    status: "terminated",
+  };
 }
 
 async function readAgreementWarning(
   supabase: ReturnType<typeof getSupabaseServerClient>,
   agreementId: string,
-): Promise<{ warningCount: number; listingId: string | null }> {
+): Promise<{
+  warningCount: number;
+  listingId: string | null;
+  lastEventId: string | null;
+  tenantId: string | null;
+}> {
   try {
     const { data, error } = await supabase
       .from("agreements")
-      .select("id, warning_count, listing_id")
+      .select("id, warning_count, listing_id, last_warning_event_id, tenant_id")
       .eq("id", agreementId)
       .maybeSingle();
     if (error || !data) {
@@ -949,6 +864,8 @@ async function readAgreementWarning(
     return {
       warningCount: requiredCount(data.warning_count),
       listingId: textOrNull(data.listing_id),
+      lastEventId: textOrNull(data.last_warning_event_id),
+      tenantId: textOrNull(data.tenant_id),
     };
   } catch (error) {
     if (error instanceof Error && error.message === "agreement read failed") {
@@ -964,11 +881,16 @@ async function updateAgreementTier(
   currentCount: number,
   status: AgreementTier["status"],
   warningCount: number,
+  eventId: string,
 ): Promise<void> {
   try {
     const { data, error } = await supabase
       .from("agreements")
-      .update({ status, warning_count: warningCount })
+      .update({
+        status,
+        warning_count: warningCount,
+        last_warning_event_id: eventId,
+      })
       .eq("id", agreementId)
       .eq("warning_count", currentCount)
       .select("id")
@@ -1082,6 +1004,30 @@ async function insertDeactivationAudit(
       throw error;
     }
     throw new Error("agreement audit failed");
+  }
+}
+
+async function lodgerPhone(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  tenantId: string | null,
+): Promise<string | null> {
+  if (!tenantId) {
+    return null;
+  }
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("phone")
+      .eq("id", tenantId)
+      .maybeSingle();
+    if (error) {
+      console.error("lodger phone read failed");
+      return null;
+    }
+    return textOrNull(data?.phone);
+  } catch {
+    console.error("lodger phone read failed");
+    return null;
   }
 }
 
@@ -1246,7 +1192,3 @@ function amountDueFromInvoice(invoice: Stripe.Invoice): number | null {
   return null;
 }
 
-function acknowledgeReset(subscriptionId: string): void {
-  // TODO(Henry): clear any host/lodger notice tied to this subscription.
-  void subscriptionId;
-}

@@ -4,10 +4,14 @@ import type Stripe from "stripe";
 import { createGuestAccessCode } from "@/lib/seam";
 import { getSupabaseServerClient } from "@/lib/supabase";
 import {
+  BillingConfigError,
   HOST_BPS,
   PLATFORM_BPS,
   VAULT_BPS,
+  WEEKLY_CURRENCY,
+  WEEKLY_INTERVAL,
   getStripe,
+  resolveWeeklyStayPrice,
   splitWeeklyCapture,
   weeklySplitMetadata,
   type WeeklySplitCents,
@@ -16,9 +20,6 @@ import { creditVaultCents, type VaultCreditResult } from "@/lib/vault";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const WEEKLY_CURRENCY = "usd";
-const WEEKLY_INTERVAL = "week" as const;
 
 type CreateSubscriptionBody = {
   customerEmail: string;
@@ -54,28 +55,15 @@ export async function POST(request: Request) {
 
   try {
     const stripe = getStripe();
+    const weeklyPrice = await resolveWeeklyStayPrice(stripe, split.totalCents);
     const customer = await stripe.customers.create({
       email: parsed.customerEmail,
       metadata: { host_account_id: parsed.hostAccountId },
     });
 
-    // TODO(Henry): reuse one stable Price instead of creating a product per call.
-    const product = await stripe.products.create({
-      name: "VettedRent weekly stay",
-    });
-
     const subscription = await stripe.subscriptions.create({
       customer: customer.id,
-      items: [
-        {
-          price_data: {
-            currency: WEEKLY_CURRENCY,
-            unit_amount: split.totalCents,
-            recurring: { interval: WEEKLY_INTERVAL },
-            product: product.id,
-          },
-        },
-      ],
+      items: [{ price: weeklyPrice.priceId }],
       transfer_data: {
         destination: parsed.hostAccountId,
       },
@@ -106,6 +94,8 @@ export async function POST(request: Request) {
             customerId: customer.id,
             agreementId: onboarded.agreementId,
             seamAccessCodeId: onboarded.seamAccessCodeId,
+            productId: weeklyPrice.productId,
+            priceId: weeklyPrice.priceId,
             split: splitPayload(split, parsed.hostAccountId),
             applicationFeeStamped,
             vault: credit,
@@ -122,6 +112,8 @@ export async function POST(request: Request) {
       customerId: customer.id,
       agreementId: onboarded.agreementId,
       seamAccessCodeId: onboarded.seamAccessCodeId,
+      productId: weeklyPrice.productId,
+      priceId: weeklyPrice.priceId,
       totalCents: split.totalCents,
       currency: WEEKLY_CURRENCY,
       interval: WEEKLY_INTERVAL,
@@ -137,9 +129,10 @@ export async function POST(request: Request) {
     console.error("create subscription failed", code ?? "error");
     const message =
       error instanceof Error ? error.message : "Subscription creation failed";
-    const safeMessage = message.includes("not configured")
-      ? message
-      : "Subscription creation failed";
+    const safeMessage =
+      error instanceof BillingConfigError || message.includes("not configured")
+        ? message
+        : "Subscription creation failed";
     return NextResponse.json({ ok: false, error: safeMessage }, { status: 500 });
   }
 }
