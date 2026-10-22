@@ -29,18 +29,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Host session required" }, { status: 401 });
     }
 
-    const { data, error } = await supabase
-      .from("listings")
-      .select("id, title, weekly_rate_cents")
-      .eq("host_id", userResult.data.user.id)
-      .order("id", { ascending: true });
-
-    if (error) {
-      console.error("host listings failed");
-      return NextResponse.json({ error: "Could not load listing rates" }, { status: 500 });
-    }
-
-    const listings = parseListings(data);
+    const listings = await readHostListings(supabase, userResult.data.user.id);
     if (!listings) {
       console.error("host listings failed");
       return NextResponse.json({ error: "Could not load listing rates" }, { status: 500 });
@@ -57,13 +46,65 @@ export async function GET(request: Request) {
   }
 }
 
-function parseListings(value: unknown): HostListing[] | null {
+const WEEKLY_STAY_CENTS = 24500;
+
+async function readHostListings(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  hostId: string,
+): Promise<HostListing[] | null> {
+  const withRate = await supabase
+    .from("listings")
+    .select("id, title, weekly_rate_cents")
+    .eq("host_id", hostId)
+    .order("id", { ascending: true });
+  if (!withRate.error) {
+    return parseListings(withRate.data, "weekly_rate_cents");
+  }
+  if (!missingPriceColumn(withRate.error)) {
+    return null;
+  }
+
+  const withPrice = await supabase
+    .from("listings")
+    .select("id, title, weekly_price_cents")
+    .eq("host_id", hostId)
+    .order("id", { ascending: true });
+  if (!withPrice.error) {
+    return parseListings(withPrice.data, "weekly_price_cents");
+  }
+  if (!missingPriceColumn(withPrice.error)) {
+    return null;
+  }
+
+  const plain = await supabase
+    .from("listings")
+    .select("id, title")
+    .eq("host_id", hostId)
+    .order("id", { ascending: true });
+  if (plain.error) {
+    return null;
+  }
+  return parseListings(plain.data, null);
+}
+
+function missingPriceColumn(error: { code?: string; message?: string }): boolean {
+  if (error.code === "42703" || error.code === "PGRST204") {
+    return true;
+  }
+  const message = error.message ?? "";
+  return message.includes("weekly_rate_cents") || message.includes("weekly_price_cents");
+}
+
+function parseListings(
+  value: unknown,
+  priceField: "weekly_rate_cents" | "weekly_price_cents" | null,
+): HostListing[] | null {
   if (!Array.isArray(value)) {
     return null;
   }
   const listings: HostListing[] = [];
   for (const row of value) {
-    const listing = parseListing(row);
+    const listing = parseListing(row, priceField);
     if (!listing) {
       return null;
     }
@@ -72,13 +113,16 @@ function parseListings(value: unknown): HostListing[] | null {
   return listings;
 }
 
-function parseListing(value: unknown): HostListing | null {
+function parseListing(
+  value: unknown,
+  priceField: "weekly_rate_cents" | "weekly_price_cents" | null,
+): HostListing | null {
   if (!value || typeof value !== "object") {
     return null;
   }
   const row = value as Record<string, unknown>;
   const id = textOrNull(row.id);
-  const weeklyRateCents = positiveCents(row.weekly_rate_cents);
+  const weeklyRateCents = priceField === null ? WEEKLY_STAY_CENTS : positiveCents(row[priceField]);
   if (!id || weeklyRateCents === null) {
     return null;
   }

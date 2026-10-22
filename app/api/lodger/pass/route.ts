@@ -71,7 +71,11 @@ async function loadLodgerPass(
 
   const agreement = await readActiveAgreement(supabase, tenantId);
   const ledger = await readLedger(supabase, payerKeys(profile, userId, tenantId));
-  const balanceCents = ledger ? integerField(ledger, "vault_balance_cents") ?? 0 : 0;
+  const balanceCents = ledgerMissing(ledger)
+    ? agreement?.vaultBalanceCents ?? 0
+    : ledger
+      ? integerField(ledger, "vault_balance_cents") ?? 0
+      : 0;
 
   if (!agreement) {
     return emptyPass(tenantId, balanceCents);
@@ -166,10 +170,12 @@ async function readActiveAgreement(
   }
 }
 
+type MissingLedger = { missing: true };
+
 async function readLedger(
   supabase: ReturnType<typeof getSupabaseServerClient>,
   keys: string[],
-): Promise<Record<string, unknown> | null> {
+): Promise<Record<string, unknown> | MissingLedger | null> {
   try {
     for (const key of keys) {
       const { data, error } = await supabase
@@ -178,6 +184,9 @@ async function readLedger(
         .eq("payer_key", key)
         .maybeSingle();
       if (error) {
+        if (missingLedgerTable(error)) {
+          return { missing: true };
+        }
         throw new Error("vault read failed");
       }
       const record = asRecord(data);
@@ -192,6 +201,14 @@ async function readLedger(
     }
     throw new Error("vault read failed");
   }
+}
+
+function ledgerMissing(ledger: Record<string, unknown> | MissingLedger | null): ledger is MissingLedger {
+  return ledger !== null && "missing" in ledger;
+}
+
+function missingLedgerTable(error: { code?: string }): boolean {
+  return error.code === "PGRST205" || error.code === "42P01";
 }
 
 function payerKeys(
