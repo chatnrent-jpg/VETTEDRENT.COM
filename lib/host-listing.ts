@@ -10,6 +10,35 @@ export type HostProperty = {
 /** Weekly stay rate used when a listing has no weekly_price_cents yet. */
 const WEEKLY_STAY_CENTS = 24500;
 
+const FEATURED_LISTING_ID = "vr-weekly-room";
+const FEATURED_LISTING_NAME = "VettedRent Weekly Room";
+
+export type FeaturedStay = {
+  name: string;
+  weeklyPriceCents: number;
+};
+
+/**
+ * The public featured stay. Missing price columns fall back to $245.00.
+ * A database miss still returns the weekly room at that rate.
+ */
+export async function getFeaturedStay(supabase: SupabaseClient): Promise<FeaturedStay> {
+  try {
+    const row = await readFeaturedRow(supabase);
+    if (!row) {
+      return { name: FEATURED_LISTING_NAME, weeklyPriceCents: WEEKLY_STAY_CENTS };
+    }
+    const title = typeof row.title === "string" ? row.title.trim() : "";
+    const listed = weeklyPriceCents(row.weekly_rate_cents) ?? weeklyPriceCents(row.weekly_price_cents);
+    return {
+      name: title === "" ? FEATURED_LISTING_NAME : title,
+      weeklyPriceCents: listed ?? WEEKLY_STAY_CENTS,
+    };
+  } catch {
+    return { name: FEATURED_LISTING_NAME, weeklyPriceCents: WEEKLY_STAY_CENTS };
+  }
+}
+
 /**
  * The listing tied to this host. listings is service-role only and keyed by host_id.
  * weekly_price_cents is optional until that column is present. The linked agreement
@@ -90,6 +119,68 @@ function propertyFromRow(
     lockConnected: lockId !== "",
     weeklyPriceCents,
   };
+}
+
+async function readFeaturedRow(
+  supabase: SupabaseClient,
+): Promise<{ title?: unknown; weekly_rate_cents?: unknown; weekly_price_cents?: unknown } | null> {
+  const withRate = await supabase
+    .from("listings")
+    .select("id, title, weekly_rate_cents")
+    .order("id", { ascending: true })
+    .limit(20);
+  if (!withRate.error) {
+    return chooseFeatured(withRate.data);
+  }
+  if (!missingPriceColumn(withRate.error)) {
+    throw new Error("featured listing read failed");
+  }
+
+  const withPrice = await supabase
+    .from("listings")
+    .select("id, title, weekly_price_cents")
+    .order("id", { ascending: true })
+    .limit(20);
+  if (!withPrice.error) {
+    return chooseFeatured(withPrice.data);
+  }
+  if (!missingPriceColumn(withPrice.error)) {
+    throw new Error("featured listing read failed");
+  }
+
+  const plain = await supabase
+    .from("listings")
+    .select("id, title")
+    .order("id", { ascending: true })
+    .limit(20);
+  if (plain.error) {
+    throw new Error("featured listing read failed");
+  }
+  return chooseFeatured(plain.data);
+}
+
+function chooseFeatured(
+  rows: unknown,
+): { title?: unknown; weekly_rate_cents?: unknown; weekly_price_cents?: unknown } | null {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return null;
+  }
+  const preferred = rows.find((row) => {
+    return row && typeof row === "object" && (row as { id?: unknown }).id === FEATURED_LISTING_ID;
+  });
+  const chosen = preferred ?? rows[0];
+  if (!chosen || typeof chosen !== "object") {
+    return null;
+  }
+  return chosen as { title?: unknown; weekly_rate_cents?: unknown; weekly_price_cents?: unknown };
+}
+
+function missingPriceColumn(error: { code?: string; message?: string }): boolean {
+  if (error.code === "42703" || error.code === "PGRST204") {
+    return true;
+  }
+  const message = error.message ?? "";
+  return message.includes("weekly_rate_cents") || message.includes("weekly_price_cents");
 }
 
 function weeklyPriceCents(value: unknown): number | null {

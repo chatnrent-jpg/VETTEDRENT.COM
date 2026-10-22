@@ -7,7 +7,8 @@ import { usePlaidLinkFlow } from "@/hooks/usePlaidLinkFlow";
 const WEEKLY_STAY_CENTS = 24500;
 
 export function PlaidLinkScreen() {
-  const { phase, error, decision, ready, open } = usePlaidLinkFlow(WEEKLY_STAY_CENTS);
+  const { phase, error, decision, ready, open, canSimulate, simulate } = usePlaidLinkFlow(WEEKLY_STAY_CENTS);
+  const checking = phase === "checking";
 
   return (
     <main className="shell">
@@ -23,13 +24,20 @@ export function PlaidLinkScreen() {
       <section className="stack" aria-label="Bank connection">
         <article className="panel">
           <h2>Deposit history</h2>
-          <p className="note">
-            Plaid opens a secure bank login. VettedRent receives the deposit history it needs
-            for the weekly rate of {formatCents(WEEKLY_STAY_CENTS)}. The bank login stays with
-            Plaid.
-          </p>
+          {canSimulate ? (
+            <p className="note">
+              Plaid keys are not configured. This runs a simulated 90-day deposit check for the
+              signed-in account against the weekly rate of {formatCents(WEEKLY_STAY_CENTS)}.
+            </p>
+          ) : (
+            <p className="note">
+              Plaid opens a secure bank login. VettedRent receives the deposit history it needs
+              for the weekly rate of {formatCents(WEEKLY_STAY_CENTS)}. The bank login stays with
+              Plaid.
+            </p>
+          )}
           {phase === "loading" ? <p className="note">Preparing the bank connection.</p> : null}
-          {phase === "checking" ? <p className="note">Reading 90 days of deposits.</p> : null}
+          {checking ? <p className="note">Reading 90 days of deposits.</p> : null}
           {decision ? <Decision decision={decision} /> : null}
           {error ? (
             <p className="error" role="alert">
@@ -37,9 +45,15 @@ export function PlaidLinkScreen() {
             </p>
           ) : null}
           <div className="actions">
-            <button type="button" className="button" disabled={!ready || phase === "checking"} onClick={() => open()}>
-              Connect bank
-            </button>
+            {canSimulate ? (
+              <button type="button" className="button" disabled={phase === "loading" || checking} onClick={() => simulate()}>
+                Simulate 90-day bank check
+              </button>
+            ) : (
+              <button type="button" className="button" disabled={!ready || checking} onClick={() => open()}>
+                Connect bank
+              </button>
+            )}
             <Link className="text-link" href="/dashboard">
               Back to dashboard
             </Link>
@@ -53,7 +67,7 @@ export function PlaidLinkScreen() {
 function Decision({
   decision,
 }: {
-  decision: { approved: boolean; ratio: number; monthlyInflowEstimated: number };
+  decision: { approved: boolean; ratio: number; monthlyInflowEstimated: number; simulated: boolean };
 }) {
   return (
     <div className="stack">
@@ -69,6 +83,7 @@ function Decision({
         Estimated monthly deposits {formatDollars(decision.monthlyInflowEstimated)}. Approval
         requires 3x the four-week stay.
       </p>
+      {decision.simulated ? <p className="note">Simulated 90-day deposits.</p> : null}
     </div>
   );
 }

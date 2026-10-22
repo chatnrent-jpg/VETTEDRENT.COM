@@ -8,6 +8,7 @@ export interface BankLinkDecision {
   approved: boolean;
   ratio: number;
   monthlyInflowEstimated: number;
+  simulated: boolean;
 }
 
 type BankLinkPhase = "loading" | "ready" | "checking" | "done";
@@ -19,6 +20,7 @@ export function usePlaidLinkFlow(weeklyTargetCents: number) {
   const [decision, setDecision] = useState<BankLinkDecision | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [canSimulate, setCanSimulate] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -51,12 +53,20 @@ export function usePlaidLinkFlow(weeklyTargetCents: number) {
         if (!active) {
           return;
         }
+        setSessionToken(token);
+        setUserId(signedInUserId);
         const nextToken = readLinkToken(body);
+        if (readSimulated(body) || readError(body)?.includes("not configured")) {
+          setCanSimulate(true);
+          setLinkToken(null);
+          setError(null);
+          setPhase("ready");
+          return;
+        }
         if (!response.ok || !nextToken) {
           throw new Error(readError(body) ?? "Could not start the bank connection");
         }
-        setSessionToken(token);
-        setUserId(signedInUserId);
+        setCanSimulate(false);
         setLinkToken(nextToken);
         setPhase("ready");
       } catch (caught) {
@@ -95,6 +105,20 @@ export function usePlaidLinkFlow(weeklyTargetCents: number) {
     [sessionToken, userId, weeklyTargetCents],
   );
 
+  const simulate = useCallback(() => {
+    const token = sessionToken;
+    const signedInUserId = userId;
+    if (!token || !signedInUserId) {
+      setError("Lodger session required");
+      return;
+    }
+    void runSimulatedCheck(token, signedInUserId, weeklyTargetCents, {
+      setPhase,
+      setError,
+      setDecision,
+    });
+  }, [sessionToken, userId, weeklyTargetCents]);
+
   const { open, ready } = usePlaidLink({
     token: linkToken,
     onSuccess,
@@ -109,9 +133,46 @@ export function usePlaidLinkFlow(weeklyTargetCents: number) {
     phase,
     error,
     decision,
+    canSimulate,
     ready: phase === "ready" && ready && linkToken !== null,
     open,
+    simulate,
   };
+}
+
+async function runSimulatedCheck(
+  sessionToken: string,
+  userId: string,
+  weeklyTargetCents: number,
+  setters: {
+    setPhase: (phase: BankLinkPhase) => void;
+    setError: (message: string | null) => void;
+    setDecision: (decision: BankLinkDecision | null) => void;
+  },
+): Promise<void> {
+  setters.setPhase("checking");
+  setters.setError(null);
+  try {
+    const response = await fetch("/api/underwriting/plaid-velocity", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ simulated: true, weeklyTargetCents, userId }),
+    });
+    const body: unknown = await response.json();
+    const decision = readDecision(body);
+    if (!response.ok || !decision) {
+      throw new Error(readError(body) ?? "Underwriting check failed");
+    }
+    setters.setDecision(decision);
+    setters.setPhase("done");
+  } catch (caught) {
+    setters.setPhase("ready");
+    setters.setError(safeClientMessage(caught, "Underwriting check failed"));
+  }
 }
 
 async function exchangePublicToken(
@@ -153,6 +214,14 @@ async function exchangePublicToken(
   }
 }
 
+function readSimulated(value: unknown): boolean {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const body = value as { ok?: unknown; simulated?: unknown };
+  return body.ok === true && body.simulated === true;
+}
+
 function readLinkToken(value: unknown): string | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -188,6 +257,7 @@ function readDecision(value: unknown): BankLinkDecision | null {
     approved: body.approved,
     ratio: body.ratio,
     monthlyInflowEstimated: body.monthlyInflowEstimated,
+    simulated: (value as { simulated?: unknown }).simulated === true,
   };
 }
 

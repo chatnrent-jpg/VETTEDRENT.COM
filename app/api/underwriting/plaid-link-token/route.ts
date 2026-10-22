@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createBankLinkToken } from "@/lib/plaid-link";
+import { plaidCredentialsMissing } from "@/lib/plaid";
 import { getSupabaseServerClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -16,6 +17,10 @@ export async function POST(request: Request) {
     const userResult = await supabase.auth.getUser(token);
     if (userResult.error || !userResult.data.user) {
       return NextResponse.json({ ok: false, error: "Session required" }, { status: 401 });
+    }
+
+    if (plaidCredentialsMissing()) {
+      return NextResponse.json({ ok: true, simulated: true });
     }
 
     const linkToken = await createBankLinkToken(userResult.data.user.id);

@@ -8,6 +8,13 @@ const ENVIRONMENTS = {
 
 type PlaidEnvName = keyof typeof ENVIRONMENTS;
 
+/** True when the server cannot open a real Plaid Link session. */
+export function plaidCredentialsMissing(): boolean {
+  const clientId = process.env.PLAID_CLIENT_ID?.trim() ?? "";
+  const secret = process.env.PLAID_SECRET?.trim() ?? "";
+  return clientId === "" || secret === "";
+}
+
 /**
  * Server-only Plaid client. Throws when the client id, secret, or environment is missing.
  */

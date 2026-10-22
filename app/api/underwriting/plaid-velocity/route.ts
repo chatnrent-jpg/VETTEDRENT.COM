@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { AccountType, type Transaction } from "plaid";
-import { getPlaidClient } from "@/lib/plaid";
+import { getPlaidClient, plaidCredentialsMissing } from "@/lib/plaid";
 import { getSupabaseServerClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -45,11 +45,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const decision = await evaluateCashVelocity(parsed.accessToken, parsed.weeklyTargetCents);
-    await recordUnderwriting(supabase, userId, decision, parsed.accessToken);
+    if (parsed.simulated && !plaidCredentialsMissing()) {
+      return NextResponse.json({ ok: false, error: "Bank connection is available" }, { status: 400 });
+    }
+
+    const decision = parsed.simulated
+      ? simulateCashVelocity(parsed.weeklyTargetCents)
+      : await evaluateCashVelocity(parsed.accessToken, parsed.weeklyTargetCents);
+    await recordUnderwriting(supabase, userId, decision, parsed.simulated ? null : parsed.accessToken);
 
     return NextResponse.json({
       ok: true,
+      simulated: parsed.simulated,
       approved: decision.approved,
       ratio: floor2(decision.ratio),
       monthlyInflowEstimated: round2(decision.monthlyInflowCents / 100),
@@ -69,6 +76,19 @@ type VelocityDecision = {
   ratio: number;
   monthlyInflowCents: number;
 };
+
+/** 90-day deposits that land exactly on the 3x four-week stay rule. */
+function simulateCashVelocity(weeklyTargetCents: number): VelocityDecision {
+  const monthlyInflowCents = weeklyTargetCents * WEEKS_PER_MONTH * REQUIRED_COVERAGE;
+  if (!Number.isSafeInteger(monthlyInflowCents)) {
+    throw new Error("underwriting check failed");
+  }
+  return {
+    approved: true,
+    ratio: REQUIRED_COVERAGE,
+    monthlyInflowCents,
+  };
+}
 
 async function evaluateCashVelocity(
   accessToken: string,
@@ -163,42 +183,57 @@ async function recordUnderwriting(
   supabase: ReturnType<typeof getSupabaseServerClient>,
   userId: string,
   decision: VelocityDecision,
-  accessToken: string,
+  accessToken: string | null,
 ): Promise<void> {
-  try {
-    const { data, error } = await supabase
+  const columns = {
+    underwriting_approved: decision.approved,
+    calculated_monthly_inflow_cents: decision.monthlyInflowCents,
+    underwriting_checked_at: new Date().toISOString(),
+  };
+  const withToken = await supabase
+    .from("profiles")
+    .update({ ...columns, plaid_access_token: accessToken })
+    .eq("id", userId)
+    .select("id")
+    .maybeSingle();
+  if (!withToken.error && withToken.data) {
+    return;
+  }
+  if (withToken.error && missingPlaidTokenColumn(withToken.error)) {
+    const saved = await supabase
       .from("profiles")
-      .update({
-        underwriting_approved: decision.approved,
-        calculated_monthly_inflow_cents: decision.monthlyInflowCents,
-        underwriting_checked_at: new Date().toISOString(),
-        plaid_access_token: accessToken,
-      })
+      .update(columns)
       .eq("id", userId)
       .select("id")
       .maybeSingle();
-    if (error || !data) {
-      throw new Error("underwriting record failed");
+    if (!saved.error && saved.data) {
+      return;
     }
-  } catch (error) {
-    if (error instanceof Error && error.message === "underwriting record failed") {
-      throw error;
-    }
-    throw new Error("underwriting record failed");
   }
+  throw new Error("underwriting record failed");
+}
+
+function missingPlaidTokenColumn(error: { code?: string; message?: string }): boolean {
+  if (error.code === "42703" || error.code === "PGRST204") {
+    return true;
+  }
+  return (error.message ?? "").includes("plaid_access_token");
 }
 
 function parseUnderwritingBody(
   value: unknown,
-): { accessToken: string; weeklyTargetCents: number; userId: string | null } | { error: string } {
+):
+  | { simulated: boolean; accessToken: string; weeklyTargetCents: number; userId: string | null }
+  | { error: string } {
   if (!value || typeof value !== "object") {
     return { error: "Payload must be a valid JSON object" };
   }
   const body = value as Record<string, unknown>;
+  const simulated = body.simulated === true;
   const accessToken = body.accessToken;
   const weeklyTargetCents = body.weeklyTargetCents;
   const userId = body.userId;
-  if (typeof accessToken !== "string" || !accessToken.trim().startsWith("access-")) {
+  if (!simulated && (typeof accessToken !== "string" || !accessToken.trim().startsWith("access-"))) {
     return { error: "Missing or invalid accessToken" };
   }
   if (
@@ -213,7 +248,8 @@ function parseUnderwritingBody(
     return { error: "Missing or invalid userId" };
   }
   return {
-    accessToken: accessToken.trim(),
+    simulated,
+    accessToken: typeof accessToken === "string" ? accessToken.trim() : "",
     weeklyTargetCents,
     userId: typeof userId === "string" ? userId.trim() : null,
   };
