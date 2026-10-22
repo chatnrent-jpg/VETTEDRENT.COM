@@ -7,20 +7,37 @@ export type HostProperty = {
   weeklyPriceCents: number | null;
 };
 
+/** Weekly stay rate used when a listing has no weekly_price_cents yet. */
+const WEEKLY_STAY_CENTS = 24500;
+
 /**
  * The listing tied to this host. listings is service-role only and keyed by host_id.
- * weekly_price_cents is optional until that column is present.
+ * weekly_price_cents is optional until that column is present. The linked agreement
+ * does not store rent; vault_balance_cents is escrow. The weekly stay rate is the fallback.
  */
 export async function getActiveHostProperty(
   supabase: SupabaseClient,
   hostId: string,
 ): Promise<HostProperty | null> {
+  const row = await readListingRow(supabase, hostId);
+  if (!row) {
+    return null;
+  }
+  const listed = weeklyPriceCents(row.weekly_price_cents);
+  const agreed = listed === null ? await agreementWeeklyCents(supabase, row.id) : null;
+  return propertyFromRow(row, listed ?? agreed ?? WEEKLY_STAY_CENTS);
+}
+
+async function readListingRow(
+  supabase: SupabaseClient,
+  hostId: string,
+): Promise<{ id?: unknown; title?: unknown; seam_device_id?: unknown; weekly_price_cents?: unknown } | undefined> {
   const withRate = await supabase
     .from("listings")
     .select("id, title, seam_device_id, weekly_price_cents")
     .eq("host_id", hostId)
     .limit(1);
-  if (withRate.error && missingWeeklyPriceColumn(withRate.error)) {
+  if (withRate.error && missingColumn(withRate.error, "weekly_price_cents")) {
     const withoutRate = await supabase
       .from("listings")
       .select("id, title, seam_device_id")
@@ -29,20 +46,37 @@ export async function getActiveHostProperty(
     if (withoutRate.error) {
       throw new Error("host listing read failed");
     }
-    return propertyFromRow(withoutRate.data?.[0], null);
+    return withoutRate.data?.[0];
   }
   if (withRate.error) {
     throw new Error("host listing read failed");
   }
-  const row = withRate.data?.[0];
-  return propertyFromRow(row, row ? weeklyPriceCents(row.weekly_price_cents) : null);
+  return withRate.data?.[0];
+}
+
+async function agreementWeeklyCents(
+  supabase: SupabaseClient,
+  listingId: string,
+): Promise<number | null> {
+  const result = await supabase
+    .from("agreements")
+    .select("weekly_price_cents")
+    .eq("listing_id", listingId)
+    .limit(1);
+  if (result.error && missingColumn(result.error, "weekly_price_cents")) {
+    return null;
+  }
+  if (result.error) {
+    throw new Error("host listing read failed");
+  }
+  return weeklyPriceCents(result.data?.[0]?.weekly_price_cents);
 }
 
 function propertyFromRow(
-  row: { id?: unknown; title?: unknown; seam_device_id?: unknown } | undefined,
+  row: { id?: unknown; title?: unknown; seam_device_id?: unknown },
   weeklyPriceCents: number | null,
 ): HostProperty | null {
-  if (!row || typeof row.id !== "string" || row.id.trim() === "") {
+  if (typeof row.id !== "string" || row.id.trim() === "") {
     return null;
   }
   const title = typeof row.title === "string" ? row.title.trim() : "";
@@ -62,6 +96,6 @@ function weeklyPriceCents(value: unknown): number | null {
   return null;
 }
 
-function missingWeeklyPriceColumn(error: { code?: string; message?: string }): boolean {
-  return error.code === "42703" || (error.message ?? "").includes("weekly_price_cents");
+function missingColumn(error: { code?: string; message?: string }, column: string): boolean {
+  return error.code === "42703" || (error.message ?? "").includes(column);
 }

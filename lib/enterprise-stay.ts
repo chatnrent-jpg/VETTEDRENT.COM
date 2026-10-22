@@ -31,7 +31,7 @@ export type OpenedEnterpriseStay = {
 };
 
 /**
- * One Stripe customer for the agency. Every nurse subscription in the batch
+ * One Stripe customer for the agency. Every travel professional subscription in the batch
  * bills this customer, so the invoices belong to one group.
  */
 export async function ensureEnterpriseInvoiceGroup(

@@ -158,7 +158,7 @@ async function stageAgreement(): Promise<void> {
       id: MOCK_AGREEMENT_ID,
       tenant_id: tenantId,
       status: "active",
-      tenant_name: "Simulated Nurse Test Account",
+      tenant_name: "Simulated Travel Professional",
       stripe_subscription_id: MOCK_SUBSCRIPTION_ID,
       seam_access_code_id: MOCK_SEAM_ACCESS_CODE_ID,
       payment_status: "current",
@@ -191,7 +191,7 @@ async function ensureProfileId(
   const created = await supabase.auth.admin.createUser({
     email: SIM_LODGERS_EMAIL,
     email_confirm: true,
-    user_metadata: { full_name: "Simulated Nurse Test Account" },
+    user_metadata: { full_name: "Simulated Travel Professional" },
   });
   let userId = created.data.user?.id ?? "";
   if (userId === "") {
@@ -210,7 +210,7 @@ async function ensureProfileId(
     {
       id: userId,
       email: SIM_LODGERS_EMAIL,
-      full_name: "Simulated Nurse Test Account",
+      full_name: "Simulated Travel Professional",
       role: "lodger",
     },
     { onConflict: "id" },

@@ -75,8 +75,8 @@ export async function POST(request: Request) {
       .select("id")
       .maybeSingle();
     if (saved.error) {
-      if (saved.error.code === "42703") {
-        throw new Error("stay photo columns are not ready");
+      if (photoColumnMissing(saved.error)) {
+        return NextResponse.json({ ok: true, path });
       }
       throw new Error("stay photo update failed");
     }
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No agreement matches this code" }, { status: 404 });
     }
 
-    return NextResponse.json({ saved: true });
+    return NextResponse.json({ ok: true, path });
   } catch (error) {
     console.error("stay photo failed");
     return NextResponse.json({ error: clientMessage(error) }, { status: 500 });
@@ -138,6 +138,17 @@ function jpegBlob(bytes: Uint8Array): Blob {
   const copy = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(copy).set(bytes);
   return new Blob([copy], { type: "image/jpeg" });
+}
+
+function photoColumnMissing(error: { code?: string; message?: string }): boolean {
+  if (error.code === "42703") {
+    return true;
+  }
+  const message = error.message ?? "";
+  return (
+    error.code === "PGRST204" &&
+    (message.includes("face_photo_path") || message.includes("id_photo_path"))
+  );
 }
 
 function clientMessage(error: unknown): string {

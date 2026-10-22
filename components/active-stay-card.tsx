@@ -20,9 +20,11 @@ const STATUS_LABEL: Record<DisplayStayStatus, string> = {
   terminated: "Terminated",
 };
 
+type StayAction = "bounce" | "terminate" | "reset";
+
 export function ActiveStayCard() {
   const [view, setView] = useState<StayView>({ kind: "loading" });
-  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<StayAction | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,19 +39,28 @@ export function ActiveStayCard() {
     };
   }, []);
 
-  async function simulateBounce() {
-    if (view.kind !== "ready" || view.stay.status !== "active" || busy) {
+  async function runStayAction(action: StayAction) {
+    if (view.kind !== "ready" || pending) {
       return;
     }
-    setBusy(true);
+    if (action === "bounce" && view.stay.status !== "active") {
+      return;
+    }
+    if (action === "terminate" && view.stay.status !== "warning") {
+      return;
+    }
+    if (action === "reset" && view.stay.status === "active") {
+      return;
+    }
+    setPending(action);
     setError(null);
     try {
-      const next = await bounceStay(view.stay.agreementId);
+      const next = await postStayAction(view.stay.agreementId, action);
       setView({ kind: "ready", stay: { ...view.stay, status: next } });
-    } catch {
-      setError("Could not record the bounced payment.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not update the stay.");
     } finally {
-      setBusy(false);
+      setPending(null);
     }
   }
 
@@ -111,14 +122,36 @@ export function ActiveStayCard() {
           {error}
         </p>
       ) : null}
-      <button
-        className="button"
-        type="button"
-        onClick={() => void simulateBounce()}
-        disabled={busy || stay.status !== "active"}
-      >
-        {busy ? "Simulating" : "Simulate bounced weekly payment"}
-      </button>
+      {stay.status === "active" ? (
+        <button
+          className="button"
+          type="button"
+          onClick={() => void runStayAction("bounce")}
+          disabled={pending !== null}
+        >
+          {pending === "bounce" ? "Simulating" : "Simulate bounced weekly payment"}
+        </button>
+      ) : null}
+      {stay.status === "warning" ? (
+        <button
+          className="button"
+          type="button"
+          onClick={() => void runStayAction("terminate")}
+          disabled={pending !== null}
+        >
+          {pending === "terminate" ? "Terminating" : "Terminate stay"}
+        </button>
+      ) : null}
+      {stay.status === "warning" || stay.status === "terminated" ? (
+        <button
+          className="button button-secondary"
+          type="button"
+          onClick={() => void runStayAction("reset")}
+          disabled={pending !== null}
+        >
+          {pending === "reset" ? "Resetting" : "Reset stay to Active"}
+        </button>
+      ) : null}
     </article>
   );
 }
@@ -140,7 +173,10 @@ async function loadStay(): Promise<StayView> {
   }
 }
 
-async function bounceStay(agreementId: string): Promise<DisplayStayStatus> {
+async function postStayAction(
+  agreementId: string,
+  action: StayAction,
+): Promise<DisplayStayStatus> {
   const response = await fetch("/api/host/stay", {
     method: "POST",
     credentials: "same-origin",
@@ -148,20 +184,43 @@ async function bounceStay(agreementId: string): Promise<DisplayStayStatus> {
       ...(await authHeader()),
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ agreementId }),
+    body: JSON.stringify({ agreementId, action }),
   });
   if (!response.ok) {
-    throw new Error("bounce failed");
+    throw new Error(await stayErrorMessage(response, action));
   }
   const body: unknown = await response.json();
   if (!body || typeof body !== "object") {
-    throw new Error("bounce failed");
+    throw new Error(fallbackStayError(action));
   }
   const status = (body as { status?: unknown }).status;
   if (status !== "active" && status !== "warning" && status !== "terminated") {
-    throw new Error("bounce failed");
+    throw new Error(fallbackStayError(action));
   }
   return status;
+}
+
+async function stayErrorMessage(response: Response, action: StayAction): Promise<string> {
+  try {
+    const body: unknown = await response.json();
+    const error = body && typeof body === "object" ? (body as { error?: unknown }).error : null;
+    if (typeof error === "string" && error.trim() !== "") {
+      return error;
+    }
+  } catch {
+    return fallbackStayError(action);
+  }
+  return fallbackStayError(action);
+}
+
+function fallbackStayError(action: StayAction): string {
+  if (action === "bounce") {
+    return "Could not record the bounced payment.";
+  }
+  if (action === "terminate") {
+    return "Could not terminate the stay.";
+  }
+  return "Could not reset the stay.";
 }
 
 function stayFromBody(body: unknown): StayView {

@@ -399,6 +399,13 @@ h2 {
   width: 100%;
 }
 
+.button.button-secondary {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--line);
+  font-weight: 500;
+}
+
 .alert-scrim {
   position: fixed;
   inset: 0;

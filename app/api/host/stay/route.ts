@@ -39,16 +39,16 @@ export async function POST(request: Request) {
     } catch {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
-    const agreementId = agreementIdFrom(payload);
-    if (!agreementId) {
-      return NextResponse.json({ error: "agreementId must be a string" }, { status: 400 });
+    const parsed = stayActionFrom(payload);
+    if ("error" in parsed) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
-    const status = await bounceActiveStay(supabase, agreementId);
+    const status = await applyStayAction(supabase, parsed.agreementId, parsed.action);
     return NextResponse.json({ status });
   } catch (error) {
-    console.error("host stay bounce failed");
+    console.error("host stay update failed");
     const message = clientMessage(error);
-    const status = message === "This stay is not active." ? 409 : 500;
+    const status = conflictMessage(message) ? 409 : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }
@@ -86,19 +86,30 @@ async function readStay(
   return stays.find((stay) => stay.status === "active") ?? stays[0] ?? null;
 }
 
+type StayAction = "bounce" | "terminate" | "reset";
+
+const WARNING_STATUSES = ["warning", "warning_1", "warning_2"] as const;
+
+async function applyStayAction(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  agreementId: string,
+  action: StayAction,
+): Promise<DisplayStayStatus> {
+  if (action === "bounce") {
+    return bounceActiveStay(supabase, agreementId);
+  }
+  if (action === "terminate") {
+    return terminateWarnedStay(supabase, agreementId);
+  }
+  return resetStay(supabase, agreementId);
+}
+
 async function bounceActiveStay(
   supabase: ReturnType<typeof getSupabaseServerClient>,
   agreementId: string,
 ): Promise<DisplayStayStatus> {
-  const current = await supabase
-    .from("agreements")
-    .select("id, status, warning_count")
-    .eq("id", agreementId)
-    .maybeSingle();
-  if (current.error) {
-    throw new Error("stay read failed");
-  }
-  if (!current.data || displayStayStatus(current.data.status) !== "active") {
+  const current = await readStayRow(supabase, agreementId);
+  if (displayStayStatus(current.status) !== "active") {
     throw new Error("This stay is not active.");
   }
   const updated = await supabase
@@ -114,9 +125,75 @@ async function bounceActiveStay(
     .select("id")
     .maybeSingle();
   if (updated.error || !updated.data) {
-    throw new Error("stay update failed");
+    throw new Error("stay bounce failed");
   }
   return "warning";
+}
+
+async function terminateWarnedStay(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  agreementId: string,
+): Promise<DisplayStayStatus> {
+  const current = await readStayRow(supabase, agreementId);
+  if (displayStayStatus(current.status) !== "warning") {
+    throw new Error("This stay is not in warning.");
+  }
+  const updated = await supabase
+    .from("agreements")
+    .update({ status: "terminated" })
+    .eq("id", agreementId)
+    .in("status", [...WARNING_STATUSES])
+    .select("id")
+    .maybeSingle();
+  if (updated.error || !updated.data) {
+    throw new Error("stay terminate failed");
+  }
+  return "terminated";
+}
+
+async function resetStay(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  agreementId: string,
+): Promise<DisplayStayStatus> {
+  const current = await readStayRow(supabase, agreementId);
+  const shown = displayStayStatus(current.status);
+  if (shown !== "warning" && shown !== "terminated") {
+    throw new Error("This stay is already active.");
+  }
+  const updated = await supabase
+    .from("agreements")
+    .update({
+      status: "active",
+      warning_count: 0,
+      payment_status: "current",
+      risk_level: "clear",
+    })
+    .eq("id", agreementId)
+    .in("status", [...WARNING_STATUSES, "terminated"])
+    .select("id")
+    .maybeSingle();
+  if (updated.error || !updated.data) {
+    throw new Error("stay reset failed");
+  }
+  return "active";
+}
+
+async function readStayRow(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  agreementId: string,
+): Promise<{ status: unknown }> {
+  const current = await supabase
+    .from("agreements")
+    .select("id, status")
+    .eq("id", agreementId)
+    .maybeSingle();
+  if (current.error) {
+    throw new Error("stay read failed");
+  }
+  if (!current.data) {
+    throw new Error("stay read failed");
+  }
+  return current.data;
 }
 
 function stayFromRow(row: {
@@ -140,11 +217,29 @@ function stayFromRow(row: {
   };
 }
 
-function agreementIdFrom(value: unknown): string | null {
+function stayActionFrom(
+  value: unknown,
+): { agreementId: string; action: StayAction } | { error: string } {
   if (!value || typeof value !== "object") {
-    return null;
+    return { error: "Expected a JSON object" };
   }
-  return text((value as { agreementId?: unknown }).agreementId);
+  const agreementId = text((value as { agreementId?: unknown }).agreementId);
+  if (!agreementId) {
+    return { error: "agreementId must be a string" };
+  }
+  const action = (value as { action?: unknown }).action;
+  if (action !== "bounce" && action !== "terminate" && action !== "reset") {
+    return { error: "action must be bounce, terminate, or reset" };
+  }
+  return { agreementId, action };
+}
+
+function conflictMessage(message: string): boolean {
+  return (
+    message === "This stay is not active." ||
+    message === "This stay is not in warning." ||
+    message === "This stay is already active."
+  );
 }
 
 function text(value: unknown): string | null {
@@ -170,11 +265,21 @@ function clientMessage(error: unknown): string {
   if (error.message.includes("not configured")) {
     return error.message;
   }
-  if (error.message === "This stay is not active.") {
+  if (
+    error.message === "This stay is not active." ||
+    error.message === "This stay is not in warning." ||
+    error.message === "This stay is already active."
+  ) {
     return error.message;
   }
-  if (error.message === "stay update failed") {
+  if (error.message === "stay bounce failed") {
     return "Could not record the bounced payment.";
+  }
+  if (error.message === "stay terminate failed") {
+    return "Could not terminate the stay.";
+  }
+  if (error.message === "stay reset failed") {
+    return "Could not reset the stay.";
   }
   return "Could not load the stay.";
 }
