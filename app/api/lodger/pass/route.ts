@@ -70,12 +70,16 @@ async function loadLodgerPass(
   }
 
   const agreement = await readActiveAgreement(supabase, tenantId);
-  const ledger = await readLedger(supabase, payerKeys(profile, userId, tenantId));
-  const balanceCents = ledgerMissing(ledger)
-    ? agreement?.vaultBalanceCents ?? 0
-    : ledger
-      ? integerField(ledger, "vault_balance_cents") ?? 0
-      : 0;
+  const keys = payerKeys(profile, userId, tenantId);
+  const ledger = await readLedger(supabase, keys);
+  const agreementCents = agreement?.vaultBalanceCents ?? 0;
+  let ledgerCents = ledgerMissing(ledger) ? null : ledger ? integerField(ledger, "vault_balance_cents") ?? 0 : 0;
+  if (ledgerCents === 0 && agreementCents > 0) {
+    await seedLedger(supabase, tenantId, agreementCents);
+    ledgerCents = Math.max(0, agreementCents);
+  }
+  const balanceCents =
+    ledgerCents === null ? agreementCents : ledgerCents === 0 ? Math.max(ledgerCents, agreementCents) : ledgerCents;
 
   if (!agreement) {
     return emptyPass(tenantId, balanceCents);
@@ -200,6 +204,20 @@ async function readLedger(
       throw error;
     }
     throw new Error("vault read failed");
+  }
+}
+
+async function seedLedger(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  payerKey: string,
+  vaultBalanceCents: number,
+): Promise<void> {
+  const { error } = await supabase.from("vault_ledgers").upsert(
+    { payer_key: payerKey, vault_balance_cents: vaultBalanceCents },
+    { onConflict: "payer_key" },
+  );
+  if (error) {
+    throw new Error("vault seed failed");
   }
 }
 

@@ -202,6 +202,8 @@ async function readSessionGate(): Promise<Gate> {
 
 function HostPanel() {
   const [listing, setListing] = useState<HostListingView>({ kind: "loading" });
+  const [billingNote, setBillingNote] = useState<string | null>(null);
+  const [billing, setBilling] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -251,6 +253,15 @@ function HostPanel() {
             <strong>{listing.kind === "loading" ? "Checking" : "Not set"}</strong>
           )}
         </div>
+        <button
+          type="button"
+          className="button"
+          disabled={billing}
+          onClick={() => void runHostWeeklyBilling(setBilling, setBillingNote)}
+        >
+          Run weekly billing
+        </button>
+        {billingNote ? <p className="note">{billingNote}</p> : null}
       </article>
       <ActiveStayCard />
       <Link className="button" href="/host/scanner">
@@ -342,6 +353,8 @@ type LodgerView =
 
 function LodgerPanel() {
   const [view, setView] = useState<LodgerView>({ kind: "loading" });
+  const [billingNote, setBillingNote] = useState<string | null>(null);
+  const [billing, setBilling] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -406,6 +419,17 @@ function LodgerPanel() {
       )}
       {view.kind === "ready" ? <StayPanel view={view} /> : null}
       <VaultProgress balanceCents={view.balanceCents} savingsGoalCents={view.savingsGoalCents} />
+      {view.kind === "ready" ? (
+        <button
+          type="button"
+          className="button"
+          disabled={billing}
+          onClick={() => void runWeeklyBilling(setView, setBilling, setBillingNote)}
+        >
+          Run weekly billing
+        </button>
+      ) : null}
+      {billingNote ? <p className="note">{billingNote}</p> : null}
       <Link className="button" href="/underwriting">
         Connect a bank
       </Link>
@@ -486,6 +510,87 @@ function formatCentsAsDollars(cents: number): string {
   const remainder = abs % 100;
   const grouped = String(dollars).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   return `${negative ? "-" : ""}$${grouped}.${String(remainder).padStart(2, "0")}`;
+}
+
+async function runHostWeeklyBilling(
+  setBilling: (billing: boolean) => void,
+  setBillingNote: (note: string | null) => void,
+): Promise<void> {
+  setBilling(true);
+  setBillingNote(null);
+  const billed = await postWeeklyCycle();
+  setBilling(false);
+  setBillingNote(billed ?? "Weekly billing failed.");
+}
+
+async function runWeeklyBilling(
+  setView: (view: LodgerView) => void,
+  setBilling: (billing: boolean) => void,
+  setBillingNote: (note: string | null) => void,
+): Promise<void> {
+  setBilling(true);
+  setBillingNote(null);
+  const billed = await postWeeklyCycle();
+  if (!billed) {
+    setBilling(false);
+    setBillingNote("Weekly billing failed.");
+    return;
+  }
+  setBillingNote(billed);
+  setView(await loadLodgerView());
+  setBilling(false);
+}
+
+async function postWeeklyCycle(): Promise<string | null> {
+  try {
+    const supabase = getSupabaseBrowserClient();
+    const session = await supabase.auth.getSession();
+    const token = session.data.session?.access_token;
+    if (session.error || !token) {
+      return "Sign in to run weekly billing.";
+    }
+    const response = await fetch("/api/billing/weekly-cycle", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const body: unknown = await response.json();
+    if (!response.ok) {
+      return null;
+    }
+    const billed = weeklyBillingFromBody(body);
+    if (!billed) {
+      return null;
+    }
+    return `Simulated weekly billing. Host ${formatCentsAsDollars(billed.hostCents)}. GMF Vault ${formatCentsAsDollars(billed.vaultCents)}. Platform ${formatCentsAsDollars(billed.platformCents)}. GMF Vault balance ${formatCentsAsDollars(billed.vaultBalanceCents)}.`;
+  } catch {
+    return null;
+  }
+}
+
+function weeklyBillingFromBody(body: unknown): {
+  hostCents: number;
+  vaultCents: number;
+  platformCents: number;
+  vaultBalanceCents: number;
+} | null {
+  if (!body || typeof body !== "object") {
+    return null;
+  }
+  const record = body as Record<string, unknown>;
+  const split = record.split;
+  if (!split || typeof split !== "object") {
+    return null;
+  }
+  const parts = split as Record<string, unknown>;
+  const hostCents = integerValue(parts.hostCents);
+  const vaultCents = integerValue(parts.vaultCents);
+  const platformCents = integerValue(parts.platformCents);
+  const vaultBalanceCents = integerValue(record.vaultBalanceCents);
+  if (hostCents === null || vaultCents === null || platformCents === null || vaultBalanceCents === null) {
+    return null;
+  }
+  return { hostCents, vaultCents, platformCents, vaultBalanceCents };
 }
 
 async function loadLodgerView(): Promise<LodgerView> {

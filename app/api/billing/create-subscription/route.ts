@@ -16,6 +16,7 @@ import {
   weeklySplitMetadata,
   type WeeklySplitCents,
 } from "@/lib/stripe";
+import { applySimulatedWeeklyVault } from "@/lib/simulated-weekly-billing";
 import { creditVaultCents, type VaultCreditResult } from "@/lib/vault";
 
 export const runtime = "nodejs";
@@ -52,6 +53,10 @@ export async function POST(request: Request) {
   }
 
   const split = splitWeeklyCapture(parsed.totalCents);
+
+  if ((process.env.STRIPE_SECRET_KEY ?? "").trim() === "") {
+    return simulatedWeeklyResponse(parsed.tenantId, parsed.totalCents);
+  }
 
   try {
     const stripe = getStripe();
@@ -141,6 +146,39 @@ type EngagedAgreement = {
   agreementId: string;
   seamAccessCodeId: string | null;
 };
+
+async function simulatedWeeklyResponse(tenantId: string, totalCents: number): Promise<NextResponse> {
+  try {
+    const supabase = getSupabaseServerClient();
+    const agreement = await supabase
+      .from("agreements")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("status", "active")
+      .limit(1);
+    if (agreement.error) {
+      throw new Error("weekly billing failed");
+    }
+    const row = Array.isArray(agreement.data) ? agreement.data[0] : agreement.data;
+    const agreementId = row && typeof row.id === "string" ? row.id : "";
+    if (!agreementId) {
+      return NextResponse.json({ ok: false, error: "No active agreement" }, { status: 404 });
+    }
+    const result = await applySimulatedWeeklyVault({
+      payerKey: tenantId,
+      agreementId,
+      totalCents,
+    });
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("weekly billing failed");
+    const message =
+      error instanceof Error && error.message.includes("not configured")
+        ? error.message
+        : "Weekly billing failed";
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
+}
 
 async function engageAgreement(input: {
   tenantId: string;
