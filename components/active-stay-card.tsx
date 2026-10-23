@@ -10,6 +10,10 @@ type Stay = {
   tenantId: string;
   lodgerName: string;
   status: DisplayStayStatus;
+  underwrittenTenancyDays: number;
+  landlordRiskExposureCents: number;
+  vaultBalanceCents: number;
+  delinquentWeeklyCents: number;
 };
 
 type StayView = { kind: "loading" } | { kind: "empty" } | { kind: "error" } | { kind: "ready"; stay: Stay };
@@ -56,7 +60,12 @@ export function ActiveStayCard() {
     setError(null);
     try {
       const next = await postStayAction(view.stay.agreementId, action);
-      setView({ kind: "ready", stay: { ...view.stay, status: next } });
+      const reloaded = await loadStay();
+      if (reloaded.kind === "ready") {
+        setView(reloaded);
+      } else {
+        setView({ kind: "ready", stay: { ...view.stay, status: next } });
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not update the stay.");
     } finally {
@@ -105,6 +114,11 @@ export function ActiveStayCard() {
           {STATUS_LABEL[stay.status]}
         </span>
       </div>
+      <div className="row">
+        <span>Underwritten Tenancy Days</span>
+        <strong>{stay.underwrittenTenancyDays} days</strong>
+      </div>
+      <p className="note">{riskExposureLabel(stay)}</p>
       <div className="agreement-qr">
         <p>Agreement code</p>
         <QRCodeSVG
@@ -239,15 +253,35 @@ function stayFromBody(body: unknown): StayView {
   const tenantId = text(record.tenantId);
   const lodgerName = text(record.lodgerName);
   const status = record.status;
+  const underwrittenTenancyDays = nonNegativeInteger(record.underwrittenTenancyDays);
+  const landlordRiskExposureCents = nonNegativeInteger(record.landlordRiskExposureCents);
+  const vaultBalanceCents = nonNegativeInteger(record.vaultBalanceCents);
+  const delinquentWeeklyCents = nonNegativeInteger(record.delinquentWeeklyCents);
   if (
     !agreementId ||
     !tenantId ||
     !lodgerName ||
-    (status !== "active" && status !== "warning" && status !== "terminated")
+    (status !== "active" && status !== "warning" && status !== "terminated") ||
+    underwrittenTenancyDays === null ||
+    landlordRiskExposureCents === null ||
+    vaultBalanceCents === null ||
+    delinquentWeeklyCents === null
   ) {
     return { kind: "error" };
   }
-  return { kind: "ready", stay: { agreementId, tenantId, lodgerName, status } };
+  return {
+    kind: "ready",
+    stay: {
+      agreementId,
+      tenantId,
+      lodgerName,
+      status,
+      underwrittenTenancyDays,
+      landlordRiskExposureCents,
+      vaultBalanceCents,
+      delinquentWeeklyCents,
+    },
+  };
 }
 
 async function authHeader(): Promise<Record<string, string>> {
@@ -266,4 +300,27 @@ function text(value: unknown): string | null {
   }
   const trimmed = value.trim();
   return trimmed === "" ? null : trimmed;
+}
+
+function nonNegativeInteger(value: unknown): number | null {
+  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) {
+    return value;
+  }
+  return null;
+}
+
+function riskExposureLabel(stay: Stay): string {
+  const exposure = formatCentsAsDollars(stay.landlordRiskExposureCents);
+  if (stay.landlordRiskExposureCents === 0 && stay.vaultBalanceCents > 0) {
+    return `Landlord Risk Exposure ${exposure} (Backed by ${formatCentsAsDollars(stay.vaultBalanceCents)} GMF Vault)`;
+  }
+  return `Landlord Risk Exposure ${exposure}`;
+}
+
+function formatCentsAsDollars(cents: number): string {
+  const abs = Math.abs(Math.trunc(cents));
+  const dollars = Math.trunc(abs / 100);
+  const remainder = abs % 100;
+  const grouped = String(dollars).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `$${grouped}.${String(remainder).padStart(2, "0")}`;
 }

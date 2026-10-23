@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+  delinquentWeeklyCents,
+  landlordRiskExposureCents,
+  underwrittenTenancyDays,
+} from "@/lib/host-metrics";
 import { isHostRole, resolveCallerRole } from "@/lib/host-access";
 import { displayStayStatus, type DisplayStayStatus } from "@/lib/stay-status";
 import { getSupabaseServerClient } from "@/lib/supabase";
@@ -6,11 +11,27 @@ import { getSupabaseServerClient } from "@/lib/supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const WEEKLY_STAY_CENTS = 24500;
+
 type StayCard = {
   agreementId: string;
   tenantId: string;
   lodgerName: string;
   status: DisplayStayStatus;
+  underwrittenTenancyDays: number;
+  landlordRiskExposureCents: number;
+  vaultBalanceCents: number;
+  delinquentWeeklyCents: number;
+};
+
+type StayRow = {
+  agreementId: string;
+  tenantId: string;
+  lodgerName: string;
+  status: DisplayStayStatus;
+  vaultBalanceCents: number;
+  warningCount: number;
+  listingId: string | null;
 };
 
 export async function GET(request: Request) {
@@ -75,15 +96,39 @@ async function readStay(
 ): Promise<StayCard | null> {
   const listed = await supabase
     .from("agreements")
-    .select("id, tenant_id, tenant_name, status")
+    .select("id, tenant_id, tenant_name, status, vault_balance_cents, warning_count, listing_id")
     .limit(20);
   if (listed.error) {
     throw new Error("stay read failed");
   }
   const stays = (listed.data ?? [])
     .map(stayFromRow)
-    .filter((stay): stay is StayCard => stay !== null);
-  return stays.find((stay) => stay.status === "active") ?? stays[0] ?? null;
+    .filter((stay): stay is StayRow => stay !== null);
+  const chosen = stays.find((stay) => stay.status === "active") ?? stays[0] ?? null;
+  if (!chosen) {
+    return null;
+  }
+  const dates = await contractDates(supabase, chosen.agreementId);
+  const weeklyCents = await weeklyCentsForListing(supabase, chosen.listingId);
+  const delinquent = delinquentWeeklyCents({
+    status: chosen.status,
+    warningCount: chosen.warningCount,
+    weeklyCents,
+  });
+  return {
+    agreementId: chosen.agreementId,
+    tenantId: chosen.tenantId,
+    lodgerName: chosen.lodgerName,
+    status: chosen.status,
+    underwrittenTenancyDays: underwrittenTenancyDays({
+      startDate: dates?.startDate ?? null,
+      endDate: dates?.endDate ?? null,
+      vaultBalanceCents: chosen.vaultBalanceCents,
+    }),
+    landlordRiskExposureCents: landlordRiskExposureCents(delinquent, chosen.vaultBalanceCents),
+    vaultBalanceCents: chosen.vaultBalanceCents,
+    delinquentWeeklyCents: delinquent,
+  };
 }
 
 type StayAction = "bounce" | "terminate" | "reset";
@@ -201,7 +246,10 @@ function stayFromRow(row: {
   tenant_id?: unknown;
   tenant_name?: unknown;
   status?: unknown;
-}): StayCard | null {
+  vault_balance_cents?: unknown;
+  warning_count?: unknown;
+  listing_id?: unknown;
+}): StayRow | null {
   const agreementId = text(row.id);
   const tenantId = text(row.tenant_id);
   const status = displayStayStatus(row.status);
@@ -214,7 +262,67 @@ function stayFromRow(row: {
     tenantId,
     lodgerName: name ?? "Lodger",
     status,
+    vaultBalanceCents: nonNegativeInteger(row.vault_balance_cents),
+    warningCount: nonNegativeInteger(row.warning_count),
+    listingId: text(row.listing_id),
   };
+}
+
+async function contractDates(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  agreementId: string,
+): Promise<{ startDate: string; endDate: string } | null> {
+  const result = await supabase
+    .from("corporate_placements")
+    .select("contract_start_date, contract_end_date")
+    .eq("agreement_id", agreementId)
+    .limit(1);
+  if (result.error) {
+    return null;
+  }
+  const row = Array.isArray(result.data) ? result.data[0] : result.data;
+  if (!row || typeof row !== "object") {
+    return null;
+  }
+  const startDate = text((row as { contract_start_date?: unknown }).contract_start_date);
+  const endDate = text((row as { contract_end_date?: unknown }).contract_end_date);
+  if (!startDate || !endDate) {
+    return null;
+  }
+  return { startDate, endDate };
+}
+
+async function weeklyCentsForListing(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  listingId: string | null,
+): Promise<number> {
+  if (!listingId) {
+    return WEEKLY_STAY_CENTS;
+  }
+  const result = await supabase
+    .from("listings")
+    .select("weekly_price_cents")
+    .eq("id", listingId)
+    .limit(1);
+  if (result.error) {
+    return WEEKLY_STAY_CENTS;
+  }
+  const row = Array.isArray(result.data) ? result.data[0] : result.data;
+  const cents = row && typeof row === "object" ? nonNegativeInteger((row as { weekly_price_cents?: unknown }).weekly_price_cents) : 0;
+  return cents > 0 ? cents : WEEKLY_STAY_CENTS;
+}
+
+function nonNegativeInteger(value: unknown): number {
+  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) {
+    return value;
+  }
+  if (typeof value === "string" && /^(0|[1-9]\d*)$/.test(value)) {
+    const parsed = Number(value);
+    if (Number.isSafeInteger(parsed) && parsed >= 0) {
+      return parsed;
+    }
+  }
+  return 0;
 }
 
 function stayActionFrom(
