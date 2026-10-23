@@ -16,6 +16,21 @@ exception when others then
   raise notice 'plaid_access_token privileges skipped: %', sqlerrm;
 end $$;
 
+-- Contract and credential duration. Dates are calendar dates. The stay is
+-- approved only when contract_end_date is on or after intended_stay_end_date.
+alter table public.profiles
+  add column if not exists credential_type text,
+  add column if not exists credential_identifier text,
+  add column if not exists contract_end_date date,
+  add column if not exists intended_stay_end_date date;
+
+do $$
+begin
+  execute 'grant select (credential_type, credential_identifier, contract_end_date, intended_stay_end_date), update (credential_type, credential_identifier, contract_end_date, intended_stay_end_date) on table public.profiles to service_role';
+exception when others then
+  raise notice 'profile contract columns privileges skipped: %', sqlerrm;
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- Listing rates. Integer cents. 24500 is $245.00.
 -- ---------------------------------------------------------------------------

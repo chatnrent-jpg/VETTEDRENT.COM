@@ -1,13 +1,20 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { usePlaidLinkFlow } from "@/hooks/usePlaidLinkFlow";
+import { defaultContractTerm, type ContractTerm } from "@/lib/underwriting-contract";
 
 /** Displayed weekly stay on the dashboard, in integer cents. */
 const WEEKLY_STAY_CENTS = 24500;
 
 export function PlaidLinkScreen() {
-  const { phase, error, decision, ready, open, canSimulate, simulate } = usePlaidLinkFlow(WEEKLY_STAY_CENTS);
+  const initial = defaultContractTerm();
+  const [contract, setContract] = useState<ContractTerm>(initial);
+  const { phase, error, decision, ready, open, canSimulate, simulate } = usePlaidLinkFlow(
+    WEEKLY_STAY_CENTS,
+    contract,
+  );
   const checking = phase === "checking";
 
   return (
@@ -16,12 +23,54 @@ export function PlaidLinkScreen() {
         <div>
           <h1>Connect a bank</h1>
           <p className="lede">
-            A weekly stay checks 90 days of deposits before billing starts.
+            A weekly stay checks 90 days of deposits and an active contract that lasts through the
+            intended stay.
           </p>
         </div>
       </header>
 
       <section className="stack" aria-label="Bank connection">
+        <article className="panel">
+          <h2>Contract and credential</h2>
+          <p className="note">
+            A 13-week assignment defaults to 90 days. Credential {initial.credentialIdentifier} or{" "}
+            {initial.credentialType}. The contract end date must be on or after the intended stay
+            end date.
+          </p>
+          <label className="field">
+            <span>Credential</span>
+            <select
+              value={contract.credentialType}
+              onChange={(event) => setContract({ ...contract, credentialType: event.target.value })}
+            >
+              <option value="Contract-Assignment">Contract-Assignment</option>
+              <option value="RN-MD-Compact">RN-MD-Compact</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Credential identifier</span>
+            <input
+              value={contract.credentialIdentifier}
+              onChange={(event) => setContract({ ...contract, credentialIdentifier: event.target.value })}
+            />
+          </label>
+          <label className="field">
+            <span>Contract end date</span>
+            <input
+              type="date"
+              value={contract.contractEndDate}
+              onChange={(event) => setContract({ ...contract, contractEndDate: event.target.value })}
+            />
+          </label>
+          <label className="field">
+            <span>Intended stay end date</span>
+            <input
+              type="date"
+              value={contract.intendedStayEndDate}
+              onChange={(event) => setContract({ ...contract, intendedStayEndDate: event.target.value })}
+            />
+          </label>
+        </article>
         <article className="panel">
           <h2>Deposit history</h2>
           {canSimulate ? (
@@ -37,7 +86,7 @@ export function PlaidLinkScreen() {
             </p>
           )}
           {phase === "loading" ? <p className="note">Preparing the bank connection.</p> : null}
-          {checking ? <p className="note">Reading 90 days of deposits.</p> : null}
+          {checking ? <p className="note">Reading 90 days of deposits and the contract term.</p> : null}
           {decision ? <Decision decision={decision} /> : null}
           {error ? (
             <p className="error" role="alert">
@@ -46,7 +95,12 @@ export function PlaidLinkScreen() {
           ) : null}
           <div className="actions">
             {canSimulate ? (
-              <button type="button" className="button" disabled={phase === "loading" || checking} onClick={() => simulate()}>
+              <button
+                type="button"
+                className="button"
+                disabled={phase === "loading" || checking}
+                onClick={() => simulate(contract)}
+              >
                 Simulate 90-day bank check
               </button>
             ) : (
@@ -67,7 +121,16 @@ export function PlaidLinkScreen() {
 function Decision({
   decision,
 }: {
-  decision: { approved: boolean; ratio: number; monthlyInflowEstimated: number; simulated: boolean };
+  decision: {
+    approved: boolean;
+    ratio: number;
+    monthlyInflowEstimated: number;
+    simulated: boolean;
+    rejection: string | null;
+    credentialType: string;
+    contractEndDate: string;
+    intendedStayEndDate: string;
+  };
 }) {
   return (
     <div className="stack">
@@ -79,10 +142,24 @@ function Decision({
         <span>Coverage</span>
         <strong>{decision.ratio.toFixed(2)}x</strong>
       </div>
+      <div className="row">
+        <span>Contract end</span>
+        <strong>{decision.contractEndDate}</strong>
+      </div>
+      <div className="row">
+        <span>Intended stay end</span>
+        <strong>{decision.intendedStayEndDate}</strong>
+      </div>
       <p className="note">
         Estimated monthly deposits {formatDollars(decision.monthlyInflowEstimated)}. Approval
-        requires 3x the four-week stay.
+        requires 3.00x coverage of the four-week stay and a contract that lasts through the
+        intended stay. Credential {decision.credentialType}.
       </p>
+      {decision.rejection ? (
+        <p className="error" role="alert">
+          {decision.rejection}
+        </p>
+      ) : null}
       {decision.simulated ? <p className="note">Simulated 90-day deposits.</p> : null}
     </div>
   );

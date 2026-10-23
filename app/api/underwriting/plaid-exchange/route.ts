@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { exchangeBankPublicToken } from "@/lib/plaid-link";
 import { getSupabaseServerClient } from "@/lib/supabase";
+import { resolveContractTerm, type ContractTerm } from "@/lib/underwriting-contract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
     }
 
     const accessToken = await exchangeBankPublicToken(parsed.publicToken);
-    return forwardVelocityCheck(request, token, accessToken, parsed.weeklyTargetCents, userId);
+    return forwardVelocityCheck(request, token, accessToken, parsed.weeklyTargetCents, userId, parsed.contract);
   } catch (error) {
     console.error("bank link exchange failed");
     const message =
@@ -57,6 +58,7 @@ async function forwardVelocityCheck(
   accessToken: string,
   weeklyTargetCents: number,
   userId: string,
+  contract: ContractTerm,
 ): Promise<NextResponse> {
   try {
     const velocityUrl = new URL("/api/underwriting/plaid-velocity", request.url);
@@ -66,7 +68,15 @@ async function forwardVelocityCheck(
         Authorization: `Bearer ${sessionToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ accessToken, weeklyTargetCents, userId }),
+      body: JSON.stringify({
+        accessToken,
+        weeklyTargetCents,
+        userId,
+        credentialType: contract.credentialType,
+        credentialIdentifier: contract.credentialIdentifier,
+        contractEndDate: contract.contractEndDate,
+        intendedStayEndDate: contract.intendedStayEndDate,
+      }),
     });
     const body: unknown = await response.json();
     const decision = parseVelocityBody(body);
@@ -81,7 +91,7 @@ async function forwardVelocityCheck(
 
 function parseExchangeBody(
   value: unknown,
-): { publicToken: string; weeklyTargetCents: number; userId: string | null } | { error: string } {
+): { publicToken: string; weeklyTargetCents: number; userId: string | null; contract: ContractTerm } | { error: string } {
   if (!value || typeof value !== "object") {
     return { error: "Payload must be a valid JSON object" };
   }
@@ -103,17 +113,33 @@ function parseExchangeBody(
   if (userId !== undefined && (typeof userId !== "string" || userId.trim() === "")) {
     return { error: "Missing or invalid userId" };
   }
+  const contract = resolveContractTerm(body, false);
+  if ("error" in contract) {
+    return contract;
+  }
   return {
     publicToken: publicToken.trim(),
     weeklyTargetCents,
     userId: typeof userId === "string" ? userId.trim() : null,
+    contract,
   };
 }
 
 function parseVelocityBody(
   value: unknown,
 ):
-  | { ok: true; approved: boolean; ratio: number; monthlyInflowEstimated: number }
+  | {
+      ok: true;
+      approved: boolean;
+      ratio: number;
+      monthlyInflowEstimated: number;
+      simulated: boolean;
+      rejection: string | null;
+      credentialType: string;
+      credentialIdentifier: string;
+      contractEndDate: string;
+      intendedStayEndDate: string;
+    }
   | { ok: false; error: string }
   | null {
   if (!value || typeof value !== "object") {
@@ -136,6 +162,12 @@ function parseVelocityBody(
       approved: body.approved,
       ratio: body.ratio,
       monthlyInflowEstimated: body.monthlyInflowEstimated,
+      simulated: body.simulated === true,
+      rejection: typeof body.rejection === "string" ? body.rejection : null,
+      credentialType: typeof body.credentialType === "string" ? body.credentialType : "",
+      credentialIdentifier: typeof body.credentialIdentifier === "string" ? body.credentialIdentifier : "",
+      contractEndDate: typeof body.contractEndDate === "string" ? body.contractEndDate : "",
+      intendedStayEndDate: typeof body.intendedStayEndDate === "string" ? body.intendedStayEndDate : "",
     };
   }
   return null;

@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { AccountType, type Transaction } from "plaid";
 import { getPlaidClient, plaidCredentialsMissing } from "@/lib/plaid";
 import { getSupabaseServerClient } from "@/lib/supabase";
+import {
+  MID_TERM_EXPOSURE_MESSAGE,
+  contractCoversStay,
+  resolveContractTerm,
+  type ContractTerm,
+} from "@/lib/underwriting-contract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,8 +15,9 @@ export const dynamic = "force-dynamic";
 const PAGE_SIZE = 500;
 const MAX_PAGES = 20;
 const LOOKBACK_DAYS = 90;
-/** Average month must cover 3x the four-week lodging obligation. */
+/** Average month must cover 3.00x the four-week lodging obligation. 3.00x satisfies the 2.5x floor. */
 const REQUIRED_COVERAGE = 3;
+const COVERAGE_FLOOR = 2.5;
 const WEEKS_PER_MONTH = 4;
 
 export async function POST(request: Request) {
@@ -49,17 +56,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Bank connection is available" }, { status: 400 });
     }
 
+    const contract = resolveContractTerm(payload as Record<string, unknown>, parsed.simulated);
+    if ("error" in contract) {
+      return NextResponse.json({ ok: false, error: contract.error }, { status: 400 });
+    }
+
     const decision = parsed.simulated
       ? simulateCashVelocity(parsed.weeklyTargetCents)
       : await evaluateCashVelocity(parsed.accessToken, parsed.weeklyTargetCents);
-    await recordUnderwriting(supabase, userId, decision, parsed.simulated ? null : parsed.accessToken);
+    const coversStay = contractCoversStay(contract.contractEndDate, contract.intendedStayEndDate);
+    const approved = decision.ratio >= COVERAGE_FLOOR && decision.ratio >= REQUIRED_COVERAGE && coversStay;
+    const rejection = coversStay ? null : MID_TERM_EXPOSURE_MESSAGE;
+    await recordUnderwriting(supabase, userId, decision, approved, contract, parsed.simulated ? null : parsed.accessToken);
 
     return NextResponse.json({
       ok: true,
       simulated: parsed.simulated,
-      approved: decision.approved,
+      approved,
       ratio: floor2(decision.ratio),
       monthlyInflowEstimated: round2(decision.monthlyInflowCents / 100),
+      rejection,
+      credentialType: contract.credentialType,
+      credentialIdentifier: contract.credentialIdentifier,
+      contractEndDate: contract.contractEndDate,
+      intendedStayEndDate: contract.intendedStayEndDate,
     });
   } catch (error) {
     console.error("plaid underwriting failed");
@@ -110,11 +130,11 @@ async function evaluateCashVelocity(
     const totalInflowCents = sumDepositoryInflowCents(transactions, depositoryIds);
     const monthlyInflowCents = Math.round(totalInflowCents / 3);
     const ratio = totalInflowCents / (weeklyTargetCents * WEEKS_PER_MONTH * 3);
-    return {
-      approved: ratio >= REQUIRED_COVERAGE,
-      ratio,
-      monthlyInflowCents,
-    };
+  return {
+    approved: ratio >= COVERAGE_FLOOR && ratio >= REQUIRED_COVERAGE,
+    ratio,
+    monthlyInflowCents,
+  };
   } catch (error) {
     if (error instanceof Error && error.message.includes("not configured")) {
       throw error;
@@ -183,12 +203,18 @@ async function recordUnderwriting(
   supabase: ReturnType<typeof getSupabaseServerClient>,
   userId: string,
   decision: VelocityDecision,
+  approved: boolean,
+  contract: ContractTerm,
   accessToken: string | null,
 ): Promise<void> {
   const columns = {
-    underwriting_approved: decision.approved,
+    underwriting_approved: approved,
     calculated_monthly_inflow_cents: decision.monthlyInflowCents,
     underwriting_checked_at: new Date().toISOString(),
+    credential_type: contract.credentialType,
+    credential_identifier: contract.credentialIdentifier,
+    contract_end_date: contract.contractEndDate,
+    intended_stay_end_date: contract.intendedStayEndDate,
   };
   const withToken = await supabase
     .from("profiles")
@@ -198,6 +224,21 @@ async function recordUnderwriting(
     .maybeSingle();
   if (!withToken.error && withToken.data) {
     return;
+  }
+  if (withToken.error && missingContractColumn(withToken.error)) {
+    const legacy = await supabase
+      .from("profiles")
+      .update({
+        underwriting_approved: approved,
+        calculated_monthly_inflow_cents: decision.monthlyInflowCents,
+        underwriting_checked_at: columns.underwriting_checked_at,
+      })
+      .eq("id", userId)
+      .select("id")
+      .maybeSingle();
+    if (!legacy.error && legacy.data) {
+      return;
+    }
   }
   if (withToken.error && missingPlaidTokenColumn(withToken.error)) {
     const saved = await supabase
@@ -209,14 +250,37 @@ async function recordUnderwriting(
     if (!saved.error && saved.data) {
       return;
     }
+    if (saved.error && missingContractColumn(saved.error)) {
+      const legacy = await supabase
+        .from("profiles")
+        .update({
+          underwriting_approved: approved,
+          calculated_monthly_inflow_cents: decision.monthlyInflowCents,
+          underwriting_checked_at: columns.underwriting_checked_at,
+        })
+        .eq("id", userId)
+        .select("id")
+        .maybeSingle();
+      if (!legacy.error && legacy.data) {
+        return;
+      }
+    }
   }
   throw new Error("underwriting record failed");
 }
 
+function missingContractColumn(error: { code?: string; message?: string }): boolean {
+  const message = error.message ?? "";
+  return (
+    (error.code === "42703" || error.code === "PGRST204") &&
+    (message.includes("credential_type") ||
+      message.includes("credential_identifier") ||
+      message.includes("contract_end_date") ||
+      message.includes("intended_stay_end_date"))
+  );
+}
+
 function missingPlaidTokenColumn(error: { code?: string; message?: string }): boolean {
-  if (error.code === "42703" || error.code === "PGRST204") {
-    return true;
-  }
   return (error.message ?? "").includes("plaid_access_token");
 }
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePlaidLink } from "react-plaid-link";
+import { defaultContractTerm, type ContractTerm } from "@/lib/underwriting-contract";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 export interface BankLinkDecision {
@@ -9,11 +10,16 @@ export interface BankLinkDecision {
   ratio: number;
   monthlyInflowEstimated: number;
   simulated: boolean;
+  rejection: string | null;
+  credentialType: string;
+  credentialIdentifier: string;
+  contractEndDate: string;
+  intendedStayEndDate: string;
 }
 
 type BankLinkPhase = "loading" | "ready" | "checking" | "done";
 
-export function usePlaidLinkFlow(weeklyTargetCents: number) {
+export function usePlaidLinkFlow(weeklyTargetCents: number, contract: ContractTerm) {
   const [phase, setPhase] = useState<BankLinkPhase>("loading");
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +28,8 @@ export function usePlaidLinkFlow(weeklyTargetCents: number) {
   const [userId, setUserId] = useState<string | null>(null);
   const [canSimulate, setCanSimulate] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const contractRef = useRef(contract);
+  contractRef.current = contract;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -94,7 +102,7 @@ export function usePlaidLinkFlow(weeklyTargetCents: number) {
         setError("Lodger session required");
         return;
       }
-      void exchangePublicToken(token, signedInUserId, publicToken, weeklyTargetCents, {
+      void exchangePublicToken(token, signedInUserId, publicToken, weeklyTargetCents, contractRef.current, {
         setPhase,
         setError,
         setDecision,
@@ -105,19 +113,22 @@ export function usePlaidLinkFlow(weeklyTargetCents: number) {
     [sessionToken, userId, weeklyTargetCents],
   );
 
-  const simulate = useCallback(() => {
-    const token = sessionToken;
-    const signedInUserId = userId;
-    if (!token || !signedInUserId) {
-      setError("Lodger session required");
-      return;
-    }
-    void runSimulatedCheck(token, signedInUserId, weeklyTargetCents, {
-      setPhase,
-      setError,
-      setDecision,
-    });
-  }, [sessionToken, userId, weeklyTargetCents]);
+  const simulate = useCallback(
+    (contract: ContractTerm = defaultContractTerm()) => {
+      const token = sessionToken;
+      const signedInUserId = userId;
+      if (!token || !signedInUserId) {
+        setError("Lodger session required");
+        return;
+      }
+      void runSimulatedCheck(token, signedInUserId, weeklyTargetCents, contract, {
+        setPhase,
+        setError,
+        setDecision,
+      });
+    },
+    [sessionToken, userId, weeklyTargetCents],
+  );
 
   const { open, ready } = usePlaidLink({
     token: linkToken,
@@ -144,6 +155,7 @@ async function runSimulatedCheck(
   sessionToken: string,
   userId: string,
   weeklyTargetCents: number,
+  contract: ContractTerm,
   setters: {
     setPhase: (phase: BankLinkPhase) => void;
     setError: (message: string | null) => void;
@@ -160,7 +172,15 @@ async function runSimulatedCheck(
         Authorization: `Bearer ${sessionToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ simulated: true, weeklyTargetCents, userId }),
+      body: JSON.stringify({
+        simulated: true,
+        weeklyTargetCents,
+        userId,
+        credentialType: contract.credentialType,
+        credentialIdentifier: contract.credentialIdentifier,
+        contractEndDate: contract.contractEndDate,
+        intendedStayEndDate: contract.intendedStayEndDate,
+      }),
     });
     const body: unknown = await response.json();
     const decision = readDecision(body);
@@ -180,6 +200,7 @@ async function exchangePublicToken(
   userId: string,
   publicToken: string,
   weeklyTargetCents: number,
+  contract: ContractTerm,
   setters: {
     setPhase: (phase: BankLinkPhase) => void;
     setError: (message: string | null) => void;
@@ -198,7 +219,15 @@ async function exchangePublicToken(
         Authorization: `Bearer ${sessionToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ publicToken, weeklyTargetCents, userId }),
+      body: JSON.stringify({
+        publicToken,
+        weeklyTargetCents,
+        userId,
+        credentialType: contract.credentialType,
+        credentialIdentifier: contract.credentialIdentifier,
+        contractEndDate: contract.contractEndDate,
+        intendedStayEndDate: contract.intendedStayEndDate,
+      }),
     });
     const body: unknown = await response.json();
     const decision = readDecision(body);
@@ -258,7 +287,19 @@ function readDecision(value: unknown): BankLinkDecision | null {
     ratio: body.ratio,
     monthlyInflowEstimated: body.monthlyInflowEstimated,
     simulated: (value as { simulated?: unknown }).simulated === true,
+    rejection: typeof (value as { rejection?: unknown }).rejection === "string"
+      ? (value as { rejection: string }).rejection
+      : null,
+    credentialType: textField(value, "credentialType"),
+    credentialIdentifier: textField(value, "credentialIdentifier"),
+    contractEndDate: textField(value, "contractEndDate"),
+    intendedStayEndDate: textField(value, "intendedStayEndDate"),
   };
+}
+
+function textField(value: object, key: string): string {
+  const field = (value as Record<string, unknown>)[key];
+  return typeof field === "string" ? field : "";
 }
 
 function readError(value: unknown): string | null {
