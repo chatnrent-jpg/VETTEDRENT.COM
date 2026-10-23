@@ -22,9 +22,14 @@ export default async function HomePage() {
           <h1>VettedRent</h1>
           <p className="lede">Weekly stays for hosts and lodgers.</p>
         </div>
-        <Link className="button" href="/dashboard">
-          Sign in / Open dashboard
-        </Link>
+        <div className="actions">
+          <Link className="button button-secondary" href="/marketing">
+            Marketing &amp; Growth
+          </Link>
+          <Link className="button" href="/dashboard">
+            Sign in / Open dashboard
+          </Link>
+        </div>
       </header>
 
       <section className="stack">

@@ -69,7 +69,12 @@ export default function DashboardPage() {
                 : "Sign in to open your stay."}
           </p>
         </div>
-        {gate === "host" || gate === "lodger" ? <SignOutButton /> : null}
+        <div className="actions">
+          <Link className="button button-secondary" href="/marketing">
+            Marketing &amp; Growth
+          </Link>
+          {gate === "host" || gate === "lodger" ? <SignOutButton /> : null}
+        </div>
       </header>
 
       {gate === "checking" ? <p className="note">Checking your session.</p> : null}
