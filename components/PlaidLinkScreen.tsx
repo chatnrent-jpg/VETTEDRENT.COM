@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { JurisdictionSelect } from "@/components/jurisdiction-select";
 import { usePlaidLinkFlow } from "@/hooks/usePlaidLinkFlow";
+import { DEFAULT_JURISDICTION_CODE } from "@/lib/compliance/jurisdictions";
 import { defaultContractTerm, type ContractTerm } from "@/lib/underwriting-contract";
 
 /** Displayed weekly stay on the dashboard, in integer cents. */
@@ -11,9 +13,11 @@ const WEEKLY_STAY_CENTS = 24500;
 export function PlaidLinkScreen() {
   const initial = defaultContractTerm();
   const [contract, setContract] = useState<ContractTerm>(initial);
+  const [jurisdictionCode, setJurisdictionCode] = useState(DEFAULT_JURISDICTION_CODE);
   const { phase, error, decision, ready, open, canSimulate, simulate } = usePlaidLinkFlow(
     WEEKLY_STAY_CENTS,
     contract,
+    jurisdictionCode,
   );
   const checking = phase === "checking";
 
@@ -23,8 +27,8 @@ export function PlaidLinkScreen() {
         <div>
           <h1>Connect a bank</h1>
           <p className="lede">
-            A weekly stay checks 90 days of deposits and an active contract that lasts through the
-            intended stay.
+            A weekly stay checks 90 days of deposits, an active contract that lasts through the
+            intended stay, and the listing location's transient ceiling.
           </p>
         </div>
       </header>
@@ -70,6 +74,7 @@ export function PlaidLinkScreen() {
               onChange={(event) => setContract({ ...contract, intendedStayEndDate: event.target.value })}
             />
           </label>
+          <JurisdictionSelect value={jurisdictionCode} onChange={setJurisdictionCode} />
         </article>
         <article className="panel">
           <h2>Deposit history</h2>
@@ -130,6 +135,7 @@ function Decision({
     credentialType: string;
     contractEndDate: string;
     intendedStayEndDate: string;
+    geoCompliance: string;
   };
 }) {
   return (
@@ -155,6 +161,7 @@ function Decision({
         requires 3.00x coverage of the four-week stay and a contract that lasts through the
         intended stay. Credential {decision.credentialType}.
       </p>
+      {decision.geoCompliance ? <p className="note">{decision.geoCompliance}</p> : null}
       {decision.rejection ? (
         <p className="error" role="alert">
           {decision.rejection}

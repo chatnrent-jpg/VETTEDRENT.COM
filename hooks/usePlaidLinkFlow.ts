@@ -15,11 +15,12 @@ export interface BankLinkDecision {
   credentialIdentifier: string;
   contractEndDate: string;
   intendedStayEndDate: string;
+  geoCompliance: string;
 }
 
 type BankLinkPhase = "loading" | "ready" | "checking" | "done";
 
-export function usePlaidLinkFlow(weeklyTargetCents: number, contract: ContractTerm) {
+export function usePlaidLinkFlow(weeklyTargetCents: number, contract: ContractTerm, jurisdictionCode: string) {
   const [phase, setPhase] = useState<BankLinkPhase>("loading");
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +30,9 @@ export function usePlaidLinkFlow(weeklyTargetCents: number, contract: ContractTe
   const [canSimulate, setCanSimulate] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const contractRef = useRef(contract);
+  const jurisdictionRef = useRef(jurisdictionCode);
   contractRef.current = contract;
+  jurisdictionRef.current = jurisdictionCode;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -102,7 +105,7 @@ export function usePlaidLinkFlow(weeklyTargetCents: number, contract: ContractTe
         setError("Lodger session required");
         return;
       }
-      void exchangePublicToken(token, signedInUserId, publicToken, weeklyTargetCents, contractRef.current, {
+      void exchangePublicToken(token, signedInUserId, publicToken, weeklyTargetCents, contractRef.current, jurisdictionRef.current, {
         setPhase,
         setError,
         setDecision,
@@ -121,7 +124,7 @@ export function usePlaidLinkFlow(weeklyTargetCents: number, contract: ContractTe
         setError("Lodger session required");
         return;
       }
-      void runSimulatedCheck(token, signedInUserId, weeklyTargetCents, contract, {
+      void runSimulatedCheck(token, signedInUserId, weeklyTargetCents, contract, jurisdictionRef.current, {
         setPhase,
         setError,
         setDecision,
@@ -156,6 +159,7 @@ async function runSimulatedCheck(
   userId: string,
   weeklyTargetCents: number,
   contract: ContractTerm,
+  jurisdictionCode: string,
   setters: {
     setPhase: (phase: BankLinkPhase) => void;
     setError: (message: string | null) => void;
@@ -180,6 +184,7 @@ async function runSimulatedCheck(
         credentialIdentifier: contract.credentialIdentifier,
         contractEndDate: contract.contractEndDate,
         intendedStayEndDate: contract.intendedStayEndDate,
+        jurisdictionCode,
       }),
     });
     const body: unknown = await response.json();
@@ -201,6 +206,7 @@ async function exchangePublicToken(
   publicToken: string,
   weeklyTargetCents: number,
   contract: ContractTerm,
+  jurisdictionCode: string,
   setters: {
     setPhase: (phase: BankLinkPhase) => void;
     setError: (message: string | null) => void;
@@ -227,6 +233,7 @@ async function exchangePublicToken(
         credentialIdentifier: contract.credentialIdentifier,
         contractEndDate: contract.contractEndDate,
         intendedStayEndDate: contract.intendedStayEndDate,
+        jurisdictionCode,
       }),
     });
     const body: unknown = await response.json();
@@ -294,6 +301,7 @@ function readDecision(value: unknown): BankLinkDecision | null {
     credentialIdentifier: textField(value, "credentialIdentifier"),
     contractEndDate: textField(value, "contractEndDate"),
     intendedStayEndDate: textField(value, "intendedStayEndDate"),
+    geoCompliance: textField(value, "geoCompliance"),
   };
 }
 

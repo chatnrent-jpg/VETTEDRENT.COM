@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState, type FormEvent } from "react";
-import { Progress } from "@/components/ui/progress";
 import { ActiveStayCard } from "@/components/active-stay-card";
+import { JurisdictionSelect } from "@/components/jurisdiction-select";
+import { Progress } from "@/components/ui/progress";
+import { DEFAULT_JURISDICTION_CODE } from "@/lib/compliance/jurisdictions";
 import { defaultGeoStatusLabel } from "@/lib/geo-compliance";
 import { resolveCallerRole } from "@/lib/host-access";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
@@ -20,6 +22,7 @@ type HostListingView =
       name: string;
       lockConnected: boolean;
       weeklyPriceCents: number | null;
+      jurisdictionCode: string;
       geoCompliance: string;
     };
 
@@ -206,6 +209,9 @@ function HostPanel() {
   const [listing, setListing] = useState<HostListingView>({ kind: "loading" });
   const [billingNote, setBillingNote] = useState<string | null>(null);
   const [billing, setBilling] = useState(false);
+  const [savingLocation, setSavingLocation] = useState(false);
+  const [locationNote, setLocationNote] = useState<string | null>(null);
+  const [locationVersion, setLocationVersion] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -242,7 +248,13 @@ function HostPanel() {
               <span>Lock</span>
               <strong>{listing.lockConnected ? "Connected" : "Not connected"}</strong>
             </div>
+            <JurisdictionSelect
+              value={listing.jurisdictionCode}
+              disabled={savingLocation}
+              onChange={(code) => void saveHostLocation(code, setListing, setSavingLocation, setLocationNote, setLocationVersion)}
+            />
             <p className="note">{listing.geoCompliance}</p>
+            {locationNote ? <p className="note">{locationNote}</p> : null}
           </>
         ) : null}
       </article>
@@ -266,7 +278,7 @@ function HostPanel() {
         </button>
         {billingNote ? <p className="note">{billingNote}</p> : null}
       </article>
-      <ActiveStayCard />
+      <ActiveStayCard key={locationVersion} />
       <Link className="button" href="/host/scanner">
         Open scanner
       </Link>
@@ -314,12 +326,14 @@ function hostListingFromBody(body: unknown): HostListingView {
     return { kind: "error" };
   }
   const geoCompliance = textValue(record.geoCompliance) ?? defaultGeoStatusLabel();
+  const jurisdictionCode = textValue(record.jurisdictionCode) ?? DEFAULT_JURISDICTION_CODE;
   if (record.weeklyPriceCents === null) {
     return {
       kind: "ready",
       name,
       lockConnected: record.lockConnected,
       weeklyPriceCents: null,
+      jurisdictionCode,
       geoCompliance,
     };
   }
@@ -332,6 +346,7 @@ function hostListingFromBody(body: unknown): HostListingView {
     name,
     lockConnected: record.lockConnected,
     weeklyPriceCents,
+    jurisdictionCode,
     geoCompliance,
   };
 }
@@ -342,6 +357,8 @@ type StayStatus = {
   vaultBalanceCents: number;
   seamAccessCodeId: string | null;
   listingId: string | null;
+  jurisdictionCode: string;
+  geoCompliance: string;
 };
 
 type LodgerView =
@@ -361,6 +378,8 @@ function LodgerPanel() {
   const [view, setView] = useState<LodgerView>({ kind: "loading" });
   const [billingNote, setBillingNote] = useState<string | null>(null);
   const [billing, setBilling] = useState(false);
+  const [savingLocation, setSavingLocation] = useState(false);
+  const [locationNote, setLocationNote] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -423,7 +442,14 @@ function LodgerPanel() {
           <p className="note">A stay code appears here when an agreement is active.</p>
         </article>
       )}
-      {view.kind === "ready" ? <StayPanel view={view} /> : null}
+      {view.kind === "ready" ? (
+        <StayPanel
+          view={view}
+          savingLocation={savingLocation}
+          locationNote={locationNote}
+          onLocation={(code) => void saveLodgerLocation(code, setView, setSavingLocation, setLocationNote)}
+        />
+      ) : null}
       <VaultProgress balanceCents={view.balanceCents} savingsGoalCents={view.savingsGoalCents} />
       {view.kind === "ready" ? (
         <button
@@ -443,10 +469,25 @@ function LodgerPanel() {
   );
 }
 
-function StayPanel({ view }: { view: StayStatus }) {
+function StayPanel({
+  view,
+  savingLocation,
+  locationNote,
+  onLocation,
+}: {
+  view: StayStatus;
+  savingLocation: boolean;
+  locationNote: string | null;
+  onLocation: (code: string) => void;
+}) {
   return (
     <article className="panel">
       <h2>Stay</h2>
+      {view.listingId ? (
+        <JurisdictionSelect value={view.jurisdictionCode} disabled={savingLocation} onChange={onLocation} />
+      ) : null}
+      <p className="note">{view.geoCompliance}</p>
+      {locationNote ? <p className="note">{locationNote}</p> : null}
       <div className="row">
         <span>Payment</span>
         <strong>{view.paymentStatus ?? "Unknown"}</strong>
@@ -673,7 +714,92 @@ function stayFromPass(record: Record<string, unknown>): StayStatus {
     vaultBalanceCents: vaultBalanceCents ?? 0,
     seamAccessCodeId: optionalText(record.seamAccessCodeId),
     listingId: optionalText(record.listingId),
+    jurisdictionCode: optionalText(record.jurisdictionCode) ?? DEFAULT_JURISDICTION_CODE,
+    geoCompliance: optionalText(record.geoCompliance) ?? defaultGeoStatusLabel(),
   };
+}
+
+async function saveHostLocation(
+  code: string,
+  setListing: (update: (current: HostListingView) => HostListingView) => void,
+  setSaving: (saving: boolean) => void,
+  setNote: (note: string | null) => void,
+  setLocationVersion: (update: (current: number) => number) => void,
+): Promise<void> {
+  setSaving(true);
+  setNote(null);
+  const saved = await postJurisdiction(code);
+  setSaving(false);
+  if (!saved) {
+    setNote("Could not save the listing location.");
+    return;
+  }
+  setListing((current) =>
+    current.kind === "ready"
+      ? { ...current, jurisdictionCode: saved.jurisdictionCode, geoCompliance: saved.geoCompliance }
+      : current,
+  );
+  setNote(saved.blockReason);
+  setLocationVersion((current) => current + 1);
+}
+
+async function saveLodgerLocation(
+  code: string,
+  setView: (update: (current: LodgerView) => LodgerView) => void,
+  setSaving: (saving: boolean) => void,
+  setNote: (note: string | null) => void,
+): Promise<void> {
+  setSaving(true);
+  setNote(null);
+  const saved = await postJurisdiction(code);
+  setSaving(false);
+  if (!saved) {
+    setNote("Could not save the listing location.");
+    return;
+  }
+  setView((current) =>
+    current.kind === "ready" || current.kind === "empty"
+      ? { ...current, jurisdictionCode: saved.jurisdictionCode, geoCompliance: saved.geoCompliance }
+      : current,
+  );
+  setNote(saved.blockReason);
+}
+
+async function postJurisdiction(
+  code: string,
+): Promise<{ jurisdictionCode: string; geoCompliance: string; blockReason: string | null } | null> {
+  try {
+    const supabase = getSupabaseBrowserClient();
+    const session = await supabase.auth.getSession();
+    const token = session.data.session?.access_token;
+    if (session.error || !token) {
+      return null;
+    }
+    const response = await fetch("/api/compliance/jurisdiction", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ jurisdictionCode: code }),
+    });
+    const body: unknown = await response.json();
+    if (!response.ok || !body || typeof body !== "object") {
+      return null;
+    }
+    const record = body as Record<string, unknown>;
+    if (record.ok !== true || typeof record.jurisdictionCode !== "string" || typeof record.geoCompliance !== "string") {
+      return null;
+    }
+    return {
+      jurisdictionCode: record.jurisdictionCode,
+      geoCompliance: record.geoCompliance,
+      blockReason: typeof record.blockReason === "string" ? record.blockReason : null,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function optionalText(value: unknown): string | null {

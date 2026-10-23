@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { AccountType, type Transaction } from "plaid";
 import { getPlaidClient, plaidCredentialsMissing } from "@/lib/plaid";
 import { getSupabaseServerClient } from "@/lib/supabase";
-import { intendedStayLengthDays, readListingCompliance } from "@/lib/geo-compliance";
+import { parseJurisdictionCode } from "@/lib/compliance/jurisdictions";
+import { evaluateGeoCompliance, intendedStayLengthDays, persistListingJurisdiction, readListingCompliance } from "@/lib/geo-compliance";
 import {
   MID_TERM_EXPOSURE_MESSAGE,
   contractCoversStay,
@@ -61,16 +62,25 @@ export async function POST(request: Request) {
     if ("error" in contract) {
       return NextResponse.json({ ok: false, error: contract.error }, { status: 400 });
     }
+    const selected = parseJurisdictionCode(
+      payload && typeof payload === "object" ? (payload as { jurisdictionCode?: unknown }).jurisdictionCode : undefined,
+    );
+    if (selected && typeof selected === "object") {
+      return NextResponse.json({ ok: false, error: selected.error }, { status: 400 });
+    }
 
     const decision = parsed.simulated
       ? simulateCashVelocity(parsed.weeklyTargetCents)
       : await evaluateCashVelocity(parsed.accessToken, parsed.weeklyTargetCents);
     const coversStay = contractCoversStay(contract.contractEndDate, contract.intendedStayEndDate);
-    const compliance = await readListingCompliance(
-      supabase,
-      await listingForCaller(supabase, userId),
-      intendedStayLengthDays(contract.intendedStayEndDate),
-    );
+    const stayDays = intendedStayLengthDays(contract.intendedStayEndDate);
+    const listingId = await listingForCaller(supabase, userId);
+    if (selected && listingId) {
+      await persistListingJurisdiction(supabase, listingId, selected);
+    }
+    const compliance = selected
+      ? evaluateGeoCompliance({ jurisdiction_code: selected }, stayDays)
+      : await readListingCompliance(supabase, listingId, stayDays);
     const approved =
       decision.ratio >= COVERAGE_FLOOR &&
       decision.ratio >= REQUIRED_COVERAGE &&

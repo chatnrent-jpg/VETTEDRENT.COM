@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { DEFAULT_JURISDICTION_CODE } from "@/lib/compliance/jurisdictions";
+import { INTENDED_STAY_DAYS, defaultGeoStatusLabel, readListingCompliance } from "@/lib/geo-compliance";
 import { resolveCallerRole } from "@/lib/host-access";
 import { getSupabaseServerClient } from "@/lib/supabase";
 
@@ -18,6 +20,8 @@ type LodgerPass = {
   vaultBalanceCents: number;
   seamAccessCodeId: string | null;
   listingId: string | null;
+  jurisdictionCode: string;
+  geoCompliance: string;
 };
 
 type ActiveAgreement = {
@@ -85,6 +89,7 @@ async function loadLodgerPass(
     return emptyPass(tenantId, balanceCents);
   }
 
+  const compliance = await readListingCompliance(supabase, agreement.listingId, INTENDED_STAY_DAYS);
   return {
     tenantId,
     agreementId: agreement.id,
@@ -96,6 +101,8 @@ async function loadLodgerPass(
     vaultBalanceCents: agreement.vaultBalanceCents,
     seamAccessCodeId: agreement.seamAccessCodeId,
     listingId: agreement.listingId,
+    jurisdictionCode: compliance.jurisdictionCode,
+    geoCompliance: compliance.statusLabel,
   };
 }
 
@@ -111,6 +118,8 @@ function emptyPass(tenantId: string | null, balanceCents: number): LodgerPass {
     vaultBalanceCents: 0,
     seamAccessCodeId: null,
     listingId: null,
+    jurisdictionCode: DEFAULT_JURISDICTION_CODE,
+    geoCompliance: defaultGeoStatusLabel(),
   };
 }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { exchangeBankPublicToken } from "@/lib/plaid-link";
 import { getSupabaseServerClient } from "@/lib/supabase";
+import { parseJurisdictionCode } from "@/lib/compliance/jurisdictions";
 import { resolveContractTerm, type ContractTerm } from "@/lib/underwriting-contract";
 
 export const runtime = "nodejs";
@@ -41,7 +42,15 @@ export async function POST(request: Request) {
     }
 
     const accessToken = await exchangeBankPublicToken(parsed.publicToken);
-    return forwardVelocityCheck(request, token, accessToken, parsed.weeklyTargetCents, userId, parsed.contract);
+    return forwardVelocityCheck(
+      request,
+      token,
+      accessToken,
+      parsed.weeklyTargetCents,
+      userId,
+      parsed.contract,
+      parsed.jurisdictionCode,
+    );
   } catch (error) {
     console.error("bank link exchange failed");
     const message =
@@ -59,6 +68,7 @@ async function forwardVelocityCheck(
   weeklyTargetCents: number,
   userId: string,
   contract: ContractTerm,
+  jurisdictionCode: string | null,
 ): Promise<NextResponse> {
   try {
     const velocityUrl = new URL("/api/underwriting/plaid-velocity", request.url);
@@ -76,6 +86,7 @@ async function forwardVelocityCheck(
         credentialIdentifier: contract.credentialIdentifier,
         contractEndDate: contract.contractEndDate,
         intendedStayEndDate: contract.intendedStayEndDate,
+        ...(jurisdictionCode ? { jurisdictionCode } : {}),
       }),
     });
     const body: unknown = await response.json();
@@ -91,7 +102,9 @@ async function forwardVelocityCheck(
 
 function parseExchangeBody(
   value: unknown,
-): { publicToken: string; weeklyTargetCents: number; userId: string | null; contract: ContractTerm } | { error: string } {
+):
+  | { publicToken: string; weeklyTargetCents: number; userId: string | null; contract: ContractTerm; jurisdictionCode: string | null }
+  | { error: string } {
   if (!value || typeof value !== "object") {
     return { error: "Payload must be a valid JSON object" };
   }
@@ -117,11 +130,16 @@ function parseExchangeBody(
   if ("error" in contract) {
     return contract;
   }
+  const jurisdictionCode = parseJurisdictionCode(body.jurisdictionCode);
+  if (jurisdictionCode && typeof jurisdictionCode === "object") {
+    return jurisdictionCode;
+  }
   return {
     publicToken: publicToken.trim(),
     weeklyTargetCents,
     userId: typeof userId === "string" ? userId.trim() : null,
     contract,
+    jurisdictionCode,
   };
 }
 
@@ -139,6 +157,7 @@ function parseVelocityBody(
       credentialIdentifier: string;
       contractEndDate: string;
       intendedStayEndDate: string;
+      geoCompliance: string;
     }
   | { ok: false; error: string }
   | null {
@@ -168,6 +187,7 @@ function parseVelocityBody(
       credentialIdentifier: typeof body.credentialIdentifier === "string" ? body.credentialIdentifier : "",
       contractEndDate: typeof body.contractEndDate === "string" ? body.contractEndDate : "",
       intendedStayEndDate: typeof body.intendedStayEndDate === "string" ? body.intendedStayEndDate : "",
+      geoCompliance: typeof body.geoCompliance === "string" ? body.geoCompliance : "",
     };
   }
   return null;

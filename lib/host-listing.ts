@@ -6,6 +6,7 @@ export type HostProperty = {
   name: string;
   lockConnected: boolean;
   weeklyPriceCents: number | null;
+  jurisdictionCode: string;
   geoCompliance: string;
 };
 
@@ -71,7 +72,7 @@ export async function getActiveHostProperty(
   }
   const agreed = listed === null ? await agreementWeeklyCents(supabase, row.id) : null;
   const compliance = await readListingCompliance(supabase, row.id.trim(), INTENDED_STAY_DAYS);
-  return propertyFromRow(row, listed ?? agreed ?? WEEKLY_STAY_CENTS, compliance.statusLabel);
+  return propertyFromRow(row, listed ?? agreed ?? WEEKLY_STAY_CENTS, compliance.jurisdictionCode, compliance.statusLabel);
 }
 
 async function readListingRow(
@@ -121,6 +122,7 @@ async function agreementWeeklyCents(
 function propertyFromRow(
   row: { id?: unknown; title?: unknown; seam_device_id?: unknown },
   weeklyPriceCents: number | null,
+  jurisdictionCode: string,
   geoCompliance: string,
 ): HostProperty | null {
   if (typeof row.id !== "string" || row.id.trim() === "") {
@@ -133,6 +135,7 @@ function propertyFromRow(
     name: title === "" ? "Untitled listing" : title,
     lockConnected: lockId !== "",
     weeklyPriceCents,
+    jurisdictionCode,
     geoCompliance,
   };
 }
