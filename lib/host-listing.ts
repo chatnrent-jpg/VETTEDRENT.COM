@@ -1,10 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { INTENDED_STAY_DAYS, defaultGeoStatusLabel, readListingCompliance } from "@/lib/geo-compliance";
 
 export type HostProperty = {
   id: string;
   name: string;
   lockConnected: boolean;
   weeklyPriceCents: number | null;
+  geoCompliance: string;
 };
 
 /** Weekly stay rate used when a listing has no weekly_price_cents yet. */
@@ -16,6 +18,7 @@ const FEATURED_LISTING_NAME = "VettedRent Weekly Room";
 export type FeaturedStay = {
   name: string;
   weeklyPriceCents: number;
+  geoCompliance: string;
 };
 
 /**
@@ -26,16 +29,26 @@ export async function getFeaturedStay(supabase: SupabaseClient): Promise<Feature
   try {
     const row = await readFeaturedRow(supabase);
     if (!row) {
-      return { name: FEATURED_LISTING_NAME, weeklyPriceCents: WEEKLY_STAY_CENTS };
+      return {
+        name: FEATURED_LISTING_NAME,
+        weeklyPriceCents: WEEKLY_STAY_CENTS,
+        geoCompliance: defaultGeoStatusLabel(),
+      };
     }
     const title = typeof row.title === "string" ? row.title.trim() : "";
     const listed = weeklyPriceCents(row.weekly_rate_cents) ?? weeklyPriceCents(row.weekly_price_cents);
+    const compliance = await readListingCompliance(supabase, FEATURED_LISTING_ID, INTENDED_STAY_DAYS);
     return {
       name: title === "" ? FEATURED_LISTING_NAME : title,
       weeklyPriceCents: listed ?? WEEKLY_STAY_CENTS,
+      geoCompliance: compliance.statusLabel,
     };
   } catch {
-    return { name: FEATURED_LISTING_NAME, weeklyPriceCents: WEEKLY_STAY_CENTS };
+    return {
+      name: FEATURED_LISTING_NAME,
+      weeklyPriceCents: WEEKLY_STAY_CENTS,
+      geoCompliance: defaultGeoStatusLabel(),
+    };
   }
 }
 
@@ -57,7 +70,8 @@ export async function getActiveHostProperty(
     return null;
   }
   const agreed = listed === null ? await agreementWeeklyCents(supabase, row.id) : null;
-  return propertyFromRow(row, listed ?? agreed ?? WEEKLY_STAY_CENTS);
+  const compliance = await readListingCompliance(supabase, row.id.trim(), INTENDED_STAY_DAYS);
+  return propertyFromRow(row, listed ?? agreed ?? WEEKLY_STAY_CENTS, compliance.statusLabel);
 }
 
 async function readListingRow(
@@ -107,6 +121,7 @@ async function agreementWeeklyCents(
 function propertyFromRow(
   row: { id?: unknown; title?: unknown; seam_device_id?: unknown },
   weeklyPriceCents: number | null,
+  geoCompliance: string,
 ): HostProperty | null {
   if (typeof row.id !== "string" || row.id.trim() === "") {
     return null;
@@ -118,6 +133,7 @@ function propertyFromRow(
     name: title === "" ? "Untitled listing" : title,
     lockConnected: lockId !== "",
     weeklyPriceCents,
+    geoCompliance,
   };
 }
 

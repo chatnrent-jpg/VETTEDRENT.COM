@@ -31,6 +31,21 @@ exception when others then
   raise notice 'profile contract columns privileges skipped: %', sqlerrm;
 end $$;
 
+-- High-signal geo compliance. Defaults keep a 90-day MD-PG stay inside the
+-- 180-day transient ceiling. Existing listings receive the defaults.
+alter table public.listings
+  add column if not exists jurisdiction_code text default 'MD-PG',
+  add column if not exists judicial_risk_tier text default 'low',
+  add column if not exists max_transient_days integer default 180,
+  add column if not exists compliance_structure text default 'revocable_lodging_license';
+
+do $$
+begin
+  execute 'grant select (jurisdiction_code, judicial_risk_tier, max_transient_days, compliance_structure), update (jurisdiction_code, judicial_risk_tier, max_transient_days, compliance_structure) on table public.listings to service_role';
+exception when others then
+  raise notice 'listing geo columns privileges skipped: %', sqlerrm;
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- Listing rates. Integer cents. 24500 is $245.00.
 -- ---------------------------------------------------------------------------

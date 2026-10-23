@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { defaultGeoStatusLabel } from "@/lib/geo-compliance";
 import { getFeaturedStay } from "@/lib/host-listing";
 import { getSupabaseServerClient } from "@/lib/supabase";
 
@@ -7,6 +8,7 @@ export const dynamic = "force-dynamic";
 const FALLBACK_STAY = {
   name: "VettedRent Weekly Room",
   weeklyPriceCents: 24500,
+  geoCompliance: defaultGeoStatusLabel(),
 };
 
 export default async function HomePage() {
@@ -32,6 +34,7 @@ export default async function HomePage() {
             <span>{stay.name}</span>
             <span className="chip">{weeklyRate} / week</span>
           </div>
+          <p className="note">{stay.geoCompliance}</p>
         </article>
 
         <article className="panel">
@@ -83,7 +86,7 @@ export default async function HomePage() {
   );
 }
 
-async function loadFeaturedStay(): Promise<{ name: string; weeklyPriceCents: number }> {
+async function loadFeaturedStay(): Promise<{ name: string; weeklyPriceCents: number; geoCompliance: string }> {
   try {
     return await getFeaturedStay(getSupabaseServerClient());
   } catch {

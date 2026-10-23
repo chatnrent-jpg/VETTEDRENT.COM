@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { AccountType, type Transaction } from "plaid";
 import { getPlaidClient, plaidCredentialsMissing } from "@/lib/plaid";
 import { getSupabaseServerClient } from "@/lib/supabase";
+import { intendedStayLengthDays, readListingCompliance } from "@/lib/geo-compliance";
 import {
   MID_TERM_EXPOSURE_MESSAGE,
   contractCoversStay,
@@ -65,8 +66,17 @@ export async function POST(request: Request) {
       ? simulateCashVelocity(parsed.weeklyTargetCents)
       : await evaluateCashVelocity(parsed.accessToken, parsed.weeklyTargetCents);
     const coversStay = contractCoversStay(contract.contractEndDate, contract.intendedStayEndDate);
-    const approved = decision.ratio >= COVERAGE_FLOOR && decision.ratio >= REQUIRED_COVERAGE && coversStay;
-    const rejection = coversStay ? null : MID_TERM_EXPOSURE_MESSAGE;
+    const compliance = await readListingCompliance(
+      supabase,
+      await listingForCaller(supabase, userId),
+      intendedStayLengthDays(contract.intendedStayEndDate),
+    );
+    const approved =
+      decision.ratio >= COVERAGE_FLOOR &&
+      decision.ratio >= REQUIRED_COVERAGE &&
+      coversStay &&
+      compliance.allowed;
+    const rejection = !coversStay ? MID_TERM_EXPOSURE_MESSAGE : compliance.blockReason;
     await recordUnderwriting(supabase, userId, decision, approved, contract, parsed.simulated ? null : parsed.accessToken);
 
     return NextResponse.json({
@@ -80,6 +90,7 @@ export async function POST(request: Request) {
       credentialIdentifier: contract.credentialIdentifier,
       contractEndDate: contract.contractEndDate,
       intendedStayEndDate: contract.intendedStayEndDate,
+      geoCompliance: compliance.statusLabel,
     });
   } catch (error) {
     console.error("plaid underwriting failed");
@@ -282,6 +293,32 @@ function missingContractColumn(error: { code?: string; message?: string }): bool
 
 function missingPlaidTokenColumn(error: { code?: string; message?: string }): boolean {
   return (error.message ?? "").includes("plaid_access_token");
+}
+
+async function listingForCaller(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  userId: string,
+): Promise<string | null> {
+  const agreement = await supabase
+    .from("agreements")
+    .select("listing_id")
+    .eq("tenant_id", userId)
+    .eq("status", "active")
+    .limit(1);
+  const agreementRow = Array.isArray(agreement.data) ? agreement.data[0] : agreement.data;
+  const agreementListing =
+    agreementRow && typeof agreementRow === "object" && typeof (agreementRow as { listing_id?: unknown }).listing_id === "string"
+      ? (agreementRow as { listing_id: string }).listing_id
+      : "";
+  if (agreementListing.trim() !== "") {
+    return agreementListing.trim();
+  }
+  const listing = await supabase.from("listings").select("id").eq("host_id", userId).limit(1);
+  const listingRow = Array.isArray(listing.data) ? listing.data[0] : listing.data;
+  const hostListing = listingRow && typeof listingRow === "object" && typeof (listingRow as { id?: unknown }).id === "string"
+    ? (listingRow as { id: string }).id
+    : "";
+  return hostListing.trim() === "" ? "vr-weekly-room" : hostListing.trim();
 }
 
 function parseUnderwritingBody(

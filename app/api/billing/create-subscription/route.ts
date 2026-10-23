@@ -17,6 +17,7 @@ import {
   type WeeklySplitCents,
 } from "@/lib/stripe";
 import { applySimulatedWeeklyVault } from "@/lib/simulated-weekly-billing";
+import { INTENDED_STAY_DAYS, readListingCompliance } from "@/lib/geo-compliance";
 import { creditVaultCents, type VaultCreditResult } from "@/lib/vault";
 
 export const runtime = "nodejs";
@@ -152,7 +153,7 @@ async function simulatedWeeklyResponse(tenantId: string, totalCents: number): Pr
     const supabase = getSupabaseServerClient();
     const agreement = await supabase
       .from("agreements")
-      .select("id")
+      .select("id, listing_id")
       .eq("tenant_id", tenantId)
       .eq("status", "active")
       .limit(1);
@@ -161,8 +162,17 @@ async function simulatedWeeklyResponse(tenantId: string, totalCents: number): Pr
     }
     const row = Array.isArray(agreement.data) ? agreement.data[0] : agreement.data;
     const agreementId = row && typeof row.id === "string" ? row.id : "";
+    const listingId = row && typeof row.listing_id === "string" ? row.listing_id : null;
     if (!agreementId) {
       return NextResponse.json({ ok: false, error: "No active agreement" }, { status: 404 });
+    }
+    const compliance = await readListingCompliance(supabase, listingId, INTENDED_STAY_DAYS);
+    if (!compliance.allowed) {
+      return NextResponse.json({
+        ok: false,
+        error: compliance.blockReason ?? "This stay is outside the jurisdiction rules.",
+        geoCompliance: compliance.statusLabel,
+      });
     }
     const result = await applySimulatedWeeklyVault({
       payerKey: tenantId,

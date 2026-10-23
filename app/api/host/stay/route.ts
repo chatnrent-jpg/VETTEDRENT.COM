@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import {
+  INTENDED_STAY_DAYS,
+  readListingCompliance,
+} from "@/lib/geo-compliance";
+import {
   delinquentWeeklyCents,
   landlordRiskExposureCents,
   underwrittenTenancyDays,
@@ -22,6 +26,7 @@ type StayCard = {
   landlordRiskExposureCents: number;
   vaultBalanceCents: number;
   delinquentWeeklyCents: number;
+  geoCompliance: string;
 };
 
 type StayRow = {
@@ -115,6 +120,7 @@ async function readStay(
     warningCount: chosen.warningCount,
     weeklyCents,
   });
+  const compliance = await readListingCompliance(supabase, chosen.listingId, INTENDED_STAY_DAYS);
   return {
     agreementId: chosen.agreementId,
     tenantId: chosen.tenantId,
@@ -128,6 +134,7 @@ async function readStay(
     landlordRiskExposureCents: landlordRiskExposureCents(delinquent, chosen.vaultBalanceCents),
     vaultBalanceCents: chosen.vaultBalanceCents,
     delinquentWeeklyCents: delinquent,
+    geoCompliance: compliance.statusLabel,
   };
 }
 

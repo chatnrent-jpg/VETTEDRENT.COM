@@ -2,6 +2,7 @@
 
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
+import { defaultGeoStatusLabel } from "@/lib/geo-compliance";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import type { DisplayStayStatus } from "@/lib/stay-status";
 
@@ -14,6 +15,7 @@ type Stay = {
   landlordRiskExposureCents: number;
   vaultBalanceCents: number;
   delinquentWeeklyCents: number;
+  geoCompliance: string;
 };
 
 type StayView = { kind: "loading" } | { kind: "empty" } | { kind: "error" } | { kind: "ready"; stay: Stay };
@@ -119,6 +121,7 @@ export function ActiveStayCard() {
         <strong>{stay.underwrittenTenancyDays} days</strong>
       </div>
       <p className="note">{riskExposureLabel(stay)}</p>
+      <p className="note">{stay.geoCompliance}</p>
       <div className="agreement-qr">
         <p>Agreement code</p>
         <QRCodeSVG
@@ -257,6 +260,7 @@ function stayFromBody(body: unknown): StayView {
   const landlordRiskExposureCents = nonNegativeInteger(record.landlordRiskExposureCents);
   const vaultBalanceCents = nonNegativeInteger(record.vaultBalanceCents);
   const delinquentWeeklyCents = nonNegativeInteger(record.delinquentWeeklyCents);
+  const geoCompliance = text(record.geoCompliance) ?? defaultGeoStatusLabel();
   if (
     !agreementId ||
     !tenantId ||
@@ -280,6 +284,7 @@ function stayFromBody(body: unknown): StayView {
       landlordRiskExposureCents,
       vaultBalanceCents,
       delinquentWeeklyCents,
+      geoCompliance,
     },
   };
 }

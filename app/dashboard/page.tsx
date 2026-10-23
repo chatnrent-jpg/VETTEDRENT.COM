@@ -5,6 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState, type FormEvent } from "react";
 import { Progress } from "@/components/ui/progress";
 import { ActiveStayCard } from "@/components/active-stay-card";
+import { defaultGeoStatusLabel } from "@/lib/geo-compliance";
 import { resolveCallerRole } from "@/lib/host-access";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 
@@ -19,6 +20,7 @@ type HostListingView =
       name: string;
       lockConnected: boolean;
       weeklyPriceCents: number | null;
+      geoCompliance: string;
     };
 
 export default function DashboardPage() {
@@ -240,6 +242,7 @@ function HostPanel() {
               <span>Lock</span>
               <strong>{listing.lockConnected ? "Connected" : "Not connected"}</strong>
             </div>
+            <p className="note">{listing.geoCompliance}</p>
           </>
         ) : null}
       </article>
@@ -310,12 +313,14 @@ function hostListingFromBody(body: unknown): HostListingView {
   if (name === "" || typeof record.lockConnected !== "boolean") {
     return { kind: "error" };
   }
+  const geoCompliance = textValue(record.geoCompliance) ?? defaultGeoStatusLabel();
   if (record.weeklyPriceCents === null) {
     return {
       kind: "ready",
       name,
       lockConnected: record.lockConnected,
       weeklyPriceCents: null,
+      geoCompliance,
     };
   }
   const weeklyPriceCents = positiveInteger(record.weeklyPriceCents);
@@ -327,6 +332,7 @@ function hostListingFromBody(body: unknown): HostListingView {
     name,
     lockConnected: record.lockConnected,
     weeklyPriceCents,
+    geoCompliance,
   };
 }
 
@@ -560,7 +566,8 @@ async function postWeeklyCycle(): Promise<string | null> {
     }
     const billed = weeklyBillingFromBody(body);
     if (!billed) {
-      return null;
+      const message = body && typeof body === "object" ? (body as { error?: unknown }).error : null;
+      return typeof message === "string" && message.trim() !== "" ? message : null;
     }
     return `Simulated weekly billing. Host ${formatCentsAsDollars(billed.hostCents)}. GMF Vault ${formatCentsAsDollars(billed.vaultCents)}. Platform ${formatCentsAsDollars(billed.platformCents)}. GMF Vault balance ${formatCentsAsDollars(billed.vaultBalanceCents)}.`;
   } catch {
@@ -670,6 +677,14 @@ function stayFromPass(record: Record<string, unknown>): StayStatus {
 }
 
 function optionalText(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
+function textValue(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
   }

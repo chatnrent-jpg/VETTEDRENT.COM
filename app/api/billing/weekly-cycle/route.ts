@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { resolveCallerRole } from "@/lib/host-access";
+import { INTENDED_STAY_DAYS, readListingCompliance } from "@/lib/geo-compliance";
 import { applySimulatedWeeklyVault, SIMULATED_WEEKLY_CENTS } from "@/lib/simulated-weekly-billing";
 import { getSupabaseServerClient } from "@/lib/supabase";
 
@@ -30,6 +31,14 @@ export async function POST(request: Request) {
     if (!stay) {
       return NextResponse.json({ ok: false, error: "No active agreement" }, { status: role === "lodger" || role === "host" ? 404 : 401 });
     }
+    const compliance = await readListingCompliance(supabase, stay.listingId, INTENDED_STAY_DAYS);
+    if (!compliance.allowed) {
+      return NextResponse.json({
+        ok: false,
+        error: compliance.blockReason ?? "This stay is outside the jurisdiction rules.",
+        geoCompliance: compliance.statusLabel,
+      });
+    }
     const result = await applySimulatedWeeklyVault({
       payerKey: stay.tenantId,
       agreementId: stay.agreementId,
@@ -49,10 +58,10 @@ export async function POST(request: Request) {
 async function activeStayForTenant(
   supabase: ReturnType<typeof getSupabaseServerClient>,
   tenantId: string,
-): Promise<{ tenantId: string; agreementId: string } | null> {
+): Promise<{ tenantId: string; agreementId: string; listingId: string | null } | null> {
   const agreement = await supabase
     .from("agreements")
-    .select("id")
+    .select("id, listing_id")
     .eq("tenant_id", tenantId)
     .eq("status", "active")
     .limit(1);
@@ -61,13 +70,14 @@ async function activeStayForTenant(
   }
   const row = Array.isArray(agreement.data) ? agreement.data[0] : agreement.data;
   const agreementId = row && typeof row.id === "string" ? row.id : "";
-  return agreementId ? { tenantId, agreementId } : null;
+  const listingId = row && typeof row.listing_id === "string" ? row.listing_id : null;
+  return agreementId ? { tenantId, agreementId, listingId } : null;
 }
 
 async function activeStayForHost(
   supabase: ReturnType<typeof getSupabaseServerClient>,
   hostId: string,
-): Promise<{ tenantId: string; agreementId: string } | null> {
+): Promise<{ tenantId: string; agreementId: string; listingId: string | null } | null> {
   const listing = await supabase.from("listings").select("id").eq("host_id", hostId).limit(1);
   if (listing.error) {
     throw new Error("weekly billing failed");
@@ -89,7 +99,7 @@ async function activeStayForHost(
   const row = Array.isArray(agreement.data) ? agreement.data[0] : agreement.data;
   const agreementId = row && typeof row.id === "string" ? row.id : "";
   const tenantId = row && typeof row.tenant_id === "string" ? row.tenant_id : "";
-  return agreementId && tenantId ? { tenantId, agreementId } : null;
+  return agreementId && tenantId ? { tenantId, agreementId, listingId } : null;
 }
 
 function bearerToken(header: string | null): string | null {
