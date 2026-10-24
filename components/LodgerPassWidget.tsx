@@ -49,6 +49,16 @@ export function LodgerPassWidget({ tenantId, savingsGoalCents }: LodgerPassWidge
   const savingsPercentage = percentFromCents(savedCents, goalCents);
   const needsAction = passData.paymentStatus === "delinquent" || passData.riskLevel === "critical";
 
+  const licenseQuery = new URLSearchParams({
+    format: "pdf",
+    ...(passData.agreementId ? { agreementId: passData.agreementId } : {}),
+    ...(passData.listingId ? { listingId: passData.listingId } : {}),
+    ...(passData.seamAccessCodeId ? { seamAccessCodeId: passData.seamAccessCodeId } : {}),
+    vaultBalanceCents: String(savedCents),
+    status: needsAction ? "License_Revoked" : "License_Active",
+  });
+  const licenseHref = `/api/agreements/license?${licenseQuery.toString()}`;
+
   return (
     <article className={needsAction ? "panel pass-widget pass-widget-alert" : "panel pass-widget"}>
       <div className="row">
@@ -85,6 +95,15 @@ export function LodgerPassWidget({ tenantId, savingsGoalCents }: LodgerPassWidge
           This escrow is tracked in cents and builds from the weekly stay charge.{" "}
           <strong>{passData.systemMessage}</strong>
         </p>
+        <div className="actions" style={{ flexWrap: "wrap", marginTop: "0.75rem" }}>
+          <a
+            className="button button-secondary"
+            href={licenseHref}
+            download="VettedRent-Commercial-License.pdf"
+          >
+            Download Revocable Commercial License (PDF) ↓
+          </a>
+        </div>
       </div>
     </article>
   );

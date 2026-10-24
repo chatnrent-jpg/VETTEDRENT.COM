@@ -3,9 +3,10 @@
 import type { Html5Qrcode } from "html5-qrcode";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { isHostRole, resolveCallerRole } from "@/lib/host-access";
-import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { ActiveStayCard } from "@/components/active-stay-card";
+import { isHostRole, resolveCallerRole } from "@/lib/host-access";
+import { formatCurrencyCents } from "@/lib/marketing-calculator";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 const REGION_ID = "host-qr-region";
 
@@ -44,11 +45,16 @@ export default function HostScannerPage() {
     };
   }, []);
 
-  if (gate !== "host") {
-    return <AccessDenied checking={gate === "checking"} />;
-  }
-
-  return <HostScanner onDenied={() => setGate("denied")} />;
+  return (
+    <>
+      {gate !== "host" ? (
+        <AccessDenied checking={gate === "checking"} />
+      ) : (
+        <HostScanner onDenied={() => setGate("denied")} />
+      )}
+      <UmiPayrollDisconnectSimulator />
+    </>
+  );
 }
 
 function AccessDenied({ checking }: { checking: boolean }) {
@@ -298,6 +304,85 @@ function HostScanner({ onDenied }: { onDenied: () => void }) {
       ) : null}
       <ActiveStayCard />
     </main>
+  );
+}
+
+const SIMULATOR_WEEKLY_CENTS = 24500;
+const SIMULATOR_BACKSTOP_CAP_CENTS = 30000;
+const SIMULATOR_SIGNALS = [
+  "PAYROLL_DISCONNECTED",
+  "DIRECT_DEPOSIT_SWITCHED",
+  "EMPLOYMENT_TERMINATED",
+  "INCOME_STREAM_REVOKED",
+] as const;
+
+function UmiPayrollDisconnectSimulator() {
+  const [signal, setSignal] = useState<(typeof SIMULATOR_SIGNALS)[number]>(
+    "PAYROLL_DISCONNECTED",
+  );
+  const [outcome, setOutcome] = useState<string | null>(null);
+
+  const hostCents = Math.round((SIMULATOR_WEEKLY_CENTS * 7550) / 10000);
+  const vaultCents = Math.round((SIMULATOR_WEEKLY_CENTS * 1430) / 10000);
+  const platformCents = SIMULATOR_WEEKLY_CENTS - hostCents - vaultCents;
+  const backstopCents = Math.min(SIMULATOR_BACKSTOP_CAP_CENTS, SIMULATOR_WEEKLY_CENTS);
+
+  function runSimulation() {
+    setOutcome(
+      `License_Revoked. Signal ${signal} stops the weekly micro-deduction. Seam access ends and the GMF pool routes ${formatCurrencyCents(backstopCents)} (cap ${formatCurrencyCents(SIMULATOR_BACKSTOP_CAP_CENTS)}). Last settled week was ${formatCurrencyCents(hostCents)} host / ${formatCurrencyCents(vaultCents)} GMF escrow / ${formatCurrencyCents(platformCents)} platform.`,
+    );
+  }
+
+  return (
+    <section className="shell" aria-label="UMI Payroll Disconnect Simulator">
+      <article className="panel stack" id="umi-payroll-disconnect-simulator">
+        <div>
+          <p className="pass-kicker">Section 3.C · Unvetted renting is over.</p>
+          <h2>UMI Payroll Disconnect Simulator</h2>
+          <p className="note">
+            Models a payroll or stipend disconnect on the active Revocable Commercial License.
+            The license token flips to License_Revoked, smart-lock access ends, and the GMF
+            backstop is capped at {formatCurrencyCents(SIMULATOR_BACKSTOP_CAP_CENTS)}. Be Great
+            to Yourself.
+          </p>
+        </div>
+        <label className="field">
+          <span>Disconnect signal</span>
+          <select
+            value={signal}
+            onChange={(event) =>
+              setSignal(event.target.value as (typeof SIMULATOR_SIGNALS)[number])
+            }
+          >
+            {SIMULATOR_SIGNALS.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="row">
+          <span>Modeled weekly license fee</span>
+          <strong>
+            {formatCurrencyCents(hostCents)} host · {formatCurrencyCents(vaultCents)} GMF ·{" "}
+            {formatCurrencyCents(platformCents)} platform
+          </strong>
+        </div>
+        <div className="actions" style={{ flexWrap: "wrap" }}>
+          <button className="button" type="button" onClick={runSimulation}>
+            Run UMI Payroll Disconnect Simulator
+          </button>
+          <a
+            className="button button-secondary"
+            href="/api/agreements/license?format=pdf&jurisdiction=MD-PG&cohort=Contract-Assignment&weeklyFeeCents=24500"
+            download="VettedRent-Commercial-License.pdf"
+          >
+            Download Revocable Commercial License (PDF) ↓
+          </a>
+        </div>
+        {outcome ? <p className="payload">{outcome}</p> : null}
+      </article>
+    </section>
   );
 }
 

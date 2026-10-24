@@ -397,6 +397,20 @@ function Decision({
   });
   const passportHref = `/api/underwriting/trust-passport?${passportQuery.toString()}`;
 
+  const licenseQuery = new URLSearchParams({
+    format: "pdf",
+    cohort: decision.credentialType,
+    jurisdiction: jurisdictionCode,
+    days: String(stayDays),
+    credentialId: decision.credentialIdentifier,
+    ratio: String(decision.ratio),
+    weeklyFeeCents: String(WEEKLY_STAY_CENTS),
+    purposeEnd: decision.contractEndDate,
+    stayEnd: decision.intendedStayEndDate,
+    ...(applicantEmail ? { licensee: applicantEmail } : {}),
+  });
+  const licenseHref = `/api/agreements/license?${licenseQuery.toString()}`;
+
   return (
     <div className="stack">
       <div className="row">
@@ -461,6 +475,13 @@ function Decision({
               download={`VettedRent-Trust-Passport-${decision.credentialType}.pdf`}
             >
               Download Official Trust Passport (PDF) ↓
+            </a>
+            <a
+              className="button button-secondary"
+              href={licenseHref}
+              download={`VettedRent-Commercial-License-${decision.credentialType}-${jurisdictionCode}.pdf`}
+            >
+              Download Revocable Commercial License (PDF) ↓
             </a>
             <button
               type="button"

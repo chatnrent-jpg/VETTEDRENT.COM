@@ -284,9 +284,20 @@ function HostPanel() {
         {billingNote ? <p className="note">{billingNote}</p> : null}
       </article>
       <ActiveStayCard key={locationVersion} />
-      <Link className="button" href="/host/scanner">
-        Open scanner
-      </Link>
+      <div className="actions" style={{ flexWrap: "wrap" }}>
+        {listing.kind === "ready" ? (
+          <a
+            className="button button-secondary"
+            href={`/api/agreements/license?format=pdf&jurisdiction=${encodeURIComponent(listing.jurisdictionCode)}&weeklyFeeCents=${listing.weeklyPriceCents ?? 24500}&propertyTitle=${encodeURIComponent(listing.name)}`}
+            download={`VettedRent-Commercial-License-${listing.jurisdictionCode}.pdf`}
+          >
+            Download Revocable Commercial License (PDF) ↓
+          </a>
+        ) : null}
+        <Link className="button" href="/host/scanner">
+          Open scanner
+        </Link>
+      </div>
     </section>
   );
 }
@@ -462,14 +473,23 @@ function LodgerPanel() {
         systemMessage={view.systemMessage}
       />
       {view.kind === "ready" ? (
-        <button
-          type="button"
-          className="button"
-          disabled={billing}
-          onClick={() => void runWeeklyBilling(setView, setBilling, setBillingNote)}
-        >
-          Run weekly billing
-        </button>
+        <div className="actions" style={{ flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="button"
+            disabled={billing}
+            onClick={() => void runWeeklyBilling(setView, setBilling, setBillingNote)}
+          >
+            Run weekly billing
+          </button>
+          <a
+            className="button button-secondary"
+            href={`/api/agreements/license?format=pdf&agreementId=${encodeURIComponent(view.agreementId)}&listingId=${encodeURIComponent(view.listingId ?? "vr-weekly-room")}&jurisdiction=${encodeURIComponent(view.jurisdictionCode)}&vaultBalanceCents=${view.vaultBalanceCents}&seamAccessCodeId=${encodeURIComponent(view.seamAccessCodeId ?? "access_code_mock_12345")}&status=${view.paymentStatus === "delinquent" || view.riskLevel === "critical" ? "License_Revoked" : "License_Active"}`}
+            download={`VettedRent-Commercial-License-${view.jurisdictionCode}.pdf`}
+          >
+            Download Revocable Commercial License (PDF) ↓
+          </a>
+        </div>
       ) : null}
       {billingNote ? <p className="note">{billingNote}</p> : null}
       <Link className="button" href="/underwriting">
