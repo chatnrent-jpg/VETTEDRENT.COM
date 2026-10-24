@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useState } from "react";
 import {
+  DEFAULT_JURISDICTION_CODE,
+  JURISDICTION_RULES,
+} from "@/lib/compliance/jurisdictions";
+import {
   AGGREGATOR_NIGHTLY_BENCHMARK_CENTS,
   DAILY_RATE_PRESET_TIERS,
   DAILY_RATE_TIER_LIST,
@@ -11,6 +15,11 @@ import {
   type DailyRateTierId,
 } from "@/lib/daily-rate-comparison";
 import { formatCurrencyCents } from "@/lib/marketing-calculator";
+import {
+  PURPOSE_COHORTS,
+  SEASONAL_REMOTE_MIN_DAYS,
+  type PurposeCohortId,
+} from "@/lib/underwriting-contract";
 
 export type BrandPerspective = "landlord" | "tenant";
 
@@ -256,6 +265,11 @@ export function DualBrandHome({
 
 function DailyRateAggregatorCalculator() {
   const [selectedTierId, setSelectedTierId] = useState<DailyRateTierId>("RoomSanctuary");
+  const [selectedCohortId, setSelectedCohortId] =
+    useState<PurposeCohortId>("Contract-Assignment");
+  const [selectedJurisdictionCode, setSelectedJurisdictionCode] = useState<string>(
+    DEFAULT_JURISDICTION_CODE,
+  );
   const [stayDays, setStayDays] = useState<number>(90);
   const [externalPresetId, setExternalPresetId] = useState<string>("cozycozy-ota-hotel");
   const [externalNightlyDollars, setExternalNightlyDollars] = useState<string>("277");
@@ -354,6 +368,42 @@ function DailyRateAggregatorCalculator() {
       <p className="note">
         <strong>Best for:</strong> {activeTier.audienceSummary}
       </p>
+
+      <div className="row" style={{ flexWrap: "wrap", gap: "0.75rem" }}>
+        <label className="field" style={{ flex: 1 }}>
+          <span>Purpose-Verified Stay Cohort (Deep-Links to Underwriting)</span>
+          <select
+            value={selectedCohortId}
+            onChange={(event) => {
+              const nextCohort = event.target.value as PurposeCohortId;
+              setSelectedCohortId(nextCohort);
+              if (nextCohort === "Seasonal-Remote" && stayDays < SEASONAL_REMOTE_MIN_DAYS) {
+                setStayDays(30);
+              }
+            }}
+          >
+            {PURPOSE_COHORTS.map((cohort) => (
+              <option key={cohort.id} value={cohort.id}>
+                {cohort.title} — {cohort.audience}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field" style={{ flex: 1 }}>
+          <span>Target Jurisdiction</span>
+          <select
+            value={selectedJurisdictionCode}
+            onChange={(event) => setSelectedJurisdictionCode(event.target.value)}
+          >
+            {JURISDICTION_RULES.map((rule) => (
+              <option key={rule.code} value={rule.code}>
+                {rule.name} ({rule.code}) — {rule.maxTransientDays}d max
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       <div>
         <p className="pass-kicker">Who Is Making the Competing Offer? (Select Preset or Enter Custom)</p>
@@ -506,9 +556,11 @@ function DailyRateAggregatorCalculator() {
       </p>
 
       <div className="actions" style={{ flexWrap: "wrap" }}>
-        <Link className="button" href={`/underwriting?days=${comparison.stayDays}`}>
-          Lock In {formatCurrencyCents(comparison.grossDailyRateCents)}/Day for{" "}
-          {comparison.stayDays} Days →
+        <Link
+          className="button"
+          href={`/underwriting?weeklyCents=${comparison.weeklyRateCents}&days=${comparison.stayDays}&cohort=${encodeURIComponent(selectedCohortId)}&jurisdiction=${encodeURIComponent(selectedJurisdictionCode)}`}
+        >
+          Lock In {formatCurrencyCents(comparison.grossDailyRateCents)}/Day ($0 Security Deposit) →
         </Link>
         <Link className="button button-secondary" href="/marketing#host-shield">
           Host Shield Yield Model

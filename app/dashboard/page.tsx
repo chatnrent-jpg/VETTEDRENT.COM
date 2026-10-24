@@ -6,6 +6,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { ActiveStayCard } from "@/components/active-stay-card";
 import { JurisdictionSelect } from "@/components/jurisdiction-select";
 import { Progress } from "@/components/ui/progress";
+import { WeeklyLiquiditySpreadPanel } from "@/components/weekly-liquidity-spread-panel";
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/compliance/jurisdictions";
 import { defaultGeoStatusLabel } from "@/lib/geo-compliance";
 import { resolveCallerRole } from "@/lib/host-access";
@@ -87,6 +88,7 @@ export default function DashboardPage() {
       ) : null}
       {gate === "host" ? <HostPanel /> : null}
       {gate === "lodger" ? <LodgerPanel /> : null}
+      <WeeklyLiquiditySpreadPanel />
     </main>
   );
 }

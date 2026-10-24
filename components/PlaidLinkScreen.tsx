@@ -10,8 +10,11 @@ import {
   resolveJurisdiction,
 } from "@/lib/compliance/jurisdictions";
 import {
+  DAILY_RATE_PRESET_TIERS,
+  DAILY_RATE_TIER_LIST,
   EXTERNAL_OFFER_PRESETS,
   calculateDailyRateComparison,
+  type DailyRateTierId,
 } from "@/lib/daily-rate-comparison";
 import { intendedStayLengthDays } from "@/lib/geo-compliance";
 import { formatCurrencyCents } from "@/lib/marketing-calculator";
@@ -25,12 +28,13 @@ import {
   type PurposeCohortId,
 } from "@/lib/underwriting-contract";
 
-/** Displayed weekly stay on the dashboard, in integer cents. */
-const WEEKLY_STAY_CENTS = 24500;
+/** Default weekly stay rate in integer cents ($245.00/wk = $35.00/day). */
+const DEFAULT_WEEKLY_STAY_CENTS = 24500;
 
 export function PlaidLinkScreen() {
   const router = useRouter();
   const initial = defaultContractTerm();
+  const [weeklyStayCents, setWeeklyStayCents] = useState<number>(DEFAULT_WEEKLY_STAY_CENTS);
   const [contract, setContract] = useState<ContractTerm>(initial);
   const [jurisdictionCode, setJurisdictionCode] = useState(DEFAULT_JURISDICTION_CODE);
   const [prefilledLeadEmail, setPrefilledLeadEmail] = useState<string | null>(null);
@@ -45,19 +49,41 @@ export function PlaidLinkScreen() {
       return;
     }
     const params = new URLSearchParams(window.location.search);
+    const weeklyCentsParam = params.get("weeklyCents");
+    const tierParam = params.get("tier");
     const cohortParam = params.get("cohort");
     const daysParam = params.get("days");
     const jurisdictionParam = params.get("jurisdiction");
     const emailParam = params.get("email");
 
-    if (!cohortParam && !daysParam && !jurisdictionParam && !emailParam) {
+    if (
+      !weeklyCentsParam &&
+      !tierParam &&
+      !cohortParam &&
+      !daysParam &&
+      !jurisdictionParam &&
+      !emailParam
+    ) {
       return;
+    }
+
+    if (weeklyCentsParam) {
+      const parsedWeekly = Number(weeklyCentsParam);
+      if (Number.isFinite(parsedWeekly) && parsedWeekly >= 5000 && parsedWeekly <= 500000) {
+        setWeeklyStayCents(Math.round(parsedWeekly));
+      }
+    } else if (
+      tierParam === "RoomSanctuary" ||
+      tierParam === "PrivateSuite" ||
+      tierParam === "ExecutiveTownhome"
+    ) {
+      setWeeklyStayCents(DAILY_RATE_PRESET_TIERS[tierParam as DailyRateTierId].weeklyRateCents);
     }
 
     const matchedCohort = resolvePurposeCohort(cohortParam);
     const parsedDays = daysParam ? Number(daysParam) : NaN;
     const stayDays =
-      Number.isFinite(parsedDays) && parsedDays >= 1 && parsedDays <= 365
+      Number.isFinite(parsedDays) && parsedDays >= 14 && parsedDays <= 365
         ? Math.round(parsedDays)
         : matchedCohort.defaultStayDays;
     const targetEndDate = addUtcDays(new Date(), stayDays);
@@ -83,7 +109,7 @@ export function PlaidLinkScreen() {
   }, []);
 
   const { phase, error, decision, ready, open, canSimulate, simulate } = usePlaidLinkFlow(
-    WEEKLY_STAY_CENTS,
+    weeklyStayCents,
     contract,
     jurisdictionCode,
   );
@@ -98,14 +124,33 @@ export function PlaidLinkScreen() {
     Math.round((Number(comparisonNightlyDollars) || 195) * 100),
   );
   const dailyComparison = calculateDailyRateComparison(
-    WEEKLY_STAY_CENTS,
+    weeklyStayCents,
     selectedStayDays,
     comparisonNightlyCents,
   );
 
   function selectCohort(cohortId: PurposeCohortId) {
-    setContract(defaultContractTerm(new Date(), cohortId));
-    setPrefilledStayDays(resolvePurposeCohort(cohortId).defaultStayDays);
+    const nextCohort = resolvePurposeCohort(cohortId);
+    const nextDays = Math.max(nextCohort.minStayDays, selectedStayDays);
+    const targetEndDate = addUtcDays(new Date(), nextDays);
+    setContract({
+      credentialType: nextCohort.id,
+      credentialIdentifier: nextCohort.defaultIdentifier,
+      contractEndDate: targetEndDate,
+      intendedStayEndDate: targetEndDate,
+    });
+    setPrefilledStayDays(nextDays);
+  }
+
+  function updateStayDurationDays(days: number) {
+    const clamped = Math.max(14, Math.min(365, Math.round(days)));
+    const targetEndDate = addUtcDays(new Date(), clamped);
+    setPrefilledStayDays(clamped);
+    setContract((prev) => ({
+      ...prev,
+      contractEndDate: targetEndDate,
+      intendedStayEndDate: targetEndDate,
+    }));
   }
 
   async function handleActivateWeeklyBillingAndPass() {
@@ -153,7 +198,7 @@ export function PlaidLinkScreen() {
         body: JSON.stringify({
           customerEmail: user.email ?? prefilledLeadEmail ?? "lodger@vettedrent.com",
           hostAccountId: "acct_simulated_host",
-          totalCents: WEEKLY_STAY_CENTS,
+          totalCents: weeklyStayCents,
           tenantId: user.id,
           hostId: user.id,
           listingId: "vr-weekly-room",
@@ -213,15 +258,19 @@ export function PlaidLinkScreen() {
       </header>
 
       <section className="stack" aria-label="Bank connection">
-        {prefilledLeadEmail || prefilledStayDays ? (
+        {prefilledLeadEmail || prefilledStayDays || weeklyStayCents !== DEFAULT_WEEKLY_STAY_CENTS ? (
           <article className="panel">
             <div className="stay-card-head">
-              <strong>One-Click Pipeline Conversion Active</strong>
-              <span className="chip">{activeCohort.id}</span>
+              <strong>One-Click Pipeline &amp; Calculator Conversion Active</strong>
+              <span className="chip">
+                {activeCohort.id} · {formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day
+              </span>
             </div>
             <p className="note">
-              Pre-configured from Inbound Acquisition Pipeline
+              Pre-configured
               {prefilledLeadEmail ? ` for ${prefilledLeadEmail}` : ""} ·{" "}
+              {formatCents(weeklyStayCents)}/wk (
+              {formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day) ·{" "}
               {prefilledStayDays ?? activeCohort.defaultStayDays}-day stay in {jurisdictionCode}.{" "}
               <strong>Be Great to Yourself.</strong>
             </p>
@@ -236,6 +285,41 @@ export function PlaidLinkScreen() {
             </div>
             <span className="chip">{activeCohort.id}</span>
           </div>
+
+          <div>
+            <p className="pass-kicker">Select Lodging Tier ($35/Day Room · $70/Day Suite · $106.43/Day Townhome)</p>
+            <div
+              className="toggle"
+              role="group"
+              aria-label="Select lodging tier rate"
+              style={{ flexWrap: "wrap", marginTop: "0.4rem" }}
+            >
+              {DAILY_RATE_TIER_LIST.map((tier) => (
+                <button
+                  key={tier.id}
+                  type="button"
+                  aria-pressed={weeklyStayCents === tier.weeklyRateCents}
+                  onClick={() => setWeeklyStayCents(tier.weeklyRateCents)}
+                >
+                  {tier.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <label className="field">
+            <span>
+              Intended Stay Duration: <strong>{selectedStayDays} Days</strong> (14 to 90 days)
+            </span>
+            <input
+              type="range"
+              min={14}
+              max={90}
+              step={1}
+              value={Math.min(90, Math.max(14, selectedStayDays))}
+              onChange={(event) => updateStayDurationDays(Number(event.target.value) || 90)}
+            />
+          </label>
 
           <div
             className="toggle"
@@ -347,7 +431,7 @@ export function PlaidLinkScreen() {
           </div>
 
           <div className="row">
-            <span>Daily Rate Equivalent ({formatCents(WEEKLY_STAY_CENTS)}/wk)</span>
+            <span>Daily Rate Equivalent ({formatCents(weeklyStayCents)}/wk)</span>
             <strong>
               {formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day gross ·{" "}
               {formatCurrencyCents(dailyComparison.netEffectiveDailyRateCents)}/day net (after +
@@ -375,12 +459,12 @@ export function PlaidLinkScreen() {
           {canSimulate ? (
             <p className="note">
               Plaid keys are not configured. This runs a simulated 90-day deposit check for the
-              signed-in account against the weekly rate of {formatCents(WEEKLY_STAY_CENTS)}.
+              signed-in account against the weekly rate of {formatCents(weeklyStayCents)}.
             </p>
           ) : (
             <p className="note">
               Plaid opens a secure bank login. VettedRent receives the deposit history it needs
-              for the weekly rate of {formatCents(WEEKLY_STAY_CENTS)}. The bank login stays with
+              for the weekly rate of {formatCents(weeklyStayCents)}. The bank login stays with
               Plaid.
             </p>
           )}
@@ -389,6 +473,7 @@ export function PlaidLinkScreen() {
           {decision ? (
             <Decision
               decision={decision}
+              weeklyStayCents={weeklyStayCents}
               jurisdictionCode={jurisdictionCode}
               stayDays={prefilledStayDays ?? activeCohort.defaultStayDays}
               comparisonNightlyCents={comparisonNightlyCents}
@@ -431,6 +516,7 @@ export function PlaidLinkScreen() {
 
 function Decision({
   decision,
+  weeklyStayCents,
   jurisdictionCode,
   stayDays,
   comparisonNightlyCents,
@@ -452,6 +538,7 @@ function Decision({
     intendedStayEndDate: string;
     geoCompliance: string;
   };
+  weeklyStayCents: number;
   jurisdictionCode: string;
   stayDays: number;
   comparisonNightlyCents: number;
@@ -465,6 +552,7 @@ function Decision({
     cohort: decision.credentialType,
     jurisdiction: jurisdictionCode,
     days: String(stayDays),
+    weeklyCents: String(weeklyStayCents),
     credentialId: decision.credentialIdentifier,
     ratio: String(decision.ratio),
     monthlyInflow: String(decision.monthlyInflowEstimated),
@@ -482,7 +570,7 @@ function Decision({
     days: String(stayDays),
     credentialId: decision.credentialIdentifier,
     ratio: String(decision.ratio),
-    weeklyFeeCents: String(WEEKLY_STAY_CENTS),
+    weeklyFeeCents: String(weeklyStayCents),
     purposeEnd: decision.contractEndDate,
     stayEnd: decision.intendedStayEndDate,
     ...(applicantEmail ? { licensee: applicantEmail } : {}),
@@ -490,7 +578,7 @@ function Decision({
   const licenseHref = `/api/agreements/license?${licenseQuery.toString()}`;
 
   const decisionComparison = calculateDailyRateComparison(
-    WEEKLY_STAY_CENTS,
+    weeklyStayCents,
     stayDays,
     comparisonNightlyCents,
   );

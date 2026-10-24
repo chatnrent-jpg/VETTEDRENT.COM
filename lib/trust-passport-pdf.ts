@@ -20,6 +20,7 @@ export type TrustPassportInput = {
   stayDays: number;
   contractEndDate: string;
   intendedStayEndDate: string;
+  weeklyRateCents?: number;
   comparisonNightlyCents?: number;
   issuedAtIso?: string;
   certificateId?: string;
@@ -72,7 +73,7 @@ export function buildTrustPassportPdf(input: TrustPassportInput): Uint8Array {
     input.certificateId ??
     `VR-UMI-${cohortRule.id.slice(0, 3).toUpperCase()}-${effectiveJurisdictionCode}-${issuedDate.replace(/-/g, "")}`;
   const dailyComparison = calculateDailyRateComparison(
-    24500,
+    input.weeklyRateCents ?? 24500,
     safeStayDays,
     input.comparisonNightlyCents,
   );

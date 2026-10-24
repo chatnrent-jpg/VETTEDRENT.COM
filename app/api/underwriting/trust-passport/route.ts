@@ -49,6 +49,13 @@ export async function GET(request: Request) {
       cleanText(url.searchParams.get("credentialId"), 80) ?? cohortRule.defaultIdentifier;
     const applicantIdentifier =
       cleanText(url.searchParams.get("applicant"), 120) ?? "Verified VettedRent Professional";
+    const rawWeeklyCents = Number(url.searchParams.get("weeklyCents"));
+    const weeklyRateCents =
+      Number.isFinite(rawWeeklyCents) &&
+      rawWeeklyCents >= 5000 &&
+      rawWeeklyCents <= 500000
+        ? Math.round(rawWeeklyCents)
+        : undefined;
     const rawComparisonNightlyCents = Number(url.searchParams.get("comparisonNightlyCents"));
     const comparisonNightlyCents =
       Number.isFinite(rawComparisonNightlyCents) &&
@@ -67,6 +74,7 @@ export async function GET(request: Request) {
       stayDays,
       contractEndDate,
       intendedStayEndDate,
+      weeklyRateCents,
       comparisonNightlyCents,
     });
 
@@ -145,6 +153,13 @@ export async function POST(request: Request) {
         typeof body.applicantIdentifier === "string" ? body.applicantIdentifier : null,
         120,
       ) ?? "Verified VettedRent Professional";
+    const rawWeeklyCents = Number(body.weeklyRateCents ?? body.weeklyCents);
+    const weeklyRateCents =
+      Number.isFinite(rawWeeklyCents) &&
+      rawWeeklyCents >= 5000 &&
+      rawWeeklyCents <= 500000
+        ? Math.round(rawWeeklyCents)
+        : undefined;
     const rawComparisonNightlyCents = Number(body.comparisonNightlyCents);
     const comparisonNightlyCents =
       Number.isFinite(rawComparisonNightlyCents) &&
@@ -163,6 +178,7 @@ export async function POST(request: Request) {
       stayDays,
       contractEndDate,
       intendedStayEndDate,
+      weeklyRateCents,
       comparisonNightlyCents,
     });
 
