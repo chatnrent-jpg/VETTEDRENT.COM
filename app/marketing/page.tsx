@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { LandlordYieldCalculator } from "@/components/landlord-yield-calculator";
 import { LeadCaptureForm } from "@/components/lead-capture-form";
+import { SupplyOutreachConsole } from "@/components/supply-outreach-console";
 import { Progress } from "@/components/ui/progress";
 import type { LeadCohort, PipelineLeadItem } from "@/app/api/marketing/lead/route";
 import {
@@ -292,6 +293,9 @@ export default function MarketingCommandCenterPage() {
             <Link className="button" href="#host-shield">
               Guard My Property (Landlords)
             </Link>
+            <Link className="button button-secondary" href="#supply-scraper-console">
+              Launch Supply Outreach Console
+            </Link>
             <Link className="button button-secondary" href="/underwriting">
               Unlock Deposit-Free Housing (Professionals)
             </Link>
@@ -360,6 +364,8 @@ export default function MarketingCommandCenterPage() {
             </div>
           </div>
         </article>
+
+        <SupplyOutreachConsole onOutreachDispatched={() => void loadPipeline()} />
 
         <article className="panel stay-card">
           <div className="stay-card-head">
