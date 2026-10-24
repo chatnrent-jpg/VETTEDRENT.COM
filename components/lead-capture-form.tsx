@@ -106,7 +106,7 @@ export function LeadCaptureForm({
       const geo = typeof record.geoCompliance === "string" ? record.geoCompliance : "";
       const blockReason = typeof record.blockReason === "string" ? record.blockReason : null;
       setResultMessage(
-        `Lead ${leadId} stored in ${storage} (${cohort}). ${geo}${blockReason ? ` Note: ${blockReason}` : ""}`,
+        `Lead ${leadId} stored in ${storage} (${cohort}). ${geo}${blockReason ? ` Note: ${blockReason}` : ""} Be Great to Yourself!`,
       );
       onLeadCaptured?.();
     } catch {

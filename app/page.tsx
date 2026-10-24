@@ -19,12 +19,14 @@ export default async function HomePage() {
     <main className="shell">
       <header className="topbar">
         <div>
-          <p className="pass-kicker">Purpose-Driven Pleasure · Pleasure-Driven Purpose</p>
+          <p className="pass-kicker">
+            Be Great to Yourself. · Purpose-Driven Pleasure · Pleasure-Driven Purpose
+          </p>
           <h1>VettedRent</h1>
           <p className="lede">
-            The universal Purpose-Verified Stay platform. We turn temporary purpose into
-            frictionless pleasure for guests, and temporary pleasure or sanctuary into verified,
-            rollover-protected purpose for property hosts.
+            The universal Purpose-Verified Stay platform. Be Great to Yourself—turning temporary
+            purpose into frictionless pleasure for guests, and temporary pleasure or sanctuary into
+            verified, rollover-protected purpose for property hosts.
           </p>
         </div>
         <div className="actions">
@@ -41,30 +43,31 @@ export default async function HomePage() {
         <article className="panel stay-card">
           <div className="stay-card-head">
             <div>
-              <p className="pass-kicker">Category Philosophy</p>
-              <h2>Purpose-Driven Pleasure · Pleasure-Driven Purpose</h2>
+              <p className="pass-kicker">Brand Manifesto · Purpose-Driven Pleasure · Pleasure-Driven Purpose</p>
+              <h2>Be Great to Yourself.</h2>
             </div>
             <span className="chip">4 Verified Cohorts</span>
           </div>
           <div className="row">
-            <span>Purpose-Driven Pleasure</span>
-            <strong>Contract-Assignment &amp; Academic-Enrollment</strong>
+            <span>For Lodgers — Be Great to Your Future Self</span>
+            <strong>Weekly Micro-Billing + 14.3% GMF Move-Out Vault</strong>
           </div>
           <p className="note">
-            Turns demanding temporary purpose—traveling healthcare assignments (VettedCare /
-            VettedME), corporate contracts, university semesters, and clinical rotations—into
-            frictionless pleasure with zero-credit-check 90-day deposit underwriting, $1,500 GMF
-            escrow wealth-building, and instant smart-lock room arrival.
+            Every weekly stay payment automatically sets aside 14.3% into your Guaranteed
+            Maintenance Fund (GMF) Move-Out Vault toward a $1,500.00 independence reserve—turning
+            demanding temporary purpose (Contract-Assignment &amp; Academic-Enrollment) and
+            extended sanctuary (Seasonal-Remote &amp; Insurance-Relocation) into lasting financial
+            momentum.
           </p>
           <div className="row">
-            <span>Pleasure-Driven Purpose</span>
-            <strong>Seasonal-Remote &amp; Insurance-Relocation</strong>
+            <span>For Hosts — Be Great to Yourself</span>
+            <strong>3.0x Underwriting + Statutory Rollover Peace of Mind</strong>
           </div>
           <p className="note">
-            Turns temporary pleasure and sanctuary—extended snowbird / digital nomad stays (14-day
-            minimum floor) and ALE insurance displacement housing—into verified, rollover-protected
-            purpose with documented departure dates, 3.00x inflow coverage, and state transient
-            ceiling guardrails.
+            Protect your property and your peace of mind. Every guest is verified for 3.00x 90-day
+            deposit coverage, a documented temporary stay purpose, and strict state transient
+            ceiling guardrails—so you earn 75.5% weekly payouts with zero statutory tenancy
+            rollover anxiety.
           </p>
         </article>
 
@@ -79,7 +82,10 @@ export default async function HomePage() {
 
         <article className="panel">
           <h2>For lodgers</h2>
-          <p className="note">A weekly room, checked before billing starts, with a code for the door.</p>
+          <p className="note">
+            A weekly room, checked before billing starts, with a code for the door. Be Great to
+            Yourself.
+          </p>
           <div className="row">
             <span>Weekly billing</span>
             <strong>{weeklyRate}</strong>
@@ -90,7 +96,7 @@ export default async function HomePage() {
           </div>
           <p className="note">Connect a bank after signing in. The bank login stays with Plaid.</p>
           <div className="row">
-            <span>Escrow vault goal</span>
+            <span>GMF Move-Out Vault goal (14.3% share)</span>
             <strong>$1,500.00</strong>
           </div>
           <div className="row">
@@ -101,7 +107,9 @@ export default async function HomePage() {
 
         <article className="panel">
           <h2>For hosts</h2>
-          <p className="note">Each stay is tied to the person at the door, and the weekly payment is watched.</p>
+          <p className="note">
+            Each stay is tied to the person at the door, and the weekly payment is watched.
+          </p>
           <div className="row">
             <span>Identity</span>
             <strong>Verified ID and face on the stay</strong>

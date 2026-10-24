@@ -16,6 +16,7 @@ export interface LodgerPassData {
   savingsGoalCents: number | null;
   seamAccessCodeId: string | null;
   listingId: string | null;
+  systemMessage: string;
 }
 
 export function useLodgerPass(tenantId: string) {
@@ -123,6 +124,7 @@ function parseLodgerPass(body: unknown): LodgerPassData | null {
     savingsGoalCents: positiveInteger(record.savings_goal_cents),
     seamAccessCodeId: textOrNull(record.seamAccessCodeId),
     listingId: textOrNull(record.listingId),
+    systemMessage: textOrNull(record.systemMessage) ?? "Be Great to Yourself.",
   };
 }
 

@@ -188,6 +188,7 @@ export async function POST(request: Request) {
       geoCompliance: compliance.statusLabel,
       allowed,
       blockReason,
+      confirmationMessage: `VettedRent (${compliance.jurisdictionCode}): Your ${parsed.cohort} intake is confirmed. ${compliance.statusLabel} Be Great to Yourself!`,
       attribution: {
         utmSource: parsed.utmSource,
         utmMedium: parsed.utmMedium,
@@ -274,7 +275,7 @@ async function dispatchConfirmationSms(
       : lead.role === "enterprise"
         ? `Enterprise Partner (${lead.cohort})`
         : `Purpose-Verified Lodger (${lead.cohort})`;
-  const body = `VettedRent (${lead.jurisdictionCode}): Your ${roleLabel} intake is logged. ${geoStatusLabel} Reply STOP to opt out.`;
+  const body = `VettedRent (${lead.jurisdictionCode}): Your ${roleLabel} intake is logged. ${geoStatusLabel} Reply STOP to opt out. Be Great to Yourself!`;
   const result = await sendSMS(lead.phone, body);
   return { attempted: true, status: result };
 }
@@ -315,8 +316,8 @@ async function dispatchOutboundLeadHook(
         body: JSON.stringify({
           from: resendFrom,
           to: [lead.email],
-          subject: `VettedRent ${lead.jurisdictionCode} (${lead.cohort}) intake received`,
-          text: `Your VettedRent (${lead.role} / ${lead.cohort}) intake for ${lead.jurisdictionCode} is confirmed.\n${geoStatusLabel}`,
+          subject: `VettedRent ${lead.jurisdictionCode} (${lead.cohort}) intake received — Be Great to Yourself!`,
+          text: `Your VettedRent (${lead.role} / ${lead.cohort}) intake for ${lead.jurisdictionCode} is confirmed.\n${geoStatusLabel}\n\nBe Great to Yourself!`,
         }),
       });
       return { configured: true, delivered: response.ok, provider: "resend" };

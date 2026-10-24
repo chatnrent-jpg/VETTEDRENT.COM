@@ -8,6 +8,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SAVINGS_GOAL_CENTS = 150000;
+const OFFICIAL_SYSTEM_MESSAGE = "Be Great to Yourself.";
 
 type LodgerPass = {
   tenantId: string | null;
@@ -22,6 +23,7 @@ type LodgerPass = {
   listingId: string | null;
   jurisdictionCode: string;
   geoCompliance: string;
+  systemMessage: typeof OFFICIAL_SYSTEM_MESSAGE;
 };
 
 type ActiveAgreement = {
@@ -103,6 +105,7 @@ async function loadLodgerPass(
     listingId: agreement.listingId,
     jurisdictionCode: compliance.jurisdictionCode,
     geoCompliance: compliance.statusLabel,
+    systemMessage: OFFICIAL_SYSTEM_MESSAGE,
   };
 }
 
@@ -120,6 +123,7 @@ function emptyPass(tenantId: string | null, balanceCents: number): LodgerPass {
     listingId: null,
     jurisdictionCode: DEFAULT_JURISDICTION_CODE,
     geoCompliance: defaultGeoStatusLabel(),
+    systemMessage: OFFICIAL_SYSTEM_MESSAGE,
   };
 }
 

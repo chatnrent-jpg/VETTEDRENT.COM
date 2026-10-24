@@ -82,7 +82,8 @@ export function LodgerPassWidget({ tenantId, savingsGoalCents }: LodgerPassWidge
         </div>
         <Progress value={savingsPercentage} aria-label="Guaranteed fund escrow progress" />
         <p className="note">
-          This escrow is tracked in cents and builds from the weekly stay charge.
+          This escrow is tracked in cents and builds from the weekly stay charge.{" "}
+          <strong>{passData.systemMessage}</strong>
         </p>
       </div>
     </article>

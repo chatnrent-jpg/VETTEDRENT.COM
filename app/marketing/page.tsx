@@ -183,12 +183,14 @@ export default function MarketingCommandCenterPage() {
     <main className="shell">
       <header className="topbar">
         <div>
-          <p className="pass-kicker">Purpose-Driven Pleasure · Pleasure-Driven Purpose</p>
+          <p className="pass-kicker">
+            Be Great to Yourself. · Purpose-Driven Pleasure · Pleasure-Driven Purpose
+          </p>
           <h1>Marketing &amp; Growth Command Center</h1>
           <p className="lede">
-            VettedRent turns temporary purpose (Contract-Assignment &amp; Academic-Enrollment) into
-            frictionless pleasure, and temporary pleasure or sanctuary (Seasonal-Remote &amp;
-            Insurance-Relocation) into verified, rollover-protected purpose.
+            Be Great to Yourself. VettedRent turns temporary purpose (Contract-Assignment &amp;
+            Academic-Enrollment) into frictionless pleasure, and temporary pleasure or sanctuary
+            (Seasonal-Remote &amp; Insurance-Relocation) into verified, rollover-protected purpose.
           </p>
         </div>
         <div className="actions">
@@ -208,30 +210,32 @@ export default function MarketingCommandCenterPage() {
         <article className="panel stay-card">
           <div className="stay-card-head">
             <div>
-              <p className="pass-kicker">Category Philosophy · Universal Acquisition Narrative</p>
-              <h2>Purpose-Driven Pleasure · Pleasure-Driven Purpose</h2>
+              <p className="pass-kicker">
+                Brand Manifesto · Purpose-Driven Pleasure · Pleasure-Driven Purpose
+              </p>
+              <h2>Be Great to Yourself.</h2>
             </div>
             <span className="chip">Commercial Engine</span>
           </div>
           <div className="row">
-            <span>Purpose-Driven Pleasure</span>
-            <strong>Contract-Assignment &amp; Academic-Enrollment</strong>
+            <span>For Lodgers — Be Great to Your Future Self</span>
+            <strong>Weekly Micro-Billing + 14.3% GMF Move-Out Vault</strong>
           </div>
           <p className="note">
-            When a clinician, VettedCare / VettedME contractor, or university rotator arrives on an
-            intensive assignment, VettedRent removes housing friction—replacing credit checks and
-            security deposits with 90-day deposit underwriting, $1,500 GMF escrow wealth-building,
-            and instant smart-lock room access.
+            Whether arriving for Purpose-Driven Pleasure (Contract-Assignment &amp;
+            Academic-Enrollment) or Pleasure-Driven Purpose (Seasonal-Remote &amp;
+            Insurance-Relocation), lodgers build their own $1,500.00 GMF Move-Out Vault through
+            automated 14.3% weekly micro-billing allocations—with zero credit checks and instant
+            smart-lock arrival.
           </p>
           <div className="row">
-            <span>Pleasure-Driven Purpose</span>
-            <strong>Seasonal-Remote &amp; Insurance-Relocation</strong>
+            <span>For Hosts — Be Great to Yourself</span>
+            <strong>3.0x Underwriting + Statutory Rollover Peace of Mind</strong>
           </div>
           <p className="note">
-            When a remote worker, extended snowbird, or displaced ALE policyholder seeks sanctuary,
-            VettedRent structures their stay into verified, rollover-protected purpose—enforcing the
-            14-day minimum stay floor, documented departure/claim dates, 3.00x coverage, and state
-            transient ceiling guardrails for hosts.
+            Hosts earn 75.5% weekly payouts backed by 3.00x 90-day deposit underwriting, verified
+            departure/contract dates, the 14-day Seasonal-Remote stay floor, and automatic state
+            transient ceiling guardrails that eliminate statutory holdover risk.
           </p>
         </article>
 

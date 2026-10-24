@@ -364,6 +364,7 @@ type StayStatus = {
   listingId: string | null;
   jurisdictionCode: string;
   geoCompliance: string;
+  systemMessage: string;
 };
 
 type LodgerView =
@@ -455,7 +456,11 @@ function LodgerPanel() {
           onLocation={(code) => void saveLodgerLocation(code, setView, setSavingLocation, setLocationNote)}
         />
       ) : null}
-      <VaultProgress balanceCents={view.balanceCents} savingsGoalCents={view.savingsGoalCents} />
+      <VaultProgress
+        balanceCents={view.balanceCents}
+        savingsGoalCents={view.savingsGoalCents}
+        systemMessage={view.systemMessage}
+      />
       {view.kind === "ready" ? (
         <button
           type="button"
@@ -509,6 +514,10 @@ function StayPanel({
         <span>Door code</span>
         <strong>{view.seamAccessCodeId ?? "Not provisioned"}</strong>
       </div>
+      <div className="row">
+        <span>System message</span>
+        <span className="chip">{view.systemMessage}</span>
+      </div>
     </article>
   );
 }
@@ -516,12 +525,14 @@ function StayPanel({
 function VaultProgress({
   balanceCents,
   savingsGoalCents,
+  systemMessage,
 }: {
   balanceCents: number;
   savingsGoalCents: number | null;
+  systemMessage: string;
 }) {
   const percent = vaultCompletionPercent(balanceCents, savingsGoalCents);
-  const label = `Vault Balance: ${formatCentsAsDollars(balanceCents)} / $1,500.00 — Building your path to independence.`;
+  const label = `Vault Balance: ${formatCentsAsDollars(balanceCents)} / $1,500.00 — Building your path to independence. ${systemMessage}`;
   return (
     <div className="vault-progress">
       <Progress value={percent} aria-label={label} />
@@ -721,6 +732,7 @@ function stayFromPass(record: Record<string, unknown>): StayStatus {
     listingId: optionalText(record.listingId),
     jurisdictionCode: optionalText(record.jurisdictionCode) ?? DEFAULT_JURISDICTION_CODE,
     geoCompliance: optionalText(record.geoCompliance) ?? defaultGeoStatusLabel(),
+    systemMessage: optionalText(record.systemMessage) ?? "Be Great to Yourself.",
   };
 }
 
