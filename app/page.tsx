@@ -20,13 +20,12 @@ export default async function HomePage() {
       <header className="topbar">
         <div>
           <p className="pass-kicker">
-            Be Great to Yourself. · Purpose-Driven Pleasure · Pleasure-Driven Purpose
+            Be Great to Yourself. · Universal Purpose-Verified Stay Platform
           </p>
           <h1>VettedRent</h1>
           <p className="lede">
-            The universal Purpose-Verified Stay platform. Be Great to Yourself—turning temporary
-            purpose into frictionless pleasure for guests, and temporary pleasure or sanctuary into
-            verified, rollover-protected purpose for property hosts.
+            Be Great to Yourself. Weekly Purpose-Verified Stays with 90-day deposit underwriting,
+            a 14.3% GMF Move-Out Vault for lodgers, and statutory rollover protection for hosts.
           </p>
         </div>
         <div className="actions">
@@ -43,7 +42,7 @@ export default async function HomePage() {
         <article className="panel stay-card">
           <div className="stay-card-head">
             <div>
-              <p className="pass-kicker">Brand Manifesto · Purpose-Driven Pleasure · Pleasure-Driven Purpose</p>
+              <p className="pass-kicker">Brand Manifesto · Universal Purpose-Verified Stay Platform</p>
               <h2>Be Great to Yourself.</h2>
             </div>
             <span className="chip">4 Verified Cohorts</span>
@@ -54,10 +53,9 @@ export default async function HomePage() {
           </div>
           <p className="note">
             Every weekly stay payment automatically sets aside 14.3% into your Guaranteed
-            Maintenance Fund (GMF) Move-Out Vault toward a $1,500.00 independence reserve—turning
-            demanding temporary purpose (Contract-Assignment &amp; Academic-Enrollment) and
-            extended sanctuary (Seasonal-Remote &amp; Insurance-Relocation) into lasting financial
-            momentum.
+            Maintenance Fund (GMF) Move-Out Vault toward a $1,500.00 independence reserve across all
+            4 Purpose-Verified Stay cohorts (Contract-Assignment, Academic-Enrollment,
+            Seasonal-Remote, and Insurance-Relocation).
           </p>
           <div className="row">
             <span>For Hosts — Be Great to Yourself</span>

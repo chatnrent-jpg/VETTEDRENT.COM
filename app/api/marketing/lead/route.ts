@@ -27,6 +27,7 @@ export type PipelineLeadItem = {
   role: LeadRole;
   cohort: LeadCohort;
   fullName: string | null;
+  email: string;
   emailPreview: string;
   jurisdictionCode: string;
   intendedStayDays: number;
@@ -108,12 +109,14 @@ export async function GET() {
           ? `Rollover Protected (${intendedStayDays}/${compliance.maxTransientDays}d)`
           : `Guardrail Blocked (${intendedStayDays}/${compliance.maxTransientDays}d)`;
 
+      const rawEmail = typeof record.email === "string" ? record.email.trim() : "verified@vettedrent.com";
       return {
         id: typeof record.id === "string" ? record.id : randomUUID(),
         role,
         cohort,
         fullName: cleanText(record.full_name, 120),
-        emailPreview: maskEmail(typeof record.email === "string" ? record.email : ""),
+        email: rawEmail,
+        emailPreview: maskEmail(rawEmail),
         jurisdictionCode: compliance.jurisdictionCode,
         intendedStayDays,
         allowed,

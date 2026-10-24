@@ -4,12 +4,16 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { LandlordYieldCalculator } from "@/components/landlord-yield-calculator";
 import { LeadCaptureForm } from "@/components/lead-capture-form";
-import type { PipelineLeadItem } from "@/app/api/marketing/lead/route";
+import { Progress } from "@/components/ui/progress";
+import type { LeadCohort, PipelineLeadItem } from "@/app/api/marketing/lead/route";
 import {
   DEFAULT_JURISDICTION_CODE,
   JURISDICTION_RULES,
 } from "@/lib/compliance/jurisdictions";
 import {
+  CALCULATOR_PLATFORM_BPS,
+  CALCULATOR_VAULT_BPS,
+  DEFAULT_CALCULATOR_WEEKLY_CENTS,
   calculateJurisdictionYield,
   formatCurrencyCents,
 } from "@/lib/marketing-calculator";
@@ -18,6 +22,18 @@ import {
   resolvePurposeCohort,
   type PurposeCohortId,
 } from "@/lib/underwriting-contract";
+
+const MILESTONE_TARGET_STAYS = 45;
+const WEEKS_PER_YEAR = 52;
+
+const ALL_PIPELINE_COHORTS: readonly LeadCohort[] = [
+  "Contract-Assignment",
+  "Academic-Enrollment",
+  "Seasonal-Remote",
+  "Insurance-Relocation",
+  "Host-Property",
+  "Enterprise-Partner",
+];
 
 export default function MarketingCommandCenterPage() {
   const [campaignCohort, setCampaignCohort] = useState<PurposeCohortId>("Contract-Assignment");
@@ -123,7 +139,7 @@ export default function MarketingCommandCenterPage() {
 
       if (!portalKey.trim()) {
         setCampaignResult(
-          `Enterprise ${campaignCohort} lead stored in ${String(leadRecord.storage ?? "marketing_leads")} (${String(leadRecord.leadId ?? "ok")}). Provide an ENTERPRISE_PORTAL_KEY bearer token above to also dispatch a live POST /api/enterprise/placement call.`,
+          `Enterprise ${campaignCohort} lead stored in ${String(leadRecord.storage ?? "marketing_leads")} (${String(leadRecord.leadId ?? "ok")}). Provide an ENTERPRISE_PORTAL_KEY bearer token above to also dispatch a live POST /api/enterprise/placement call. Be Great to Yourself!`,
         );
         return;
       }
@@ -179,18 +195,43 @@ export default function MarketingCommandCenterPage() {
     }
   }
 
+  const totalLeads = pipelineLeads.length;
+  const milestonePercent = Math.min(
+    100,
+    Math.round((totalLeads / MILESTONE_TARGET_STAYS) * 100),
+  );
+
+  const annualPerStayGmvCents = DEFAULT_CALCULATOR_WEEKLY_CENTS * WEEKS_PER_YEAR;
+  const annualPerStayVaultCents =
+    Math.round((DEFAULT_CALCULATOR_WEEKLY_CENTS * CALCULATOR_VAULT_BPS) / 10000) * WEEKS_PER_YEAR;
+  const annualPerStayPlatformCents =
+    Math.round((DEFAULT_CALCULATOR_WEEKLY_CENTS * CALCULATOR_PLATFORM_BPS) / 10000) * WEEKS_PER_YEAR;
+
+  const pipelineAnnualGmvCents = totalLeads * annualPerStayGmvCents;
+  const pipelineAnnualVaultCents = totalLeads * annualPerStayVaultCents;
+  const pipelineAnnualPlatformCents = totalLeads * annualPerStayPlatformCents;
+
+  const targetAnnualGmvCents = MILESTONE_TARGET_STAYS * annualPerStayGmvCents;
+  const targetAnnualVaultCents = MILESTONE_TARGET_STAYS * annualPerStayVaultCents;
+  const targetAnnualPlatformCents = MILESTONE_TARGET_STAYS * annualPerStayPlatformCents;
+
+  const cohortCounts = ALL_PIPELINE_COHORTS.map((cohort) => ({
+    cohort,
+    count: pipelineLeads.filter((lead) => lead.cohort === cohort).length,
+  }));
+
   return (
     <main className="shell">
       <header className="topbar">
         <div>
           <p className="pass-kicker">
-            Be Great to Yourself. · Purpose-Driven Pleasure · Pleasure-Driven Purpose
+            Be Great to Yourself. · Universal Purpose-Verified Stay Platform
           </p>
           <h1>Marketing &amp; Growth Command Center</h1>
           <p className="lede">
-            Be Great to Yourself. VettedRent turns temporary purpose (Contract-Assignment &amp;
-            Academic-Enrollment) into frictionless pleasure, and temporary pleasure or sanctuary
-            (Seasonal-Remote &amp; Insurance-Relocation) into verified, rollover-protected purpose.
+            Be Great to Yourself. Acquire Property Hosts, 4-Cohort Purpose-Verified Lodgers, and
+            University / Insurance / Staffing Enterprise Partners with one-click underwriting and
+            host shield conversion.
           </p>
         </div>
         <div className="actions">
@@ -211,7 +252,7 @@ export default function MarketingCommandCenterPage() {
           <div className="stay-card-head">
             <div>
               <p className="pass-kicker">
-                Brand Manifesto · Purpose-Driven Pleasure · Pleasure-Driven Purpose
+                Brand Manifesto · Universal Purpose-Verified Stay Platform
               </p>
               <h2>Be Great to Yourself.</h2>
             </div>
@@ -222,11 +263,10 @@ export default function MarketingCommandCenterPage() {
             <strong>Weekly Micro-Billing + 14.3% GMF Move-Out Vault</strong>
           </div>
           <p className="note">
-            Whether arriving for Purpose-Driven Pleasure (Contract-Assignment &amp;
-            Academic-Enrollment) or Pleasure-Driven Purpose (Seasonal-Remote &amp;
-            Insurance-Relocation), lodgers build their own $1,500.00 GMF Move-Out Vault through
-            automated 14.3% weekly micro-billing allocations—with zero credit checks and instant
-            smart-lock arrival.
+            Across all 4 Purpose-Verified Stay cohorts (Contract-Assignment, Academic-Enrollment,
+            Seasonal-Remote, and Insurance-Relocation), lodgers build their own $1,500.00 GMF
+            Move-Out Vault through automated 14.3% weekly micro-billing allocations—with zero credit
+            checks and instant smart-lock arrival.
           </p>
           <div className="row">
             <span>For Hosts — Be Great to Yourself</span>
@@ -242,8 +282,71 @@ export default function MarketingCommandCenterPage() {
         <article className="panel stay-card">
           <div className="stay-card-head">
             <div>
+              <p className="pass-kicker">Commercial North Star · Be Great to Yourself.</p>
+              <h2>$1M Valuation &amp; 45-Stay Milestone Tracker</h2>
+            </div>
+            <span className="chip">
+              {totalLeads} / {MILESTONE_TARGET_STAYS} Stays ({milestonePercent}%)
+            </span>
+          </div>
+
+          <div className="vault-progress">
+            <Progress
+              value={milestonePercent}
+              aria-label={`$1M Valuation Milestone: ${totalLeads} of ${MILESTONE_TARGET_STAYS} stays`}
+            />
+            <p className="vault-label">
+              Pipeline Progress: <strong>{totalLeads}</strong> captured leads toward{" "}
+              <strong>{MILESTONE_TARGET_STAYS} active stays</strong> ($1M Valuation Milestone at
+              $245.00/wk benchmark).
+            </p>
+          </div>
+
+          <div className="stack">
+            <div className="row">
+              <span>Projected Annualized GMV (Current Pipeline → 45-Stay Target)</span>
+              <strong>
+                {formatCurrencyCents(pipelineAnnualGmvCents)} →{" "}
+                {formatCurrencyCents(targetAnnualGmvCents)} / yr
+              </strong>
+            </div>
+            <div className="row">
+              <span>14.3% GMF Escrow Volume (Current Pipeline → 45-Stay Target)</span>
+              <strong>
+                {formatCurrencyCents(pipelineAnnualVaultCents)} →{" "}
+                {formatCurrencyCents(targetAnnualVaultCents)} / yr
+              </strong>
+            </div>
+            <div className="row">
+              <span>10.2% Net Platform Revenue (Current Pipeline → 45-Stay Target)</span>
+              <span className="chip">
+                {formatCurrencyCents(pipelineAnnualPlatformCents)} →{" "}
+                {formatCurrencyCents(targetAnnualPlatformCents)} / yr
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <p className="pass-kicker">Live Pipeline Breakdown by Cohort</p>
+            <div className="actions" style={{ flexWrap: "wrap", marginTop: "0.5rem" }}>
+              {cohortCounts.map((item) => (
+                <span
+                  key={item.cohort}
+                  className="stay-badge"
+                  data-status={item.count > 0 ? "active" : "warning"}
+                >
+                  {item.cohort}: {item.count}
+                </span>
+              ))}
+            </div>
+          </div>
+        </article>
+
+        <article className="panel stay-card">
+          <div className="stay-card-head">
+            <div>
               <p className="pass-kicker">
-                Live Supabase Feed · <code>public.{pipelineStorage}</code>
+                One-Click Conversion Console · <code>public.{pipelineStorage}</code>
               </p>
               <h2>Inbound Acquisition Pipeline</h2>
             </div>
@@ -257,8 +360,8 @@ export default function MarketingCommandCenterPage() {
             </button>
           </div>
           <p className="note">
-            Live leads captured from <code>public.marketing_leads</code> across all 4
-            Purpose-Verified Stay cohorts, Property Hosts, and Enterprise Partners.
+            Convert any captured lead in one click: launch pre-filled 3.0x underwriting for lodger
+            and enterprise leads, or configure the statutory host shield for property hosts.
           </p>
 
           <div className="pipeline-table-wrap">
@@ -269,7 +372,7 @@ export default function MarketingCommandCenterPage() {
                   <th>Lead / Role</th>
                   <th>Jurisdiction Status</th>
                   <th>Stay</th>
-                  <th>Timestamp (UTC)</th>
+                  <th>One-Click Conversion Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -282,28 +385,53 @@ export default function MarketingCommandCenterPage() {
                     </td>
                   </tr>
                 ) : (
-                  pipelineLeads.map((lead) => (
-                    <tr key={lead.id}>
-                      <td>
-                        <span className="stay-badge" data-status={lead.allowed ? "active" : "warning"}>
-                          {lead.cohort}
-                        </span>
-                      </td>
-                      <td>
-                        <strong>{lead.fullName ?? lead.emailPreview}</strong>
-                        <br />
-                        <span className="note">
-                          {lead.role.toUpperCase()}
-                          {lead.agencyName ? ` · ${lead.agencyName}` : ""}
-                        </span>
-                      </td>
-                      <td>{lead.jurisdictionStatus}</td>
-                      <td>
-                        <strong>{lead.intendedStayDays}d</strong>
-                      </td>
-                      <td>{formatUtcTimestamp(lead.createdAt)}</td>
-                    </tr>
-                  ))
+                  pipelineLeads.map((lead) => {
+                    const isHostLead =
+                      lead.role === "host" || lead.cohort === "Host-Property";
+                    const underwritingCohort =
+                      lead.cohort === "Host-Property" || lead.cohort === "Enterprise-Partner"
+                        ? "Contract-Assignment"
+                        : lead.cohort;
+                    const underwritingHref = `/underwriting?cohort=${encodeURIComponent(underwritingCohort)}&days=${lead.intendedStayDays}&jurisdiction=${encodeURIComponent(lead.jurisdictionCode)}&email=${encodeURIComponent(lead.email)}`;
+                    const hostShieldHref = `/jurisdictions/${encodeURIComponent(lead.jurisdictionCode)}`;
+
+                    return (
+                      <tr key={lead.id}>
+                        <td>
+                          <span
+                            className="stay-badge"
+                            data-status={lead.allowed ? "active" : "warning"}
+                          >
+                            {lead.cohort}
+                          </span>
+                        </td>
+                        <td>
+                          <strong>{lead.fullName ?? lead.emailPreview}</strong>
+                          <br />
+                          <span className="note">
+                            {lead.role.toUpperCase()}
+                            {lead.agencyName ? ` · ${lead.agencyName}` : ""} ·{" "}
+                            {formatUtcTimestamp(lead.createdAt)}
+                          </span>
+                        </td>
+                        <td>{lead.jurisdictionStatus}</td>
+                        <td>
+                          <strong>{lead.intendedStayDays}d</strong>
+                        </td>
+                        <td>
+                          {isHostLead ? (
+                            <Link className="button button-secondary" href={hostShieldHref}>
+                              Configure Host Shield →
+                            </Link>
+                          ) : (
+                            <Link className="button" href={underwritingHref}>
+                              Launch 3.0x Underwriting →
+                            </Link>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

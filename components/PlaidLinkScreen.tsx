@@ -1,12 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { JurisdictionSelect } from "@/components/jurisdiction-select";
 import { usePlaidLinkFlow } from "@/hooks/usePlaidLinkFlow";
-import { DEFAULT_JURISDICTION_CODE } from "@/lib/compliance/jurisdictions";
+import {
+  DEFAULT_JURISDICTION_CODE,
+  resolveJurisdiction,
+} from "@/lib/compliance/jurisdictions";
 import {
   PURPOSE_COHORTS,
+  addUtcDays,
   defaultContractTerm,
   resolvePurposeCohort,
   type ContractTerm,
@@ -20,6 +24,51 @@ export function PlaidLinkScreen() {
   const initial = defaultContractTerm();
   const [contract, setContract] = useState<ContractTerm>(initial);
   const [jurisdictionCode, setJurisdictionCode] = useState(DEFAULT_JURISDICTION_CODE);
+  const [prefilledLeadEmail, setPrefilledLeadEmail] = useState<string | null>(null);
+  const [prefilledStayDays, setPrefilledStayDays] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const cohortParam = params.get("cohort");
+    const daysParam = params.get("days");
+    const jurisdictionParam = params.get("jurisdiction");
+    const emailParam = params.get("email");
+
+    if (!cohortParam && !daysParam && !jurisdictionParam && !emailParam) {
+      return;
+    }
+
+    const matchedCohort = resolvePurposeCohort(cohortParam);
+    const parsedDays = daysParam ? Number(daysParam) : NaN;
+    const stayDays =
+      Number.isFinite(parsedDays) && parsedDays >= 1 && parsedDays <= 365
+        ? Math.round(parsedDays)
+        : matchedCohort.defaultStayDays;
+    const targetEndDate = addUtcDays(new Date(), stayDays);
+
+    setContract({
+      credentialType: matchedCohort.id,
+      credentialIdentifier: matchedCohort.defaultIdentifier,
+      contractEndDate: targetEndDate,
+      intendedStayEndDate: targetEndDate,
+    });
+    setPrefilledStayDays(stayDays);
+
+    if (jurisdictionParam) {
+      const rule = resolveJurisdiction(jurisdictionParam);
+      if (rule) {
+        setJurisdictionCode(rule.code);
+      }
+    }
+
+    if (emailParam && emailParam.trim() !== "") {
+      setPrefilledLeadEmail(emailParam.trim());
+    }
+  }, []);
+
   const { phase, error, decision, ready, open, canSimulate, simulate } = usePlaidLinkFlow(
     WEEKLY_STAY_CENTS,
     contract,
@@ -30,13 +79,16 @@ export function PlaidLinkScreen() {
 
   function selectCohort(cohortId: PurposeCohortId) {
     setContract(defaultContractTerm(new Date(), cohortId));
+    setPrefilledStayDays(resolvePurposeCohort(cohortId).defaultStayDays);
   }
 
   return (
     <main className="shell">
       <header className="topbar">
         <div>
-          <p className="pass-kicker">Pillar 1 · Universal Purpose-Verified Stay Engine</p>
+          <p className="pass-kicker">
+            Be Great to Yourself. · Pillar 1 Universal Purpose-Verified Stay Engine
+          </p>
           <h1>Connect a bank &amp; verify stay purpose</h1>
           <p className="lede">
             A weekly stay checks 90 days of deposits (3.00x coverage), a verified temporary stay
@@ -55,6 +107,21 @@ export function PlaidLinkScreen() {
       </header>
 
       <section className="stack" aria-label="Bank connection">
+        {prefilledLeadEmail || prefilledStayDays ? (
+          <article className="panel">
+            <div className="stay-card-head">
+              <strong>One-Click Pipeline Conversion Active</strong>
+              <span className="chip">{activeCohort.id}</span>
+            </div>
+            <p className="note">
+              Pre-configured from Inbound Acquisition Pipeline
+              {prefilledLeadEmail ? ` for ${prefilledLeadEmail}` : ""} ·{" "}
+              {prefilledStayDays ?? activeCohort.defaultStayDays}-day stay in {jurisdictionCode}.{" "}
+              <strong>Be Great to Yourself.</strong>
+            </p>
+          </article>
+        ) : null}
+
         <article className="panel stay-card">
           <div className="stay-card-head">
             <div>
@@ -235,7 +302,7 @@ function Decision({
       <p className="note">
         Estimated monthly deposits {formatDollars(decision.monthlyInflowEstimated)}. Approval
         requires 3.00x coverage of the four-week stay, a verified purpose that lasts through the
-        intended stay, and compliance with the cohort stay floor.
+        intended stay, and compliance with the cohort stay floor. Be Great to Yourself.
       </p>
       {decision.geoCompliance ? <p className="note">{decision.geoCompliance}</p> : null}
       {decision.rejection ? (

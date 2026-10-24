@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "VettedRent",
-  description: "Weekly stays for hosts and lodgers.",
+  title: "VettedRent · Be Great to Yourself.",
+  description: "The universal Purpose-Verified Stay platform for weekly hosts and lodgers. Be Great to Yourself.",
 };
 
 export const viewport: Viewport = {
