@@ -115,12 +115,12 @@ export function jurisdictionMarketSummary(rule: JurisdictionRule): {
         : "Restricted Statutory Regime";
 
   return {
-    headline: `${rule.name} (${rule.code}) Weekly Stays & Statutory Guardrails`,
+    headline: `${rule.name} (${rule.code}) Purpose-Verified Weekly Stays & Statutory Guardrails`,
     subheadline: `${structureText} · ${rule.maxTransientDays}-Day Max Transient Ceiling · ${riskText}`,
     hostPitch:
       rule.judicialRiskTier === "restricted"
         ? `${rule.name} enforces a ${rule.maxTransientDays}-day residential tenancy threshold. VettedRent automatically blocks revocable lodging matches here to protect property owners from statutory holdover exposure.`
-        : `Host verified VettedCare / VettedME contract professionals in ${rule.name} with automated weekly payouts (75.5%), a 14.3% GMF escrow reserve, and a ${rule.maxTransientDays}-day statutory ceiling check.`,
-    lodgerPitch: `Zero-credit-check 90-day bank velocity underwriting and smart-lock room access for traveling clinicians and contract specialists assigned to ${rule.name}.`,
+        : `Host verified Contract-Assignment, Academic-Enrollment, Seasonal-Remote, and Insurance-Relocation guests in ${rule.name} with automated weekly payouts (75.5%), a 14.3% GMF escrow reserve, and a ${rule.maxTransientDays}-day statutory ceiling check.`,
+    lodgerPitch: `Zero-credit-check 90-day bank velocity underwriting (3.0x coverage) and smart-lock room access across all 4 Purpose-Verified Stay cohorts in ${rule.name}.`,
   };
 }

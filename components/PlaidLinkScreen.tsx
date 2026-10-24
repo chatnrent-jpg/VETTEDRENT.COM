@@ -5,7 +5,13 @@ import { useState } from "react";
 import { JurisdictionSelect } from "@/components/jurisdiction-select";
 import { usePlaidLinkFlow } from "@/hooks/usePlaidLinkFlow";
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/compliance/jurisdictions";
-import { defaultContractTerm, type ContractTerm } from "@/lib/underwriting-contract";
+import {
+  PURPOSE_COHORTS,
+  defaultContractTerm,
+  resolvePurposeCohort,
+  type ContractTerm,
+  type PurposeCohortId,
+} from "@/lib/underwriting-contract";
 
 /** Displayed weekly stay on the dashboard, in integer cents. */
 const WEEKLY_STAY_CENTS = 24500;
@@ -20,62 +26,123 @@ export function PlaidLinkScreen() {
     jurisdictionCode,
   );
   const checking = phase === "checking";
+  const activeCohort = resolvePurposeCohort(contract.credentialType);
+
+  function selectCohort(cohortId: PurposeCohortId) {
+    setContract(defaultContractTerm(new Date(), cohortId));
+  }
 
   return (
     <main className="shell">
       <header className="topbar">
         <div>
-          <h1>Connect a bank</h1>
+          <p className="pass-kicker">Pillar 1 · Universal Purpose-Verified Stay Engine</p>
+          <h1>Connect a bank &amp; verify stay purpose</h1>
           <p className="lede">
-            A weekly stay checks 90 days of deposits, an active contract that lasts through the
-            intended stay, and the listing location's transient ceiling.
+            A weekly stay checks 90 days of deposits (3.00x coverage), a verified temporary stay
+            purpose that lasts through the intended stay, and the listing location&apos;s statutory
+            transient ceiling.
           </p>
+        </div>
+        <div className="actions">
+          <Link className="button button-secondary" href="/marketing">
+            Marketing Hub
+          </Link>
+          <Link className="button button-secondary" href="/dashboard">
+            Dashboard
+          </Link>
         </div>
       </header>
 
       <section className="stack" aria-label="Bank connection">
-        <article className="panel">
-          <h2>Contract and credential</h2>
+        <article className="panel stay-card">
+          <div className="stay-card-head">
+            <div>
+              <p className="pass-kicker">4 Temporary Stay Cohorts</p>
+              <h2>Purpose-Verified Stay Cohort &amp; Credential</h2>
+            </div>
+            <span className="chip">{activeCohort.id}</span>
+          </div>
+
+          <div
+            className="toggle"
+            role="group"
+            aria-label="Purpose-Verified Stay Cohort"
+            style={{ flexWrap: "wrap" }}
+          >
+            {PURPOSE_COHORTS.map((cohort) => (
+              <button
+                key={cohort.id}
+                type="button"
+                aria-pressed={activeCohort.id === cohort.id}
+                onClick={() => selectCohort(cohort.id)}
+              >
+                {cohort.title}
+              </button>
+            ))}
+          </div>
+
           <p className="note">
-            A 13-week assignment defaults to 90 days. Credential {initial.credentialIdentifier} or{" "}
-            {initial.credentialType}. The contract end date must be on or after the intended stay
-            end date.
+            <strong>{activeCohort.audience}</strong> — {activeCohort.summary}
           </p>
+
           <label className="field">
-            <span>Credential</span>
+            <span>Purpose-Verified Stay cohort</span>
             <select
               value={contract.credentialType}
-              onChange={(event) => setContract({ ...contract, credentialType: event.target.value })}
+              onChange={(event) => selectCohort(event.target.value as PurposeCohortId)}
             >
-              <option value="Contract-Assignment">Contract-Assignment</option>
-              <option value="RN-MD-Compact">RN-MD-Compact</option>
+              {PURPOSE_COHORTS.map((cohort) => (
+                <option key={cohort.id} value={cohort.id}>
+                  {cohort.title} — {cohort.audience}
+                </option>
+              ))}
             </select>
           </label>
+
           <label className="field">
-            <span>Credential identifier</span>
+            <span>{activeCohort.identifierLabel}</span>
             <input
               value={contract.credentialIdentifier}
-              onChange={(event) => setContract({ ...contract, credentialIdentifier: event.target.value })}
+              onChange={(event) =>
+                setContract({ ...contract, credentialIdentifier: event.target.value })
+              }
             />
           </label>
+
           <label className="field">
-            <span>Contract end date</span>
+            <span>{activeCohort.endDateLabel}</span>
             <input
               type="date"
               value={contract.contractEndDate}
-              onChange={(event) => setContract({ ...contract, contractEndDate: event.target.value })}
+              onChange={(event) =>
+                setContract({ ...contract, contractEndDate: event.target.value })
+              }
             />
           </label>
+
           <label className="field">
-            <span>Intended stay end date</span>
+            <span>
+              Intended stay end date
+              {activeCohort.id === "Seasonal-Remote" ? " (14-day minimum stay floor)" : ""}
+            </span>
             <input
               type="date"
               value={contract.intendedStayEndDate}
-              onChange={(event) => setContract({ ...contract, intendedStayEndDate: event.target.value })}
+              onChange={(event) =>
+                setContract({ ...contract, intendedStayEndDate: event.target.value })
+              }
             />
           </label>
+
+          <div className="row">
+            <span>Cohort coverage rule</span>
+            <strong>{activeCohort.inflowRuleLabel}</strong>
+          </div>
+
           <JurisdictionSelect value={jurisdictionCode} onChange={setJurisdictionCode} />
         </article>
+
         <article className="panel">
           <h2>Deposit history</h2>
           {canSimulate ? (
@@ -133,6 +200,7 @@ function Decision({
     simulated: boolean;
     rejection: string | null;
     credentialType: string;
+    credentialIdentifier: string;
     contractEndDate: string;
     intendedStayEndDate: string;
     geoCompliance: string;
@@ -145,11 +213,19 @@ function Decision({
         <strong>{decision.approved ? "Approved" : "Not approved"}</strong>
       </div>
       <div className="row">
+        <span>Purpose cohort</span>
+        <strong>{decision.credentialType}</strong>
+      </div>
+      <div className="row">
+        <span>Verified credential ID</span>
+        <strong>{decision.credentialIdentifier}</strong>
+      </div>
+      <div className="row">
         <span>Coverage</span>
         <strong>{decision.ratio.toFixed(2)}x</strong>
       </div>
       <div className="row">
-        <span>Contract end</span>
+        <span>Purpose / contract end</span>
         <strong>{decision.contractEndDate}</strong>
       </div>
       <div className="row">
@@ -158,8 +234,8 @@ function Decision({
       </div>
       <p className="note">
         Estimated monthly deposits {formatDollars(decision.monthlyInflowEstimated)}. Approval
-        requires 3.00x coverage of the four-week stay and a contract that lasts through the
-        intended stay. Credential {decision.credentialType}.
+        requires 3.00x coverage of the four-week stay, a verified purpose that lasts through the
+        intended stay, and compliance with the cohort stay floor.
       </p>
       {decision.geoCompliance ? <p className="note">{decision.geoCompliance}</p> : null}
       {decision.rejection ? (

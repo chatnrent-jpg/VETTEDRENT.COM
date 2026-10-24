@@ -1,7 +1,17 @@
--- Marketing & Growth Engine leads table.
+-- Marketing & Growth Engine leads table across all 4 Purpose-Verified Stay cohorts.
 create table if not exists public.marketing_leads (
   id uuid primary key default gen_random_uuid(),
   role text not null check (role in ('host', 'lodger', 'enterprise')),
+  cohort text not null default 'Contract-Assignment' check (
+    cohort in (
+      'Contract-Assignment',
+      'Academic-Enrollment',
+      'Seasonal-Remote',
+      'Insurance-Relocation',
+      'Host-Property',
+      'Enterprise-Partner'
+    )
+  ),
   full_name text,
   email text not null,
   phone text,
@@ -18,6 +28,9 @@ create table if not exists public.marketing_leads (
   webhook_status text,
   created_at timestamptz not null default now()
 );
+
+alter table public.marketing_leads
+  add column if not exists cohort text not null default 'Contract-Assignment';
 
 alter table public.marketing_leads enable row level security;
 

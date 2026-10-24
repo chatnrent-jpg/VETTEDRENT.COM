@@ -8,14 +8,23 @@ import {
 import { evaluateGeoCompliance, INTENDED_STAY_DAYS } from "@/lib/geo-compliance";
 import { sendSMS, type SmsResult } from "@/lib/sms";
 import { getSupabaseServerClient } from "@/lib/supabase";
+import {
+  PURPOSE_COHORT_IDS,
+  SEASONAL_REMOTE_FLOOR_MESSAGE,
+  SEASONAL_REMOTE_MIN_DAYS,
+  meetsCohortStayFloor,
+  type PurposeCohortId,
+} from "@/lib/underwriting-contract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export type LeadRole = "host" | "lodger" | "enterprise";
+export type LeadCohort = PurposeCohortId | "Host-Property" | "Enterprise-Partner";
 
 type ParsedLead = {
   role: LeadRole;
+  cohort: LeadCohort;
   fullName: string | null;
   email: string;
   phone: string | null;
@@ -54,6 +63,9 @@ export async function POST(request: Request) {
       },
       parsed.intendedStayDays,
     );
+    const meetsFloor = meetsCohortStayFloor(parsed.cohort, parsed.intendedStayDays);
+    const allowed = compliance.allowed && meetsFloor;
+    const blockReason = !meetsFloor ? SEASONAL_REMOTE_FLOOR_MESSAGE : compliance.blockReason;
 
     const smsResult = await dispatchConfirmationSms(parsed, compliance.statusLabel);
     const webhookStatus = await dispatchOutboundLeadHook(parsed, compliance.statusLabel);
@@ -65,12 +77,14 @@ export async function POST(request: Request) {
       persisted: leadRecord.persisted,
       storage: leadRecord.storage,
       role: parsed.role,
+      cohort: parsed.cohort,
       email: parsed.email,
       phone: parsed.phone,
       jurisdictionCode: compliance.jurisdictionCode,
+      intendedStayDays: parsed.intendedStayDays,
       geoCompliance: compliance.statusLabel,
-      allowed: compliance.allowed,
-      blockReason: compliance.blockReason,
+      allowed,
+      blockReason,
       attribution: {
         utmSource: parsed.utmSource,
         utmMedium: parsed.utmMedium,
@@ -99,6 +113,13 @@ function parseLeadPayload(value: unknown): ParsedLead | { error: string } {
   if (!role) {
     return { error: "Role must be host, lodger, or enterprise" };
   }
+  const cohort = parseCohort(body.cohort, role);
+  if (!cohort) {
+    return {
+      error:
+        "Cohort must be Contract-Assignment, Academic-Enrollment, Seasonal-Remote, Insurance-Relocation, Host-Property, or Enterprise-Partner",
+    };
+  }
   const email = parseEmail(body.email);
   if (!email) {
     return { error: "A valid email address is required" };
@@ -116,10 +137,12 @@ function parseLeadPayload(value: unknown): ParsedLead | { error: string } {
   }
 
   const weeklyRateCents = parsePositiveCents(body.weeklyRateCents);
-  const intendedStayDays = parsePositiveDays(body.intendedStayDays) ?? INTENDED_STAY_DAYS;
+  const defaultStayDays = cohort === "Seasonal-Remote" ? 30 : INTENDED_STAY_DAYS;
+  const intendedStayDays = parsePositiveDays(body.intendedStayDays) ?? defaultStayDays;
 
   return {
     role,
+    cohort,
     fullName: cleanText(body.fullName, 120),
     email,
     phone,
@@ -146,8 +169,8 @@ async function dispatchConfirmationSms(
     lead.role === "host"
       ? "Property Host"
       : lead.role === "enterprise"
-        ? "Enterprise Staffing Partner"
-        : "VettedCare / VettedME Lodger";
+        ? `Enterprise Partner (${lead.cohort})`
+        : `Purpose-Verified Lodger (${lead.cohort})`;
   const body = `VettedRent (${lead.jurisdictionCode}): Your ${roleLabel} intake is logged. ${geoStatusLabel} Reply STOP to opt out.`;
   const result = await sendSMS(lead.phone, body);
   return { attempted: true, status: result };
@@ -189,8 +212,8 @@ async function dispatchOutboundLeadHook(
         body: JSON.stringify({
           from: resendFrom,
           to: [lead.email],
-          subject: `VettedRent ${lead.jurisdictionCode} intake received`,
-          text: `Your VettedRent (${lead.role}) intake for ${lead.jurisdictionCode} is confirmed.\n${geoStatusLabel}`,
+          subject: `VettedRent ${lead.jurisdictionCode} (${lead.cohort}) intake received`,
+          text: `Your VettedRent (${lead.role} / ${lead.cohort}) intake for ${lead.jurisdictionCode} is confirmed.\n${geoStatusLabel}`,
         }),
       });
       return { configured: true, delivered: response.ok, provider: "resend" };
@@ -217,36 +240,53 @@ async function persistMarketingLead(
       : "failed";
   const webhookSummary = `${webhook.provider}:${webhook.delivered ? "delivered" : "standby"}`;
 
+  const baseRow = {
+    role: lead.role,
+    full_name: lead.fullName,
+    email: lead.email,
+    phone: lead.phone,
+    jurisdiction_code: lead.jurisdictionCode,
+    weekly_rate_cents: lead.weeklyRateCents,
+    intended_stay_days: lead.intendedStayDays,
+    agency_name: lead.agencyName,
+    utm_source: lead.utmSource,
+    utm_medium: lead.utmMedium,
+    utm_campaign: lead.utmCampaign,
+    utm_content: lead.utmContent,
+    notes: lead.notes,
+    sms_status: smsSummary,
+    webhook_status: webhookSummary,
+  };
+
   try {
     const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase
+    const withCohort = await supabase
       .from("marketing_leads")
-      .insert({
-        role: lead.role,
-        full_name: lead.fullName,
-        email: lead.email,
-        phone: lead.phone,
-        jurisdiction_code: lead.jurisdictionCode,
-        weekly_rate_cents: lead.weeklyRateCents,
-        intended_stay_days: lead.intendedStayDays,
-        agency_name: lead.agencyName,
-        utm_source: lead.utmSource,
-        utm_medium: lead.utmMedium,
-        utm_campaign: lead.utmCampaign,
-        utm_content: lead.utmContent,
-        notes: lead.notes,
-        sms_status: smsSummary,
-        webhook_status: webhookSummary,
-      })
+      .insert({ ...baseRow, cohort: lead.cohort })
       .select("id")
       .maybeSingle();
 
-    if (!error && data && typeof (data as { id?: unknown }).id === "string") {
+    if (!withCohort.error && withCohort.data && typeof (withCohort.data as { id?: unknown }).id === "string") {
       return {
-        leadId: (data as { id: string }).id,
+        leadId: (withCohort.data as { id: string }).id,
         persisted: true,
         storage: "marketing_leads",
       };
+    }
+
+    if (withCohort.error && (withCohort.error.message ?? "").includes("cohort")) {
+      const legacy = await supabase
+        .from("marketing_leads")
+        .insert(baseRow)
+        .select("id")
+        .maybeSingle();
+      if (!legacy.error && legacy.data && typeof (legacy.data as { id?: unknown }).id === "string") {
+        return {
+          leadId: (legacy.data as { id: string }).id,
+          persisted: true,
+          storage: "marketing_leads",
+        };
+      }
     }
   } catch {
     // Graceful degradation when marketing_leads migration is not yet applied.
@@ -257,8 +297,10 @@ async function persistMarketingLead(
       audit: "marketing_lead_captured",
       leadId: fallbackId,
       role: lead.role,
+      cohort: lead.cohort,
       email: lead.email,
       jurisdictionCode: lead.jurisdictionCode,
+      minFloorDays: lead.cohort === "Seasonal-Remote" ? SEASONAL_REMOTE_MIN_DAYS : 7,
       utmSource: lead.utmSource,
       utmMedium: lead.utmMedium,
       utmCampaign: lead.utmCampaign,
@@ -280,6 +322,31 @@ function parseRole(value: unknown): LeadRole | null {
   const normalized = value.trim().toLowerCase();
   if (normalized === "host" || normalized === "lodger" || normalized === "enterprise") {
     return normalized;
+  }
+  return null;
+}
+
+function parseCohort(value: unknown, role: LeadRole): LeadCohort | null {
+  if (value === undefined || value === null || value === "") {
+    return "Contract-Assignment";
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  for (const id of PURPOSE_COHORT_IDS) {
+    if (id.toLowerCase() === trimmed.toLowerCase()) {
+      return id;
+    }
+  }
+  if (trimmed.toLowerCase() === "host-property") {
+    return "Host-Property";
+  }
+  if (trimmed.toLowerCase() === "enterprise-partner") {
+    return "Enterprise-Partner";
+  }
+  if (role === "host") {
+    return "Host-Property";
   }
   return null;
 }
@@ -314,7 +381,7 @@ function parsePositiveCents(value: unknown): number | null {
 }
 
 function parsePositiveDays(value: unknown): number | null {
-  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 7 && value <= 365) {
+  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 1 && value <= 365) {
     return value;
   }
   return null;

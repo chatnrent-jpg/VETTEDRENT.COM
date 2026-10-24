@@ -6,7 +6,9 @@ import { parseJurisdictionCode } from "@/lib/compliance/jurisdictions";
 import { evaluateGeoCompliance, intendedStayLengthDays, persistListingJurisdiction, readListingCompliance } from "@/lib/geo-compliance";
 import {
   MID_TERM_EXPOSURE_MESSAGE,
+  SEASONAL_REMOTE_FLOOR_MESSAGE,
   contractCoversStay,
+  meetsCohortStayFloor,
   resolveContractTerm,
   type ContractTerm,
 } from "@/lib/underwriting-contract";
@@ -74,6 +76,7 @@ export async function POST(request: Request) {
       : await evaluateCashVelocity(parsed.accessToken, parsed.weeklyTargetCents);
     const coversStay = contractCoversStay(contract.contractEndDate, contract.intendedStayEndDate);
     const stayDays = intendedStayLengthDays(contract.intendedStayEndDate);
+    const meetsStayFloor = meetsCohortStayFloor(contract.credentialType, stayDays);
     const listingId = await listingForCaller(supabase, userId);
     if (selected && listingId) {
       await persistListingJurisdiction(supabase, listingId, selected);
@@ -85,8 +88,13 @@ export async function POST(request: Request) {
       decision.ratio >= COVERAGE_FLOOR &&
       decision.ratio >= REQUIRED_COVERAGE &&
       coversStay &&
+      meetsStayFloor &&
       compliance.allowed;
-    const rejection = !coversStay ? MID_TERM_EXPOSURE_MESSAGE : compliance.blockReason;
+    const rejection = !coversStay
+      ? MID_TERM_EXPOSURE_MESSAGE
+      : !meetsStayFloor
+        ? SEASONAL_REMOTE_FLOOR_MESSAGE
+        : compliance.blockReason;
     await recordUnderwriting(supabase, userId, decision, approved, contract, parsed.simulated ? null : parsed.accessToken);
 
     return NextResponse.json({

@@ -1,8 +1,91 @@
-/** A 13-week assignment underwritten as 90 days. */
+/** Default 13-week assignment underwritten as 90 days. */
 export const ASSIGNMENT_DAYS = 90;
+
+/** Minimum stay floor for the Seasonal-Remote cohort, in days. */
+export const SEASONAL_REMOTE_MIN_DAYS = 14;
 
 export const MID_TERM_EXPOSURE_MESSAGE =
   "Mid-Term Exposure guardrail: the contract ends before the intended stay ends, so underwriting is not approved.";
+
+export const SEASONAL_REMOTE_FLOOR_MESSAGE =
+  "Seasonal-Remote guardrail: Seasonal-Remote stays require a 14-day minimum stay floor, so underwriting is not approved.";
+
+export const PURPOSE_COHORT_IDS = [
+  "Contract-Assignment",
+  "Academic-Enrollment",
+  "Seasonal-Remote",
+  "Insurance-Relocation",
+] as const;
+
+export type PurposeCohortId = (typeof PURPOSE_COHORT_IDS)[number];
+
+export type PurposeCohortRule = {
+  id: PurposeCohortId;
+  title: string;
+  audience: string;
+  identifierLabel: string;
+  defaultIdentifier: string;
+  endDateLabel: string;
+  inflowRuleLabel: string;
+  minStayDays: number;
+  defaultStayDays: number;
+  summary: string;
+};
+
+export const PURPOSE_COHORTS: readonly PurposeCohortRule[] = [
+  {
+    id: "Contract-Assignment",
+    title: "Contract-Assignment",
+    audience: "Healthcare / VettedCare / VettedME / Corporate Contractor",
+    identifierLabel: "Assignment / Compact License ID",
+    defaultIdentifier: "RN-MD-Compact",
+    endDateLabel: "Contract assignment end date",
+    inflowRuleLabel: "3.0x 90-day deposit inflow coverage",
+    minStayDays: 7,
+    defaultStayDays: 90,
+    summary:
+      "Verifies active staffing assignment ID, contract end date covering the intended stay, and 3.0x deposit velocity.",
+  },
+  {
+    id: "Academic-Enrollment",
+    title: "Academic-Enrollment",
+    audience: "University Student / Clinical Rotator / Intern",
+    identifierLabel: "Registrar / Clinical Rotation / Student ID",
+    defaultIdentifier: "UMD-REG-2026-8841",
+    endDateLabel: "Semester / rotation end date",
+    inflowRuleLabel: "3.0x stipend or guarantor deposit coverage",
+    minStayDays: 7,
+    defaultStayDays: 90,
+    summary:
+      "Verifies university registrar or clinical rotation ID, semester/rotation end date, and 3.0x stipend or guarantor coverage.",
+  },
+  {
+    id: "Seasonal-Remote",
+    title: "Seasonal-Remote",
+    audience: "Extended Vacationer / Snowbird / Digital Nomad",
+    identifierLabel: "Primary Residence / Return Itinerary ID",
+    defaultIdentifier: "ITIN-DOM-9042-RET",
+    endDateLabel: "Verified departure / return itinerary date",
+    inflowRuleLabel: "3.0x remote income or liquid reserve coverage (14d min floor)",
+    minStayDays: SEASONAL_REMOTE_MIN_DAYS,
+    defaultStayDays: 30,
+    summary:
+      "Enforces a 14-day minimum stay floor, verifies primary residence or return itinerary ID and departure date, and checks 3.0x remote income or reserve inflow.",
+  },
+  {
+    id: "Insurance-Relocation",
+    title: "Insurance-Relocation",
+    audience: "ALE Insurance Displacement / Corporate Relocation",
+    identifierLabel: "ALE Claim / Relocation Authorization ID",
+    defaultIdentifier: "ALE-CLM-2026-4410",
+    endDateLabel: "Authorized ALE / relocation coverage end date",
+    inflowRuleLabel: "3.0x carrier / corporate disbursement coverage",
+    minStayDays: 7,
+    defaultStayDays: 90,
+    summary:
+      "Verifies ALE insurance claim or corporate relocation authorization ID, coverage end date, and 3.0x disbursement coverage.",
+  },
+];
 
 export type ContractTerm = {
   credentialType: string;
@@ -13,11 +96,47 @@ export type ContractTerm = {
 
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
-export function defaultContractTerm(now = new Date()): ContractTerm {
-  const end = addUtcDays(now, ASSIGNMENT_DAYS);
+export function resolvePurposeCohort(value: string | null | undefined): PurposeCohortRule {
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    const match = PURPOSE_COHORTS.find((cohort) => cohort.id.toLowerCase() === normalized);
+    if (match) {
+      return match;
+    }
+  }
+  return PURPOSE_COHORTS[0];
+}
+
+export function isPurposeCohortId(value: unknown): value is PurposeCohortId {
+  return (
+    typeof value === "string" &&
+    PURPOSE_COHORT_IDS.some((id) => id.toLowerCase() === value.trim().toLowerCase())
+  );
+}
+
+export function cohortMinStayDays(credentialType: string | null | undefined): number {
+  if (typeof credentialType === "string" && credentialType.trim().toLowerCase() === "seasonal-remote") {
+    return SEASONAL_REMOTE_MIN_DAYS;
+  }
+  return 1;
+}
+
+export function meetsCohortStayFloor(
+  credentialType: string | null | undefined,
+  stayDays: number,
+): boolean {
+  return stayDays >= cohortMinStayDays(credentialType);
+}
+
+export function defaultContractTerm(
+  now = new Date(),
+  cohortId: PurposeCohortId = "Contract-Assignment",
+): ContractTerm {
+  const cohort = resolvePurposeCohort(cohortId);
+  const end = addUtcDays(now, cohort.defaultStayDays);
   return {
-    credentialType: "Contract-Assignment",
-    credentialIdentifier: "RN-MD-Compact",
+    credentialType: cohort.id,
+    credentialIdentifier: cohort.defaultIdentifier,
     contractEndDate: end,
     intendedStayEndDate: end,
   };
@@ -31,13 +150,18 @@ export function resolveContractTerm(
   body: Record<string, unknown>,
   simulated: boolean,
 ): ContractTerm | { error: string } {
-  const defaults = defaultContractTerm();
-  const credentialType = textOrDefault(body.credentialType, simulated ? defaults.credentialType : null);
+  const requestedType = textOrDefault(body.credentialType, null);
+  const cohort = resolvePurposeCohort(requestedType);
+  const defaults = defaultContractTerm(new Date(), cohort.id);
+  const credentialType = requestedType ?? (simulated ? defaults.credentialType : null);
   const credentialIdentifier = textOrDefault(
     body.credentialIdentifier,
-    simulated ? defaults.credentialIdentifier : null,
+    simulated ? cohort.defaultIdentifier : null,
   );
-  const contractEndDate = dateOrDefault(body.contractEndDate, simulated ? defaults.contractEndDate : null);
+  const contractEndDate = dateOrDefault(
+    body.contractEndDate,
+    simulated ? defaults.contractEndDate : null,
+  );
   const intendedStayEndDate = dateOrDefault(
     body.intendedStayEndDate,
     simulated ? defaults.intendedStayEndDate : null,
