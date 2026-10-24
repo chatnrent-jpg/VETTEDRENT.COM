@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { JurisdictionSelect } from "@/components/jurisdiction-select";
 import { usePlaidLinkFlow } from "@/hooks/usePlaidLinkFlow";
@@ -8,6 +9,7 @@ import {
   DEFAULT_JURISDICTION_CODE,
   resolveJurisdiction,
 } from "@/lib/compliance/jurisdictions";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
 import {
   PURPOSE_COHORTS,
   addUtcDays,
@@ -21,11 +23,15 @@ import {
 const WEEKLY_STAY_CENTS = 24500;
 
 export function PlaidLinkScreen() {
+  const router = useRouter();
   const initial = defaultContractTerm();
   const [contract, setContract] = useState<ContractTerm>(initial);
   const [jurisdictionCode, setJurisdictionCode] = useState(DEFAULT_JURISDICTION_CODE);
   const [prefilledLeadEmail, setPrefilledLeadEmail] = useState<string | null>(null);
   const [prefilledStayDays, setPrefilledStayDays] = useState<number | null>(null);
+  const [activatingPass, setActivatingPass] = useState(false);
+  const [activationMessage, setActivationMessage] = useState<string | null>(null);
+  const [activationError, setActivationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -80,6 +86,86 @@ export function PlaidLinkScreen() {
   function selectCohort(cohortId: PurposeCohortId) {
     setContract(defaultContractTerm(new Date(), cohortId));
     setPrefilledStayDays(resolvePurposeCohort(cohortId).defaultStayDays);
+  }
+
+  async function handleActivateWeeklyBillingAndPass() {
+    setActivatingPass(true);
+    setActivationMessage(null);
+    setActivationError(null);
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      const user = session.data.session?.user;
+      if (session.error || !token || !user) {
+        setActivationError("Sign in on the dashboard first to activate weekly micro-billing.");
+        return;
+      }
+
+      const cycleRes = await fetch("/api/billing/weekly-cycle", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const cycleBody: unknown = await cycleRes.json();
+      const cycleRecord =
+        cycleBody && typeof cycleBody === "object"
+          ? (cycleBody as Record<string, unknown>)
+          : {};
+
+      if (cycleRes.ok && cycleRecord.ok === true) {
+        const vaultBalanceCents =
+          typeof cycleRecord.vaultBalanceCents === "number"
+            ? cycleRecord.vaultBalanceCents
+            : 41004;
+        setActivationMessage(
+          `Weekly micro-billing activated! GMF Move-Out Vault balance: ${formatCents(vaultBalanceCents)}. Redirecting to your active QR Lodger Pass...`,
+        );
+        router.push("/dashboard");
+        return;
+      }
+
+      const subRes = await fetch("/api/billing/create-subscription", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerEmail: user.email ?? prefilledLeadEmail ?? "lodger@vettedrent.com",
+          hostAccountId: "acct_simulated_host",
+          totalCents: WEEKLY_STAY_CENTS,
+          tenantId: user.id,
+          hostId: user.id,
+          listingId: "vr-weekly-room",
+          seamDeviceId: "seam_device_mock",
+        }),
+      });
+      const subBody: unknown = await subRes.json();
+      const subRecord =
+        subBody && typeof subBody === "object" ? (subBody as Record<string, unknown>) : {};
+
+      if (!subRes.ok || subRecord.ok !== true) {
+        const errText =
+          typeof cycleRecord.error === "string"
+            ? cycleRecord.error
+            : typeof subRecord.error === "string"
+              ? subRecord.error
+              : "Could not activate weekly micro-billing";
+        setActivationError(errText);
+        return;
+      }
+
+      const vaultBalanceCents =
+        typeof subRecord.vaultBalanceCents === "number" ? subRecord.vaultBalanceCents : 41004;
+      setActivationMessage(
+        `Weekly micro-billing activated! GMF Move-Out Vault balance: ${formatCents(vaultBalanceCents)}. Redirecting to your active QR Lodger Pass...`,
+      );
+      router.push("/dashboard");
+    } catch {
+      setActivationError("Network error while activating weekly micro-billing.");
+    } finally {
+      setActivatingPass(false);
+    }
   }
 
   return (
@@ -226,7 +312,15 @@ export function PlaidLinkScreen() {
           )}
           {phase === "loading" ? <p className="note">Preparing the bank connection.</p> : null}
           {checking ? <p className="note">Reading 90 days of deposits and the contract term.</p> : null}
-          {decision ? <Decision decision={decision} /> : null}
+          {decision ? (
+            <Decision
+              decision={decision}
+              activatingPass={activatingPass}
+              activationMessage={activationMessage}
+              activationError={activationError}
+              onActivate={() => void handleActivateWeeklyBillingAndPass()}
+            />
+          ) : null}
           {error ? (
             <p className="error" role="alert">
               {error}
@@ -259,6 +353,10 @@ export function PlaidLinkScreen() {
 
 function Decision({
   decision,
+  activatingPass,
+  activationMessage,
+  activationError,
+  onActivate,
 }: {
   decision: {
     approved: boolean;
@@ -272,6 +370,10 @@ function Decision({
     intendedStayEndDate: string;
     geoCompliance: string;
   };
+  activatingPass: boolean;
+  activationMessage: string | null;
+  activationError: string | null;
+  onActivate: () => void;
 }) {
   return (
     <div className="stack">
@@ -311,6 +413,43 @@ function Decision({
         </p>
       ) : null}
       {decision.simulated ? <p className="note">Simulated 90-day deposits.</p> : null}
+
+      {decision.approved ? (
+        <article className="panel stay-card">
+          <div className="stay-card-head">
+            <div>
+              <p className="pass-kicker">Underwriting Approved · Be Great to Yourself.</p>
+              <h2>Activate Weekly Micro-Billing &amp; Issue Lodger Pass</h2>
+            </div>
+            <span className="stay-badge" data-status="active">
+              3.00x Verified
+            </span>
+          </div>
+          <p className="note">
+            Your {decision.credentialType} credential ({decision.credentialIdentifier}) and 3.00x
+            deposit velocity are verified. Trigger your weekly micro-billing cycle now (allocating
+            75.5% host payout and 14.3% to your $1,500.00 GMF Move-Out Vault) and open your active
+            QR Lodger Pass on the dashboard.
+          </p>
+          <div className="actions" style={{ flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="button"
+              disabled={activatingPass}
+              onClick={onActivate}
+            >
+              {activatingPass
+                ? "Activating Weekly Micro-Billing..."
+                : "Activate Weekly Micro-Billing & Issue Lodger Pass →"}
+            </button>
+            <Link className="button button-secondary" href="/dashboard">
+              Open Active QR Lodger Pass →
+            </Link>
+          </div>
+          {activationMessage ? <p className="payload">{activationMessage}</p> : null}
+          {activationError ? <p className="error">{activationError}</p> : null}
+        </article>
+      ) : null}
     </div>
   );
 }

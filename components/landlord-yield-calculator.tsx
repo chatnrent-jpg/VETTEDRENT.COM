@@ -43,7 +43,7 @@ export function LandlordYieldCalculator({
   );
 
   return (
-    <article className="panel stay-card">
+    <article id="host-shield" className="panel stay-card">
       <div className="stay-card-head">
         <div>
           <p className="pass-kicker">Read-Only Simulation · No Live Listing Mutation</p>

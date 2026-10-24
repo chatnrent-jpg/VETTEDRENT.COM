@@ -23,10 +23,6 @@ export default async function HomePage() {
             Be Great to Yourself. · Universal Purpose-Verified Stay Platform
           </p>
           <h1>VettedRent</h1>
-          <p className="lede">
-            Be Great to Yourself. Weekly Purpose-Verified Stays with 90-day deposit underwriting,
-            a 14.3% GMF Move-Out Vault for lodgers, and statutory rollover protection for hosts.
-          </p>
         </div>
         <div className="actions">
           <Link className="button button-secondary" href="/marketing">
@@ -40,32 +36,54 @@ export default async function HomePage() {
 
       <section className="stack">
         <article className="panel stay-card">
+          <p className="pass-kicker">VettedRent Category Manifesto · The Shift From Settling to Greatness</p>
+          <h2>
+            The unvetted rental market forces you to settle for risk. It’s time to be great to
+            yourself.
+          </h2>
+          <p className="lede">
+            Stop chasing late payments, parsing messy documents manually, and dreading eviction
+            cycles. VettedRent introduces the first Guaranteed, Underwritten Mid-Term
+            Marketplace—combining institutional-grade credentialing with an active escrow guarantee
+            fund. Zero friction. Total income protection.
+          </p>
+          <div className="actions" style={{ flexWrap: "wrap" }}>
+            <Link className="button" href="/marketing#host-shield">
+              Guard My Property (Landlords)
+            </Link>
+            <Link className="button button-secondary" href="/underwriting">
+              Unlock Deposit-Free Housing (Professionals)
+            </Link>
+          </div>
+        </article>
+
+        <article className="panel stay-card">
           <div className="stay-card-head">
             <div>
-              <p className="pass-kicker">Brand Manifesto · Universal Purpose-Verified Stay Platform</p>
-              <h2>Be Great to Yourself.</h2>
+              <p className="pass-kicker">Why We Exist</p>
+              <h2>The Shift From Settling to Greatness</h2>
             </div>
-            <span className="chip">4 Verified Cohorts</span>
-          </div>
-          <div className="row">
-            <span>For Lodgers — Be Great to Your Future Self</span>
-            <strong>Weekly Micro-Billing + 14.3% GMF Move-Out Vault</strong>
+            <span className="chip">Be Great to Yourself.</span>
           </div>
           <p className="note">
-            Every weekly stay payment automatically sets aside 14.3% into your Guaranteed
-            Maintenance Fund (GMF) Move-Out Vault toward a $1,500.00 independence reserve across all
-            4 Purpose-Verified Stay cohorts (Contract-Assignment, Academic-Enrollment,
-            Seasonal-Remote, and Insurance-Relocation).
+            The current mid-term rental market treats property owners like amateur gamblers. You are
+            told to cross your fingers on unverified background checks, absorb the sting of sudden
+            cancellations, and tolerate empty weeks between traveling professionals.
           </p>
-          <div className="row">
-            <span>For Hosts — Be Great to Yourself</span>
-            <strong>3.0x Underwriting + Statutory Rollover Peace of Mind</strong>
-          </div>
           <p className="note">
-            Protect your property and your peace of mind. Every guest is verified for 3.00x 90-day
-            deposit coverage, a documented temporary stay purpose, and strict state transient
-            ceiling guardrails—so you earn 75.5% weekly payouts with zero statutory tenancy
-            rollover anxiety.
+            <strong>Accepting that chaos isn’t business management. It’s compromise.</strong>
+          </p>
+          <p className="note">
+            We built VettedRent because the old marketplace model is broken. By replacing guesswork
+            with deep fintech underwriting—including Plaid income verification and professional
+            credential parsing—we completely eliminate the friction points of down payments and
+            credit scores. Backed by our dedicated Guaranteed Mid-Term Fund (GMF), your revenue is
+            secured from day one.
+          </p>
+          <p className="note">
+            You’ve earned your assets through discipline and hard work. Stop settling for platforms
+            that put the risk entirely on your shoulders. Be great to yourself, protect your
+            timeline, and step into underwritten certainty.
           </p>
         </article>
 
@@ -78,36 +96,35 @@ export default async function HomePage() {
           <p className="note">{stay.geoCompliance}</p>
         </article>
 
-        <article className="panel">
-          <h2>For lodgers</h2>
+        <article className="panel stay-card">
+          <div className="stay-card-head">
+            <div>
+              <p className="pass-kicker">Block A · Landlord Protection</p>
+              <h2>For Landlords: Command Your Cash Flow</h2>
+            </div>
+            <span className="chip">75.5% Host Payout</span>
+          </div>
           <p className="note">
-            A weekly room, checked before billing starts, with a code for the door. Be Great to
-            Yourself.
+            Being &ldquo;good&rdquo; to yourself is buying property insurance and hoping you never
+            have to use it. Being great to yourself means utilizing an underwriting platform that
+            ensures you never have to worry about a default in the first place.
           </p>
-          <div className="row">
-            <span>Weekly billing</span>
-            <strong>{weeklyRate}</strong>
+          <div className="stack">
+            <p className="note">
+              <strong>Institutional Underwriting:</strong> Professional credentials and Plaid 3.00x
+              income velocity verification replace unreliable, surface-level credit checks.
+            </p>
+            <p className="note">
+              <strong>Guaranteed Revenue Escrow:</strong> Structural protection from the 14.3% GMF
+              Escrow means your mid-term revenue (75.5% automated weekly host payouts) is fully
+              secured against eviction and rollover risks.
+            </p>
+            <p className="note">
+              <strong>Automated Compliance:</strong> Zero administrative bloat—our Revocable Lodging
+              License engine handles state statutory ceilings (MD-PG, MD, FL, TX, CA, NY),
+              automated document parsing, and weekly micro-deductions seamlessly.
+            </p>
           </div>
-          <div className="row">
-            <span>Bank check</span>
-            <strong>90 days of deposits (3.00x coverage)</strong>
-          </div>
-          <p className="note">Connect a bank after signing in. The bank login stays with Plaid.</p>
-          <div className="row">
-            <span>GMF Move-Out Vault goal (14.3% share)</span>
-            <strong>$1,500.00</strong>
-          </div>
-          <div className="row">
-            <span>Access</span>
-            <strong>Agreement QR and smart lock</strong>
-          </div>
-        </article>
-
-        <article className="panel">
-          <h2>For hosts</h2>
-          <p className="note">
-            Each stay is tied to the person at the door, and the weekly payment is watched.
-          </p>
           <div className="row">
             <span>Identity</span>
             <strong>Verified ID and face on the stay</strong>
@@ -120,7 +137,64 @@ export default async function HomePage() {
             <span>Stay status</span>
             <strong>Active, Warning, or Terminated</strong>
           </div>
-          <p className="note">Scan the agreement QR to see that status immediately.</p>
+          <div className="actions">
+            <Link className="button" href="/marketing#host-shield">
+              Guard My Property (Landlords)
+            </Link>
+          </div>
+        </article>
+
+        <article className="panel stay-card">
+          <div className="stay-card-head">
+            <div>
+              <p className="pass-kicker">Block B · Professional Mobility</p>
+              <h2>For Traveling Professionals: Leverage Your Credentials</h2>
+            </div>
+            <span className="chip">$1,500.00 Move-Out Vault</span>
+          </div>
+          <p className="note">
+            Being &ldquo;good&rdquo; to yourself is overpaying for a rigid, extended-stay hotel room
+            just to avoid a predatory down payment. Being great to yourself means letting your
+            professional status unlock premium, deposit-free housing.
+          </p>
+          <div className="stack">
+            <p className="note">
+              <strong>Zero Security Deposits:</strong> Your verified status and timeline across all
+              4 Purpose-Verified cohorts (Contract-Assignment, Academic-Enrollment, Seasonal-Remote
+              14d+, and Insurance-Relocation) act as your collateral—while 14.3% of each weekly
+              payment builds your Move-Out Vault toward a $1,500.00 reserve.
+            </p>
+            <p className="note">
+              <strong>Frictionless Onboarding:</strong> Skip the redundant, invasive screening
+              processes of traditional real estate tech.
+            </p>
+            <p className="note">
+              <strong>Curated Work &amp; Sanctuary Spaces:</strong> Access a premium inventory of
+              spaces tailored exclusively for focused professionals, clinical rotators, remote
+              builders, and relocating families.
+            </p>
+          </div>
+          <div className="row">
+            <span>Weekly billing</span>
+            <strong>{weeklyRate}</strong>
+          </div>
+          <div className="row">
+            <span>Bank check</span>
+            <strong>90 days of deposits (3.00x coverage)</strong>
+          </div>
+          <div className="row">
+            <span>GMF Move-Out Vault goal (14.3% share)</span>
+            <strong>$1,500.00</strong>
+          </div>
+          <div className="row">
+            <span>Access</span>
+            <strong>Agreement QR and smart lock</strong>
+          </div>
+          <div className="actions">
+            <Link className="button" href="/underwriting">
+              Unlock Deposit-Free Housing (Professionals)
+            </Link>
+          </div>
         </article>
 
         <p className="note">

@@ -252,31 +252,50 @@ export default function MarketingCommandCenterPage() {
           <div className="stay-card-head">
             <div>
               <p className="pass-kicker">
-                Brand Manifesto · Universal Purpose-Verified Stay Platform
+                VettedRent Category Manifesto · The Shift From Settling to Greatness
               </p>
-              <h2>Be Great to Yourself.</h2>
+              <h2>
+                The unvetted rental market forces you to settle for risk. It’s time to be great to
+                yourself.
+              </h2>
             </div>
-            <span className="chip">Commercial Engine</span>
-          </div>
-          <div className="row">
-            <span>For Lodgers — Be Great to Your Future Self</span>
-            <strong>Weekly Micro-Billing + 14.3% GMF Move-Out Vault</strong>
+            <span className="chip">Be Great to Yourself.</span>
           </div>
           <p className="note">
-            Across all 4 Purpose-Verified Stay cohorts (Contract-Assignment, Academic-Enrollment,
-            Seasonal-Remote, and Insurance-Relocation), lodgers build their own $1,500.00 GMF
-            Move-Out Vault through automated 14.3% weekly micro-billing allocations—with zero credit
-            checks and instant smart-lock arrival.
+            Stop chasing late payments, parsing messy documents manually, and dreading eviction
+            cycles. VettedRent introduces the first Guaranteed, Underwritten Mid-Term
+            Marketplace—combining institutional-grade credentialing with an active escrow guarantee
+            fund. Zero friction. Total income protection.
           </p>
           <div className="row">
-            <span>For Hosts — Be Great to Yourself</span>
-            <strong>3.0x Underwriting + Statutory Rollover Peace of Mind</strong>
+            <span>Block A — For Landlords</span>
+            <strong>Command Your Cash Flow (75.5% Payout + 14.3% GMF Escrow)</strong>
           </div>
           <p className="note">
-            Hosts earn 75.5% weekly payouts backed by 3.00x 90-day deposit underwriting, verified
-            departure/contract dates, the 14-day Seasonal-Remote stay floor, and automatic state
-            transient ceiling guardrails that eliminate statutory holdover risk.
+            Being &ldquo;good&rdquo; to yourself is buying property insurance and hoping you never
+            have to use it. Being great to yourself means utilizing an underwriting platform that
+            ensures you never have to worry about a default in the first place—combining
+            Institutional Underwriting (Plaid 3.00x velocity), Guaranteed Revenue Escrow (14.3%
+            GMF), and Automated Compliance across MD-PG, MD, FL, TX, CA, and NY.
           </p>
+          <div className="row">
+            <span>Block B — For Traveling Professionals</span>
+            <strong>Leverage Your Credentials ($0 Deposit + $1,500 Move-Out Vault)</strong>
+          </div>
+          <p className="note">
+            Being &ldquo;good&rdquo; to yourself is overpaying for a rigid, extended-stay hotel room
+            just to avoid a predatory down payment. Being great to yourself means letting your
+            professional status unlock premium, deposit-free housing with Zero Security Deposits,
+            Frictionless Onboarding, and Curated Work &amp; Sanctuary Spaces.
+          </p>
+          <div className="actions" style={{ flexWrap: "wrap" }}>
+            <Link className="button" href="#host-shield">
+              Guard My Property (Landlords)
+            </Link>
+            <Link className="button button-secondary" href="/underwriting">
+              Unlock Deposit-Free Housing (Professionals)
+            </Link>
+          </div>
         </article>
 
         <article className="panel stay-card">
