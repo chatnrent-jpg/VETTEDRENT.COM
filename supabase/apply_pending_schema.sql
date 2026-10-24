@@ -671,4 +671,66 @@ alter table public.marketing_leads enable row level security;
 revoke all on table public.marketing_leads from public, anon, authenticated;
 grant select, insert, update on table public.marketing_leads to service_role;
 
+-- ---------------------------------------------------------------------------
+-- Payroll Disconnect Webhook & GMF Backstop Routing Schema
+-- Tables: active_licenses, gmf_float_balance, payroll_webhook_logs
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.active_licenses (
+  license_id text primary key,
+  agreement_id text,
+  tenant_id text not null,
+  host_id text not null,
+  host_stripe_account_id text,
+  payroll_item_id text not null,
+  status text not null default 'Active' check (
+    status in ('Active', 'Warning', 'License_Revoked')
+  ),
+  weekly_rate_cents bigint not null default 24500 check (weekly_rate_cents > 0),
+  backstop_cap_cents bigint not null default 30000 check (backstop_cap_cents >= 0),
+  seam_access_code_id text,
+  revoked_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists active_licenses_payroll_item_id_idx
+  on public.active_licenses (payroll_item_id);
+
+create table if not exists public.gmf_float_balance (
+  pool_id text primary key default 'primary_gmf_pool',
+  available_balance_cents bigint not null default 1500000 check (available_balance_cents >= 0),
+  reserved_backstop_cents bigint not null default 0 check (reserved_backstop_cents >= 0),
+  total_routed_cents bigint not null default 0 check (total_routed_cents >= 0),
+  updated_at timestamptz not null default now()
+);
+
+insert into public.gmf_float_balance (pool_id, available_balance_cents, reserved_backstop_cents, total_routed_cents)
+values ('primary_gmf_pool', 1500000, 0, 0)
+on conflict (pool_id) do nothing;
+
+create table if not exists public.payroll_webhook_logs (
+  webhook_event_id text primary key,
+  payroll_item_id text not null,
+  license_id text,
+  signal_type text not null,
+  status text not null check (status in ('processing', 'processed', 'failed')),
+  backstop_routed_cents bigint not null default 0 check (backstop_routed_cents >= 0),
+  payload jsonb not null default '{}'::jsonb,
+  error_detail text,
+  created_at timestamptz not null default now(),
+  processed_at timestamptz
+);
+
+alter table public.active_licenses enable row level security;
+alter table public.gmf_float_balance enable row level security;
+alter table public.payroll_webhook_logs enable row level security;
+
+revoke all on table public.active_licenses from public, anon, authenticated;
+revoke all on table public.gmf_float_balance from public, anon, authenticated;
+revoke all on table public.payroll_webhook_logs from public, anon, authenticated;
+
+grant select, insert, update on table public.active_licenses to service_role;
+grant select, insert, update on table public.gmf_float_balance to service_role;
+grant select, insert, update on table public.payroll_webhook_logs to service_role;
+
 notify pgrst, 'reload schema';
