@@ -8,6 +8,11 @@ import {
   resolveJurisdiction,
 } from "@/lib/compliance/jurisdictions";
 import {
+  DAILY_RATE_TIER_LIST,
+  EXTERNAL_OFFER_PRESETS,
+  calculateDailyRateComparison,
+} from "@/lib/daily-rate-comparison";
+import {
   calculateJurisdictionYield,
   formatCurrencyCents,
   jurisdictionMarketSummary,
@@ -50,6 +55,7 @@ export default async function JurisdictionLandingPage({
 
   const summary = jurisdictionMarketSummary(rule);
   const sampleYield = calculateJurisdictionYield(rule.code);
+  const daily90 = calculateDailyRateComparison(24500, 90);
 
   return (
     <main className="shell">
@@ -110,7 +116,93 @@ export default async function JurisdictionLandingPage({
             <span>Benchmark 90-day host payout ($245/wk)</span>
             <span className="chip">{formatCurrencyCents(sampleYield.hostTotalCents)}</span>
           </div>
+          <div className="row">
+            <span>14–90 Day Daily Rate Advantage ($245/wk Room Tier)</span>
+            <strong>
+              {formatCurrencyCents(daily90.grossDailyRateCents)}/day (
+              {formatCurrencyCents(daily90.netEffectiveDailyRateCents)}/day net after 14.3% GMF
+              Vault credit) · Compare &amp; contrast against any motel, sublet, Airbnb, or OTA
+              offer
+            </strong>
+          </div>
           <p className="note">{summary.lodgerPitch}</p>
+        </article>
+
+        <article className="panel stay-card">
+          <div className="stay-card-head">
+            <div>
+              <p className="pass-kicker">
+                14–90 Day Daily Rate Compare &amp; Contrast · Be Great to Yourself.
+              </p>
+              <h2>
+                {formatCurrencyCents(daily90.grossDailyRateCents)}/Day VettedRent vs. Competing
+                Market Offerings in {rule.name}
+              </h2>
+            </div>
+            <span className="stay-badge" data-status="active">
+              $0 Deposit + 14.3% Vault Credit
+            </span>
+          </div>
+          <p className="note">
+            Competing nightly rates in {rule.name} depend on who is making the offering—from budget
+            extended-stay motels and unvetted furnished sublets to Airbnb/VRBO listings,
+            Cozycozy/OTA aparthotels, and corporate relocation suites. Temporary workers &amp;
+            contractors, university/vocational students, 14d+ seasonal remote professionals, and
+            insurance-relocated families lock in{" "}
+            <strong>{formatCurrencyCents(daily90.grossDailyRateCents)}/day</strong> (
+            {formatCurrencyCents(daily90.netEffectiveDailyRateCents)}/day net) while stacking 14.3%
+            (+{formatCurrencyCents(daily90.dailyGmfVaultCreditCents)}/day) into their $1,500.00 GMF
+            Move-Out Vault.
+          </p>
+          <div className="stack">
+            {EXTERNAL_OFFER_PRESETS.map((preset) => {
+              const cmp30 = calculateDailyRateComparison(
+                24500,
+                30,
+                preset.nightlyRateCents,
+                preset.upfrontDepositCents,
+              );
+              const cmp90 = calculateDailyRateComparison(
+                24500,
+                90,
+                preset.nightlyRateCents,
+                preset.upfrontDepositCents,
+              );
+              return (
+                <div key={preset.id} className="row">
+                  <span>{preset.providerLabel}</span>
+                  <strong>
+                    Save { cmp30.savingsPercentage }% · 30d saves{" "}
+                    {formatCurrencyCents(cmp30.totalSavingsVsAggregatorCents)} · 90d saves{" "}
+                    {formatCurrencyCents(cmp90.totalSavingsVsAggregatorCents)}
+                    {preset.upfrontDepositCents > 0
+                      ? ` (+ ${formatCurrencyCents(preset.upfrontDepositCents)} deposit avoided)`
+                      : ""}
+                  </strong>
+                </div>
+              );
+            })}
+            {DAILY_RATE_TIER_LIST.map((tier) => (
+              <div key={tier.id} className="row">
+                <span>VettedRent Tier: {tier.label}</span>
+                <strong>
+                  {formatCurrencyCents(tier.netEffectiveDailyRateCents)}/day net (after +
+                  {formatCurrencyCents(tier.dailyGmfVaultCreditCents)}/day Vault credit)
+                </strong>
+              </div>
+            ))}
+          </div>
+          <div className="actions" style={{ flexWrap: "wrap" }}>
+            <Link
+              className="button"
+              href={`/underwriting?jurisdiction=${encodeURIComponent(rule.code)}&days=90`}
+            >
+              Lock In $35.00/Day in {rule.code} →
+            </Link>
+            <Link className="button button-secondary" href="/#daily-rate-calculator">
+              Compare Custom Nightly Offer →
+            </Link>
+          </div>
         </article>
 
         <article className="panel stay-card">

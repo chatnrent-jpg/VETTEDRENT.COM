@@ -9,6 +9,12 @@ import {
   DEFAULT_JURISDICTION_CODE,
   resolveJurisdiction,
 } from "@/lib/compliance/jurisdictions";
+import {
+  EXTERNAL_OFFER_PRESETS,
+  calculateDailyRateComparison,
+} from "@/lib/daily-rate-comparison";
+import { intendedStayLengthDays } from "@/lib/geo-compliance";
+import { formatCurrencyCents } from "@/lib/marketing-calculator";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import {
   PURPOSE_COHORTS,
@@ -29,6 +35,7 @@ export function PlaidLinkScreen() {
   const [jurisdictionCode, setJurisdictionCode] = useState(DEFAULT_JURISDICTION_CODE);
   const [prefilledLeadEmail, setPrefilledLeadEmail] = useState<string | null>(null);
   const [prefilledStayDays, setPrefilledStayDays] = useState<number | null>(null);
+  const [comparisonNightlyDollars, setComparisonNightlyDollars] = useState("195");
   const [activatingPass, setActivatingPass] = useState(false);
   const [activationMessage, setActivationMessage] = useState<string | null>(null);
   const [activationError, setActivationError] = useState<string | null>(null);
@@ -82,6 +89,19 @@ export function PlaidLinkScreen() {
   );
   const checking = phase === "checking";
   const activeCohort = resolvePurposeCohort(contract.credentialType);
+  const selectedStayDays = Math.max(
+    14,
+    prefilledStayDays ?? intendedStayLengthDays(contract.intendedStayEndDate),
+  );
+  const comparisonNightlyCents = Math.max(
+    3500,
+    Math.round((Number(comparisonNightlyDollars) || 195) * 100),
+  );
+  const dailyComparison = calculateDailyRateComparison(
+    WEEKLY_STAY_CENTS,
+    selectedStayDays,
+    comparisonNightlyCents,
+  );
 
   function selectCohort(cohortId: PurposeCohortId) {
     setContract(defaultContractTerm(new Date(), cohortId));
@@ -293,6 +313,60 @@ export function PlaidLinkScreen() {
             <strong>{activeCohort.inflowRuleLabel}</strong>
           </div>
 
+          <label className="field">
+            <span>
+              Compare &amp; Contrast Against Competing Offer ($/night — hotel, Airbnb, sublet, or
+              OTA)
+            </span>
+            <input
+              type="number"
+              min={35}
+              max={2500}
+              step={1}
+              value={comparisonNightlyDollars}
+              onChange={(event) => setComparisonNightlyDollars(event.target.value)}
+            />
+          </label>
+
+          <div className="actions" style={{ flexWrap: "wrap" }}>
+            {EXTERNAL_OFFER_PRESETS.map((preset) => {
+              const dollars = String(Math.round(preset.nightlyRateCents / 100));
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  className={
+                    comparisonNightlyDollars === dollars ? "button" : "button button-secondary"
+                  }
+                  onClick={() => setComparisonNightlyDollars(dollars)}
+                >
+                  {preset.providerLabel}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="row">
+            <span>Daily Rate Equivalent ({formatCents(WEEKLY_STAY_CENTS)}/wk)</span>
+            <strong>
+              {formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day gross ·{" "}
+              {formatCurrencyCents(dailyComparison.netEffectiveDailyRateCents)}/day net (after +
+              {formatCurrencyCents(dailyComparison.dailyGmfVaultCreditCents)}/day GMF Vault credit)
+            </strong>
+          </div>
+
+          <div className="row">
+            <span>
+              Total Savings vs. {formatCurrencyCents(dailyComparison.aggregatorNightlyCents)}/night
+              Competing Offer ({dailyComparison.stayDays}d)
+            </span>
+            <span className="stay-badge" data-status="active">
+              Save {formatCurrencyCents(dailyComparison.totalSavingsVsAggregatorCents)} (
+              {dailyComparison.savingsPercentage}% Off) +{" "}
+              {formatCurrencyCents(dailyComparison.totalGmfVaultAccumulatedCents)} Vault Credit
+            </span>
+          </div>
+
           <JurisdictionSelect value={jurisdictionCode} onChange={setJurisdictionCode} />
         </article>
 
@@ -317,6 +391,7 @@ export function PlaidLinkScreen() {
               decision={decision}
               jurisdictionCode={jurisdictionCode}
               stayDays={prefilledStayDays ?? activeCohort.defaultStayDays}
+              comparisonNightlyCents={comparisonNightlyCents}
               applicantEmail={prefilledLeadEmail}
               activatingPass={activatingPass}
               activationMessage={activationMessage}
@@ -358,6 +433,7 @@ function Decision({
   decision,
   jurisdictionCode,
   stayDays,
+  comparisonNightlyCents,
   applicantEmail,
   activatingPass,
   activationMessage,
@@ -378,6 +454,7 @@ function Decision({
   };
   jurisdictionCode: string;
   stayDays: number;
+  comparisonNightlyCents: number;
   applicantEmail: string | null;
   activatingPass: boolean;
   activationMessage: string | null;
@@ -393,6 +470,7 @@ function Decision({
     monthlyInflow: String(decision.monthlyInflowEstimated),
     contractEnd: decision.contractEndDate,
     stayEnd: decision.intendedStayEndDate,
+    comparisonNightlyCents: String(comparisonNightlyCents),
     ...(applicantEmail ? { applicant: applicantEmail } : {}),
   });
   const passportHref = `/api/underwriting/trust-passport?${passportQuery.toString()}`;
@@ -411,11 +489,28 @@ function Decision({
   });
   const licenseHref = `/api/agreements/license?${licenseQuery.toString()}`;
 
+  const decisionComparison = calculateDailyRateComparison(
+    WEEKLY_STAY_CENTS,
+    stayDays,
+    comparisonNightlyCents,
+  );
+
   return (
     <div className="stack">
       <div className="row">
         <span>Result</span>
         <strong>{decision.approved ? "Approved" : "Not approved"}</strong>
+      </div>
+      <div className="row">
+        <span>Approved Daily Rate Advantage</span>
+        <strong>
+          {formatCurrencyCents(decisionComparison.grossDailyRateCents)}/day gross ·{" "}
+          {formatCurrencyCents(decisionComparison.netEffectiveDailyRateCents)}/day net (Save{" "}
+          {formatCurrencyCents(decisionComparison.totalSavingsVsAggregatorCents)} [
+          {decisionComparison.savingsPercentage}%] vs.{" "}
+          {formatCurrencyCents(decisionComparison.aggregatorNightlyCents)}/night competing offer
+          over {decisionComparison.stayDays}d)
+        </strong>
       </div>
       <div className="row">
         <span>Purpose cohort</span>

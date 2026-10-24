@@ -2,7 +2,9 @@ import {
   DEFAULT_JURISDICTION_CODE,
   resolveJurisdiction,
 } from "@/lib/compliance/jurisdictions";
+import { calculateDailyRateComparison } from "@/lib/daily-rate-comparison";
 import { evaluateGeoCompliance, INTENDED_STAY_DAYS } from "@/lib/geo-compliance";
+import { formatCurrencyCents } from "@/lib/marketing-calculator";
 import {
   resolvePurposeCohort,
   type PurposeCohortId,
@@ -18,6 +20,7 @@ export type TrustPassportInput = {
   stayDays: number;
   contractEndDate: string;
   intendedStayEndDate: string;
+  comparisonNightlyCents?: number;
   issuedAtIso?: string;
   certificateId?: string;
 };
@@ -68,6 +71,11 @@ export function buildTrustPassportPdf(input: TrustPassportInput): Uint8Array {
   const certId =
     input.certificateId ??
     `VR-UMI-${cohortRule.id.slice(0, 3).toUpperCase()}-${effectiveJurisdictionCode}-${issuedDate.replace(/-/g, "")}`;
+  const dailyComparison = calculateDailyRateComparison(
+    24500,
+    safeStayDays,
+    input.comparisonNightlyCents,
+  );
 
   const lines: PdfLine[] = [
     // Header Banner
@@ -111,33 +119,40 @@ export function buildTrustPassportPdf(input: TrustPassportInput): Uint8Array {
     {
       text: `Applicant Email / ID: ${sanitizePdfText(input.applicantIdentifier)}`,
       x: 56,
-      y: 624,
+      y: 626,
       size: 10,
     },
     {
       text: `Purpose-Verified Cohort: ${cohortRule.id} (${cohortRule.audience})`,
       x: 56,
-      y: 606,
+      y: 610,
       size: 10,
       bold: true,
     },
     {
       text: `Verified Credential / Reference ID: ${sanitizePdfText(input.credentialIdentifier)}`,
       x: 56,
-      y: 588,
+      y: 594,
       size: 10,
     },
     {
       text: `Documented Purpose Horizon: ${sanitizePdfText(input.contractEndDate)} (Covers Stay Through ${sanitizePdfText(input.intendedStayEndDate)})`,
       x: 56,
-      y: 570,
+      y: 578,
       size: 10,
     },
     {
       text: `Underwritten Stay Duration: ${safeStayDays} Days (Cohort Min Floor: ${cohortRule.minStayDays} Days)`,
       x: 56,
-      y: 552,
+      y: 562,
       size: 10,
+    },
+    {
+      text: `Approved Daily Rate: ${formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day vs. ${formatCurrencyCents(dailyComparison.aggregatorNightlyCents)}/night competing offer (${dailyComparison.savingsPercentage}% savings + 14.3% GMF Vault credit)`,
+      x: 56,
+      y: 546,
+      size: 9.5,
+      bold: true,
     },
 
     // Section 2: Financial & GMF Escrow Guarantee

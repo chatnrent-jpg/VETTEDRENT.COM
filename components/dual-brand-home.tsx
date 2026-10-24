@@ -2,6 +2,15 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import {
+  AGGREGATOR_NIGHTLY_BENCHMARK_CENTS,
+  DAILY_RATE_PRESET_TIERS,
+  DAILY_RATE_TIER_LIST,
+  EXTERNAL_OFFER_PRESETS,
+  calculateDailyRateComparison,
+  type DailyRateTierId,
+} from "@/lib/daily-rate-comparison";
+import { formatCurrencyCents } from "@/lib/marketing-calculator";
 
 export type BrandPerspective = "landlord" | "tenant";
 
@@ -14,6 +23,8 @@ export function DualBrandHome({
 }) {
   const [perspective, setPerspective] = useState<BrandPerspective>("landlord");
   const isLandlord = perspective === "landlord";
+
+  const featuredComparison = calculateDailyRateComparison(stay.weeklyPriceCents, 90);
 
   return (
     <main className="shell">
@@ -100,9 +111,16 @@ export function DualBrandHome({
               <p className="note">
                 <strong>Be great to yourself.</strong> Let your verified status unlock deposit-free
                 weekly stays across all 4 Purpose-Verified Stay cohorts (Contract-Assignment,
-                Academic-Enrollment, Seasonal-Remote 14d+, and Insurance-Relocation) while 14.3% of
+                Academic-Enrollment, Seasonal-Remote 14d+, and Insurance-Relocation) starting at{" "}
+                <strong>$35.00 / day</strong> ($29.99/day net after 14.3% GMF Vault credit) while
                 every weekly payment builds your $1,500.00 GMF Move-Out Vault.
               </p>
+              <div className="row">
+                <span>Daily rate compare &amp; contrast</span>
+                <strong>
+                  $35.00/day ($29.99/day net) · Compare against any OTA, hotel, or sublet offer
+                </strong>
+              </div>
               <div className="row">
                 <span>Security deposit required</span>
                 <strong>$0.00 (Credential + 3.00x Deposit Velocity)</strong>
@@ -152,6 +170,39 @@ export function DualBrandHome({
         <article className="panel stay-card">
           <div className="stay-card-head">
             <div>
+              <p className="pass-kicker">Featured Stay · Daily Rate Breakdown</p>
+              <h2>{stay.name}</h2>
+            </div>
+            <span className="chip">
+              {formatCurrencyCents(featuredComparison.grossDailyRateCents)} / day ({weeklyRate} /
+              week)
+            </span>
+          </div>
+          <div className="row">
+            <span>Daily Rate &amp; Market Contrast</span>
+            <strong>
+              {formatCurrencyCents(featuredComparison.grossDailyRateCents)} / day (
+              {formatCurrencyCents(featuredComparison.netEffectiveDailyRateCents)}/day net after
+              14.3% GMF Vault credit) · Save {featuredComparison.savingsPercentage}% vs.{" "}
+              {formatCurrencyCents(AGGREGATOR_NIGHTLY_BENCHMARK_CENTS)}/night sample OTA rate (or
+              enter any competing offer below)
+            </strong>
+          </div>
+          <div className="row">
+            <span>Daily GMF Move-Out Vault Credit (14.3%)</span>
+            <strong>
+              +{formatCurrencyCents(featuredComparison.dailyGmfVaultCreditCents)} / day toward your
+              $1,500.00 Move-Out Vault (&ldquo;Be Great to Yourself.&rdquo;)
+            </strong>
+          </div>
+          <p className="note">{stay.geoCompliance}</p>
+        </article>
+
+        <DailyRateAggregatorCalculator />
+
+        <article className="panel stay-card">
+          <div className="stay-card-head">
+            <div>
               <p className="pass-kicker">Why We Exist</p>
               <h2>The Shift From Settling to Greatness</h2>
             </div>
@@ -181,15 +232,6 @@ export function DualBrandHome({
           </p>
         </article>
 
-        <article className="panel">
-          <h2>Featured stay</h2>
-          <div className="row">
-            <span>{stay.name}</span>
-            <span className="chip">{weeklyRate} / week</span>
-          </div>
-          <p className="note">{stay.geoCompliance}</p>
-        </article>
-
         {isLandlord ? (
           <>
             <LandlordBlock />
@@ -209,6 +251,270 @@ export function DualBrandHome({
         </p>
       </section>
     </main>
+  );
+}
+
+function DailyRateAggregatorCalculator() {
+  const [selectedTierId, setSelectedTierId] = useState<DailyRateTierId>("RoomSanctuary");
+  const [stayDays, setStayDays] = useState<number>(90);
+  const [externalPresetId, setExternalPresetId] = useState<string>("cozycozy-ota-hotel");
+  const [externalNightlyDollars, setExternalNightlyDollars] = useState<string>("277");
+  const [externalDepositDollars, setExternalDepositDollars] = useState<string>("0");
+
+  const activeTier = DAILY_RATE_PRESET_TIERS[selectedTierId];
+  const activePreset =
+    EXTERNAL_OFFER_PRESETS.find((item) => item.id === externalPresetId) ?? null;
+
+  const parsedNightlyCents = Math.max(
+    3500,
+    Math.round((Number(externalNightlyDollars) || 277) * 100),
+  );
+  const parsedDepositCents = Math.max(
+    0,
+    Math.round((Number(externalDepositDollars) || 0) * 100),
+  );
+
+  const comparison = calculateDailyRateComparison(
+    activeTier.weeklyRateCents,
+    stayDays,
+    parsedNightlyCents,
+    parsedDepositCents,
+  );
+
+  const sample14 = calculateDailyRateComparison(
+    activeTier.weeklyRateCents,
+    14,
+    parsedNightlyCents,
+    parsedDepositCents,
+  );
+  const sample30 = calculateDailyRateComparison(
+    activeTier.weeklyRateCents,
+    30,
+    parsedNightlyCents,
+    parsedDepositCents,
+  );
+  const sample90 = calculateDailyRateComparison(
+    activeTier.weeklyRateCents,
+    90,
+    parsedNightlyCents,
+    parsedDepositCents,
+  );
+
+  function selectExternalPreset(presetId: string) {
+    setExternalPresetId(presetId);
+    const match = EXTERNAL_OFFER_PRESETS.find((item) => item.id === presetId);
+    if (match) {
+      setExternalNightlyDollars(String(Math.round(match.nightlyRateCents / 100)));
+      setExternalDepositDollars(String(Math.round(match.upfrontDepositCents / 100)));
+    }
+  }
+
+  return (
+    <article className="panel stay-card" id="daily-rate-calculator">
+      <div className="stay-card-head">
+        <div>
+          <p className="pass-kicker">
+            Universal 4-Cohort Compare &amp; Contrast Engine · Be Great to Yourself.
+          </p>
+          <h2>14-to-90-Day Daily Rate &amp; External Offer Comparison Calculator</h2>
+        </div>
+        <span className="stay-badge" data-status="active">
+          Save {comparison.savingsPercentage}% vs.{" "}
+          {formatCurrencyCents(comparison.aggregatorNightlyCents)}/night
+        </span>
+      </div>
+
+      <p className="note">
+        Outside offerings vary depending on who is making the offer—from budget extended-stay
+        motels and unvetted furnished sublets to Airbnb/VRBO listings, Cozycozy/OTA aparthotels, or
+        corporate relocation suites. Pick a VettedRent tier, select or enter{" "}
+        <strong>any competing nightly rate &amp; upfront deposit</strong>, and slide from 14 to 90
+        days to compare and contrast total cash outlay vs. VettedRent&apos;s $0-deposit + 14.3% GMF
+        Move-Out Vault model.
+      </p>
+
+      <div
+        className="toggle"
+        role="group"
+        aria-label="Select VettedRent lodging tier"
+        style={{ flexWrap: "wrap" }}
+      >
+        {DAILY_RATE_TIER_LIST.map((tier) => (
+          <button
+            key={tier.id}
+            type="button"
+            aria-pressed={selectedTierId === tier.id}
+            onClick={() => setSelectedTierId(tier.id)}
+          >
+            {tier.label}
+          </button>
+        ))}
+      </div>
+
+      <p className="note">
+        <strong>Best for:</strong> {activeTier.audienceSummary}
+      </p>
+
+      <div>
+        <p className="pass-kicker">Who Is Making the Competing Offer? (Select Preset or Enter Custom)</p>
+        <div className="actions" style={{ flexWrap: "wrap", marginTop: "0.4rem" }}>
+          {EXTERNAL_OFFER_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              className={
+                externalPresetId === preset.id ? "button" : "button button-secondary"
+              }
+              onClick={() => selectExternalPreset(preset.id)}
+            >
+              {preset.providerLabel}
+            </button>
+          ))}
+        </div>
+        {activePreset ? <p className="note">{activePreset.description}</p> : null}
+      </div>
+
+      <div className="row" style={{ flexWrap: "wrap" }}>
+        <label className="field" style={{ flex: 1 }}>
+          <span>Competing Offer Nightly Rate ($ / night)</span>
+          <input
+            type="number"
+            min={35}
+            max={2500}
+            step={1}
+            value={externalNightlyDollars}
+            onChange={(event) => {
+              setExternalPresetId("custom");
+              setExternalNightlyDollars(event.target.value);
+            }}
+          />
+        </label>
+
+        <label className="field" style={{ flex: 1 }}>
+          <span>Competing Offer Upfront Security Deposit ($ upfront)</span>
+          <input
+            type="number"
+            min={0}
+            max={20000}
+            step={50}
+            value={externalDepositDollars}
+            onChange={(event) => {
+              setExternalPresetId("custom");
+              setExternalDepositDollars(event.target.value);
+            }}
+          />
+        </label>
+      </div>
+
+      <label className="field">
+        <span>
+          Intended Stay Duration: <strong>{comparison.stayDays} Days</strong> (Slide 14 to 90 days)
+        </span>
+        <input
+          type="range"
+          min={14}
+          max={90}
+          step={1}
+          value={stayDays}
+          onChange={(event) => setStayDays(Number(event.target.value) || 90)}
+        />
+      </label>
+
+      <div className="actions" style={{ flexWrap: "wrap" }}>
+        {[14, 30, 60, 90].map((presetDays) => (
+          <button
+            key={presetDays}
+            type="button"
+            className={stayDays === presetDays ? "button" : "button button-secondary"}
+            onClick={() => setStayDays(presetDays)}
+          >
+            {presetDays} Days
+          </button>
+        ))}
+      </div>
+
+      <div className="stack">
+        <div className="row">
+          <span>Gross VettedRent Daily Rate ({formatCurrencyCents(comparison.weeklyRateCents)}/wk)</span>
+          <strong>{formatCurrencyCents(comparison.grossDailyRateCents)} / day</strong>
+        </div>
+        <div className="row">
+          <span>Daily 14.3% GMF Move-Out Vault Credit</span>
+          <strong>
+            +{formatCurrencyCents(comparison.dailyGmfVaultCreditCents)} / day stacked in your Vault
+          </strong>
+        </div>
+        <div className="row">
+          <span>Net Effective Daily Rate (After GMF Vault Credit)</span>
+          <span className="chip">
+            {formatCurrencyCents(comparison.netEffectiveDailyRateCents)} / day net
+          </span>
+        </div>
+        <div className="row">
+          <span>
+            Competing Offer Rate ({comparison.stayDays} nights @{" "}
+            {formatCurrencyCents(comparison.aggregatorNightlyCents)}/night
+            {comparison.externalUpfrontDepositCents > 0
+              ? ` + ${formatCurrencyCents(comparison.externalUpfrontDepositCents)} deposit`
+              : ""}
+            )
+          </span>
+          <strong>{formatCurrencyCents(comparison.externalTotalCashOutlayCents)}</strong>
+        </div>
+        <div className="row">
+          <span>VettedRent Gross Stay Total ({comparison.stayDays} days · $0.00 deposit)</span>
+          <strong>{formatCurrencyCents(comparison.vettedRentGrossTotalCents)}</strong>
+        </div>
+        <div className="row">
+          <span>
+            Direct Rate Savings vs. {formatCurrencyCents(comparison.aggregatorNightlyCents)}/Night
+            Offer ({comparison.stayDays} days)
+          </span>
+          <span className="stay-badge" data-status="active">
+            Save {formatCurrencyCents(comparison.totalSavingsVsAggregatorCents)} (
+            {comparison.savingsPercentage}% Off)
+          </span>
+        </div>
+        {comparison.externalUpfrontDepositCents > 0 ? (
+          <div className="row">
+            <span>Total Cash Flow Freed (Rate Savings + Avoided Upfront Deposit)</span>
+            <strong>
+              {formatCurrencyCents(comparison.totalCashFlowFreedIncludingDepositCents)} kept liquid
+            </strong>
+          </div>
+        ) : null}
+        <div className="row">
+          <span>Cumulative 14.3% GMF Move-Out Vault Credit ({comparison.stayDays} days)</span>
+          <strong>
+            {formatCurrencyCents(comparison.totalGmfVaultAccumulatedCents)} toward $1,500.00 Vault
+          </strong>
+        </div>
+        <div className="row">
+          <span>Upfront Security Deposit Required on VettedRent</span>
+          <strong>$0.00 (Zero Deposit Friction · Be Great to Yourself.)</strong>
+        </div>
+      </div>
+
+      <p className="note">
+        <strong>
+          Compare &amp; Contrast Horizon Snapshot ({activeTier.label} vs.{" "}
+          {formatCurrencyCents(comparison.aggregatorNightlyCents)}/night offer):
+        </strong>{" "}
+        {formatCurrencyCents(sample14.totalSavingsVsAggregatorCents)} saved at 14d ·{" "}
+        {formatCurrencyCents(sample30.totalSavingsVsAggregatorCents)} saved at 30d ·{" "}
+        {formatCurrencyCents(sample90.totalSavingsVsAggregatorCents)} saved at 90d.
+      </p>
+
+      <div className="actions" style={{ flexWrap: "wrap" }}>
+        <Link className="button" href={`/underwriting?days=${comparison.stayDays}`}>
+          Lock In {formatCurrencyCents(comparison.grossDailyRateCents)}/Day for{" "}
+          {comparison.stayDays} Days →
+        </Link>
+        <Link className="button button-secondary" href="/marketing#host-shield">
+          Host Shield Yield Model
+        </Link>
+      </div>
+    </article>
   );
 }
 
@@ -298,7 +604,7 @@ function ProfessionalBlock({ weeklyRate }: { weeklyRate: string }) {
       </div>
       <div className="row">
         <span>Weekly billing</span>
-        <strong>{weeklyRate}</strong>
+        <strong>{weeklyRate} ($35.00/day · $29.99/day net)</strong>
       </div>
       <div className="row">
         <span>Bank check</span>

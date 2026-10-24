@@ -49,6 +49,13 @@ export async function GET(request: Request) {
       cleanText(url.searchParams.get("credentialId"), 80) ?? cohortRule.defaultIdentifier;
     const applicantIdentifier =
       cleanText(url.searchParams.get("applicant"), 120) ?? "Verified VettedRent Professional";
+    const rawComparisonNightlyCents = Number(url.searchParams.get("comparisonNightlyCents"));
+    const comparisonNightlyCents =
+      Number.isFinite(rawComparisonNightlyCents) &&
+      rawComparisonNightlyCents >= 3500 &&
+      rawComparisonNightlyCents <= 250000
+        ? Math.round(rawComparisonNightlyCents)
+        : undefined;
 
     const pdfBytes = buildTrustPassportPdf({
       applicantIdentifier,
@@ -60,6 +67,7 @@ export async function GET(request: Request) {
       stayDays,
       contractEndDate,
       intendedStayEndDate,
+      comparisonNightlyCents,
     });
 
     const filename = `VettedRent-Trust-Passport-${cohortRule.id}.pdf`;
@@ -137,6 +145,13 @@ export async function POST(request: Request) {
         typeof body.applicantIdentifier === "string" ? body.applicantIdentifier : null,
         120,
       ) ?? "Verified VettedRent Professional";
+    const rawComparisonNightlyCents = Number(body.comparisonNightlyCents);
+    const comparisonNightlyCents =
+      Number.isFinite(rawComparisonNightlyCents) &&
+      rawComparisonNightlyCents >= 3500 &&
+      rawComparisonNightlyCents <= 250000
+        ? Math.round(rawComparisonNightlyCents)
+        : undefined;
 
     const pdfBytes = buildTrustPassportPdf({
       applicantIdentifier,
@@ -148,6 +163,7 @@ export async function POST(request: Request) {
       stayDays,
       contractEndDate,
       intendedStayEndDate,
+      comparisonNightlyCents,
     });
 
     const filename = `VettedRent-Trust-Passport-${cohortRule.id}.pdf`;
