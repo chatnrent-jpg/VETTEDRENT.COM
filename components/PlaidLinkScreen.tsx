@@ -315,6 +315,9 @@ export function PlaidLinkScreen() {
           {decision ? (
             <Decision
               decision={decision}
+              jurisdictionCode={jurisdictionCode}
+              stayDays={prefilledStayDays ?? activeCohort.defaultStayDays}
+              applicantEmail={prefilledLeadEmail}
               activatingPass={activatingPass}
               activationMessage={activationMessage}
               activationError={activationError}
@@ -353,6 +356,9 @@ export function PlaidLinkScreen() {
 
 function Decision({
   decision,
+  jurisdictionCode,
+  stayDays,
+  applicantEmail,
   activatingPass,
   activationMessage,
   activationError,
@@ -370,11 +376,27 @@ function Decision({
     intendedStayEndDate: string;
     geoCompliance: string;
   };
+  jurisdictionCode: string;
+  stayDays: number;
+  applicantEmail: string | null;
   activatingPass: boolean;
   activationMessage: string | null;
   activationError: string | null;
   onActivate: () => void;
 }) {
+  const passportQuery = new URLSearchParams({
+    cohort: decision.credentialType,
+    jurisdiction: jurisdictionCode,
+    days: String(stayDays),
+    credentialId: decision.credentialIdentifier,
+    ratio: String(decision.ratio),
+    monthlyInflow: String(decision.monthlyInflowEstimated),
+    contractEnd: decision.contractEndDate,
+    stayEnd: decision.intendedStayEndDate,
+    ...(applicantEmail ? { applicant: applicantEmail } : {}),
+  });
+  const passportHref = `/api/underwriting/trust-passport?${passportQuery.toString()}`;
+
   return (
     <div className="stack">
       <div className="row">
@@ -419,19 +441,27 @@ function Decision({
           <div className="stay-card-head">
             <div>
               <p className="pass-kicker">Underwriting Approved · Be Great to Yourself.</p>
-              <h2>Activate Weekly Micro-Billing &amp; Issue Lodger Pass</h2>
+              <h2>Official VettedRent Trust Passport &amp; Lodger Pass Activation</h2>
             </div>
             <span className="stay-badge" data-status="active">
               3.00x Verified
             </span>
           </div>
           <p className="note">
-            Your {decision.credentialType} credential ({decision.credentialIdentifier}) and 3.00x
-            deposit velocity are verified. Trigger your weekly micro-billing cycle now (allocating
-            75.5% host payout and 14.3% to your $1,500.00 GMF Move-Out Vault) and open your active
-            QR Lodger Pass on the dashboard.
+            Your {decision.credentialType} credential ({decision.credentialIdentifier}) and{" "}
+            {decision.ratio.toFixed(2)}x deposit velocity are verified. Download your official
+            VettedRent Trust Passport PDF to share with any landlord, or activate weekly
+            micro-billing now to issue your QR Lodger Pass and fund your $1,500.00 GMF Move-Out
+            Vault.
           </p>
           <div className="actions" style={{ flexWrap: "wrap" }}>
+            <a
+              className="button button-secondary"
+              href={passportHref}
+              download={`VettedRent-Trust-Passport-${decision.credentialType}.pdf`}
+            >
+              Download Official Trust Passport (PDF) ↓
+            </a>
             <button
               type="button"
               className="button"
@@ -442,9 +472,6 @@ function Decision({
                 ? "Activating Weekly Micro-Billing..."
                 : "Activate Weekly Micro-Billing & Issue Lodger Pass →"}
             </button>
-            <Link className="button button-secondary" href="/dashboard">
-              Open Active QR Lodger Pass →
-            </Link>
           </div>
           {activationMessage ? <p className="payload">{activationMessage}</p> : null}
           {activationError ? <p className="error">{activationError}</p> : null}
