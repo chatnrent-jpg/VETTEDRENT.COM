@@ -21,13 +21,13 @@ export interface BankLinkDecision {
 type BankLinkPhase = "loading" | "ready" | "checking" | "done";
 
 export function usePlaidLinkFlow(weeklyTargetCents: number, contract: ContractTerm, jurisdictionCode: string) {
-  const [phase, setPhase] = useState<BankLinkPhase>("loading");
+  const [phase, setPhase] = useState<BankLinkPhase>("ready");
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [decision, setDecision] = useState<BankLinkDecision | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [canSimulate, setCanSimulate] = useState(false);
+  const [canSimulate, setCanSimulate] = useState(true);
   const [attempt, setAttempt] = useState(0);
   const contractRef = useRef(contract);
   const jurisdictionRef = useRef(jurisdictionCode);
@@ -41,7 +41,6 @@ export function usePlaidLinkFlow(weeklyTargetCents: number, contract: ContractTe
     async function loadLinkToken() {
       try {
         if (attempt === 0) {
-          setPhase("loading");
           setError(null);
         }
         const supabase = getSupabaseBrowserClient();
@@ -49,23 +48,25 @@ export function usePlaidLinkFlow(weeklyTargetCents: number, contract: ContractTe
         if (!active) {
           return;
         }
-        const token = session.data.session?.access_token;
-        const signedInUserId = session.data.session?.user.id;
-        if (session.error || !token || !signedInUserId) {
-          throw new Error("Lodger session required");
+        const token = session.data.session?.access_token ?? null;
+        const signedInUserId = session.data.session?.user.id ?? null;
+        setSessionToken(token);
+        setUserId(signedInUserId);
+
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
         }
         const response = await fetch("/api/underwriting/plaid-link-token", {
           method: "POST",
           credentials: "same-origin",
-          headers: { Authorization: `Bearer ${token}` },
+          headers,
           signal: controller.signal,
         });
         const body: unknown = await response.json();
         if (!active) {
           return;
         }
-        setSessionToken(token);
-        setUserId(signedInUserId);
         const nextToken = readLinkToken(body);
         if (readSimulated(body) || readError(body)?.includes("not configured")) {
           setCanSimulate(true);
@@ -73,6 +74,9 @@ export function usePlaidLinkFlow(weeklyTargetCents: number, contract: ContractTe
           setError(null);
           setPhase("ready");
           return;
+        }
+        if (!token || !signedInUserId) {
+          throw new Error("Lodger session required");
         }
         if (!response.ok || !nextToken) {
           throw new Error(readError(body) ?? "Could not start the bank connection");
@@ -118,13 +122,7 @@ export function usePlaidLinkFlow(weeklyTargetCents: number, contract: ContractTe
 
   const simulate = useCallback(
     (contract: ContractTerm = defaultContractTerm()) => {
-      const token = sessionToken;
-      const signedInUserId = userId;
-      if (!token || !signedInUserId) {
-        setError("Lodger session required");
-        return;
-      }
-      void runSimulatedCheck(token, signedInUserId, weeklyTargetCents, contract, jurisdictionRef.current, {
+      void runSimulatedCheck(sessionToken, userId, weeklyTargetCents, contract, jurisdictionRef.current, {
         setPhase,
         setError,
         setDecision,
@@ -155,8 +153,8 @@ export function usePlaidLinkFlow(weeklyTargetCents: number, contract: ContractTe
 }
 
 async function runSimulatedCheck(
-  sessionToken: string,
-  userId: string,
+  sessionToken: string | null,
+  userId: string | null,
   weeklyTargetCents: number,
   contract: ContractTerm,
   jurisdictionCode: string,
@@ -169,17 +167,20 @@ async function runSimulatedCheck(
   setters.setPhase("checking");
   setters.setError(null);
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (sessionToken) {
+      headers.Authorization = `Bearer ${sessionToken}`;
+    }
     const response = await fetch("/api/underwriting/plaid-velocity", {
       method: "POST",
       credentials: "same-origin",
-      headers: {
-        Authorization: `Bearer ${sessionToken}`,
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify({
         simulated: true,
         weeklyTargetCents,
-        userId,
+        ...(userId ? { userId } : {}),
         credentialType: contract.credentialType,
         credentialIdentifier: contract.credentialIdentifier,
         contractEndDate: contract.contractEndDate,

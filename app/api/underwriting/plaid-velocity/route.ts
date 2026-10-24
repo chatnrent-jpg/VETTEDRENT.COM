@@ -3,7 +3,7 @@ import { AccountType, type Transaction } from "plaid";
 import { getPlaidClient, plaidCredentialsMissing } from "@/lib/plaid";
 import { getSupabaseServerClient } from "@/lib/supabase";
 import { parseJurisdictionCode } from "@/lib/compliance/jurisdictions";
-import { evaluateGeoCompliance, intendedStayLengthDays, persistListingJurisdiction, readListingCompliance } from "@/lib/geo-compliance";
+import { evaluateGeoCompliance, intendedStayLengthDays, readListingCompliance } from "@/lib/geo-compliance";
 import {
   MID_TERM_EXPOSURE_MESSAGE,
   SEASONAL_REMOTE_FLOOR_MESSAGE,
@@ -27,9 +27,6 @@ const WEEKS_PER_MONTH = 4;
 export async function POST(request: Request) {
   try {
     const token = bearerToken(request.headers.get("authorization"));
-    if (!token) {
-      return NextResponse.json({ ok: false, error: "Session required" }, { status: 401 });
-    }
 
     let payload: unknown;
     try {
@@ -43,21 +40,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
     }
 
+    if (parsed.simulated && !plaidCredentialsMissing()) {
+      return NextResponse.json({ ok: false, error: "Bank connection is available" }, { status: 400 });
+    }
+
     const supabase = getSupabaseServerClient();
-    const userResult = await supabase.auth.getUser(token);
-    if (userResult.error || !userResult.data.user) {
+    let userId: string | null = null;
+    if (token) {
+      const userResult = await supabase.auth.getUser(token);
+      if (!userResult.error && userResult.data.user) {
+        userId = userResult.data.user.id;
+      }
+    }
+
+    if (!userId && !parsed.simulated) {
       return NextResponse.json({ ok: false, error: "Session required" }, { status: 401 });
     }
-    const userId = userResult.data.user.id;
-    if (parsed.userId && parsed.userId !== userId) {
+
+    if (userId && parsed.userId && parsed.userId !== userId) {
       return NextResponse.json(
         { ok: false, error: "userId does not match the signed-in user" },
         { status: 400 },
       );
-    }
-
-    if (parsed.simulated && !plaidCredentialsMissing()) {
-      return NextResponse.json({ ok: false, error: "Bank connection is available" }, { status: 400 });
     }
 
     const contract = resolveContractTerm(payload as Record<string, unknown>, parsed.simulated);
@@ -77,10 +81,7 @@ export async function POST(request: Request) {
     const coversStay = contractCoversStay(contract.contractEndDate, contract.intendedStayEndDate);
     const stayDays = intendedStayLengthDays(contract.intendedStayEndDate);
     const meetsStayFloor = meetsCohortStayFloor(contract.credentialType, stayDays);
-    const listingId = await listingForCaller(supabase, userId);
-    if (selected && listingId) {
-      await persistListingJurisdiction(supabase, listingId, selected);
-    }
+    const listingId = userId ? await listingForCaller(supabase, userId) : "vr-weekly-room";
     const compliance = selected
       ? evaluateGeoCompliance({ jurisdiction_code: selected }, stayDays)
       : await readListingCompliance(supabase, listingId, stayDays);
@@ -95,7 +96,10 @@ export async function POST(request: Request) {
       : !meetsStayFloor
         ? SEASONAL_REMOTE_FLOOR_MESSAGE
         : compliance.blockReason;
-    await recordUnderwriting(supabase, userId, decision, approved, contract, parsed.simulated ? null : parsed.accessToken);
+
+    if (userId) {
+      await recordUnderwriting(supabase, userId, decision, approved, contract, parsed.simulated ? null : parsed.accessToken);
+    }
 
     return NextResponse.json({
       ok: true,

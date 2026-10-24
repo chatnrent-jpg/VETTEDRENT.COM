@@ -8,6 +8,10 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
+    if (plaidCredentialsMissing()) {
+      return NextResponse.json({ ok: true, simulated: true });
+    }
+
     const token = bearerToken(request.headers.get("authorization"));
     if (!token) {
       return NextResponse.json({ ok: false, error: "Session required" }, { status: 401 });
@@ -17,10 +21,6 @@ export async function POST(request: Request) {
     const userResult = await supabase.auth.getUser(token);
     if (userResult.error || !userResult.data.user) {
       return NextResponse.json({ ok: false, error: "Session required" }, { status: 401 });
-    }
-
-    if (plaidCredentialsMissing()) {
-      return NextResponse.json({ ok: true, simulated: true });
     }
 
     const linkToken = await createBankLinkToken(userResult.data.user.id);

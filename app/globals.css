@@ -1,20 +1,16 @@
 :root {
-  --bg: #0b0e14;
-  --bg-elevated: #111620;
-  --raised: rgba(22, 28, 38, 0.78);
-  --raised-solid: #161c26;
-  --text: #f5f2eb;
-  --muted: #a69f94;
-  --line: rgba(255, 255, 255, 0.09);
-  --line-strong: rgba(215, 161, 95, 0.34);
-  --accent: #e0ac69;
-  --accent-bright: #f3c687;
-  --accent-ink: #1e160c;
-  --ok: #6ee7b7;
-  --ok-bg: rgba(16, 185, 129, 0.12);
-  --danger: #f49b90;
-  --glow-gold: rgba(224, 172, 105, 0.16);
-  --glow-emerald: rgba(110, 231, 183, 0.14);
+  --bg: #0b0f17;
+  --raised: #131a26;
+  --raised-hover: #182130;
+  --text: #f8fafc;
+  --muted: #94a3b8;
+  --line: rgba(255, 255, 255, 0.1);
+  --accent: #e5b869;
+  --accent-bright: #f3cc85;
+  --accent-ink: #111827;
+  --ok: #34d399;
+  --ok-bg: rgba(52, 211, 153, 0.12);
+  --danger: #f87171;
   color-scheme: dark;
 }
 
@@ -28,11 +24,11 @@ body {
   padding: 0;
   min-height: 100%;
   background-color: var(--bg);
-  background-image:
-    radial-gradient(circle at 15% 0%, rgba(224, 172, 105, 0.11) 0%, transparent 45%),
-    radial-gradient(circle at 85% 12%, rgba(110, 231, 183, 0.08) 0%, transparent 42%),
-    radial-gradient(circle at 50% 100%, rgba(56, 189, 248, 0.05) 0%, transparent 50%);
-  background-attachment: fixed;
+  background-image: radial-gradient(
+    ellipse 80% 50% at 50% -15%,
+    rgba(229, 184, 105, 0.12),
+    transparent 70%
+  );
   color: var(--text);
   font-family: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif;
   font-size: 16px;
@@ -42,31 +38,345 @@ body {
 
 a {
   color: inherit;
-  transition: color 160ms ease, opacity 160ms ease;
+  text-decoration: none;
 }
+
+/* ==========================================================================
+   CLEAN, CENTERED GOOGLE-SIMPLE LAYOUT
+   ========================================================================== */
 
 .shell {
-  position: relative;
-  width: min(58rem, 100%);
+  width: min(46rem, 100%);
   margin: 0 auto;
-  padding: 1.5rem 1.15rem 3.5rem;
+  padding: 1.75rem 1.25rem 4rem;
 }
 
-.fintech-shell {
-  width: min(70rem, 100%);
-  padding-top: 1.75rem;
+.simple-home-shell {
+  width: min(48rem, 100%);
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 4.5rem;
 }
 
-.fintech-ambient-mesh {
-  pointer-events: none;
+/* ==========================================================================
+   TRUE ONE-SCREEN GOOGLE FRONT-PAGE SIMPLICITY + ARCHITECTURAL BACKDROP
+   ========================================================================== */
+
+.google-home {
+  position: relative;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: min(66rem, 100%);
+  margin: 0 auto;
+  padding: 1.35rem 1.5rem 1.5rem;
+  z-index: 1;
+}
+
+.google-hero-backdrop {
   position: fixed;
   inset: 0;
   z-index: -1;
   background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse at 50% 20%, black 25%, transparent 80%);
+    linear-gradient(
+      180deg,
+      rgba(10, 14, 22, 0.52) 0%,
+      rgba(12, 16, 24, 0.38) 42%,
+      rgba(10, 14, 22, 0.72) 100%
+    ),
+    radial-gradient(
+      ellipse at 50% 45%,
+      rgba(12, 16, 24, 0.25) 0%,
+      rgba(8, 11, 18, 0.68) 100%
+    ),
+    url("/vettedrent-hero-renter.jpg");
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  transition: background-image 400ms ease;
+}
+
+.google-home[data-perspective="landlord"] .google-hero-backdrop {
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(10, 14, 22, 0.54) 0%,
+      rgba(12, 16, 24, 0.4) 42%,
+      rgba(10, 14, 22, 0.74) 100%
+    ),
+    radial-gradient(
+      ellipse at 50% 45%,
+      rgba(12, 16, 24, 0.28) 0%,
+      rgba(8, 11, 18, 0.7) 100%
+    ),
+    url("/vettedrent-hero-landlord.jpg");
+}
+
+.google-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 1.1rem;
+  border-radius: 999px;
+  background: rgba(15, 20, 30, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.google-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.google-logo-badge {
+  width: 2.65rem;
+  height: 2.65rem;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid rgba(229, 184, 105, 0.55);
+  box-shadow: 0 4px 14px rgba(229, 184, 105, 0.35);
+}
+
+.google-logo-lockup {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.12;
+  text-align: left;
+}
+
+.google-logo strong {
+  font-size: 1.38rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+.google-logo-domain {
+  font-style: normal;
+  color: var(--accent-bright);
+  font-weight: 800;
+}
+
+.google-logo span {
+  font-size: 0.76rem;
+  letter-spacing: 0.03em;
+  color: rgba(248, 250, 252, 0.85);
+}
+
+.google-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.google-nav .text-button {
+  color: rgba(248, 250, 252, 0.9);
+  font-weight: 550;
+}
+
+.google-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1.35rem;
+  margin: auto 0;
+  padding: 1.5rem 0;
+}
+
+.google-headline {
+  max-width: 44rem;
+}
+
+.google-headline h1 {
+  font-size: clamp(2.35rem, 5.2vw, 3.6rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.06;
+  margin: 0;
+  color: #ffffff;
+  text-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+}
+
+.google-headline p {
+  font-size: 1.16rem;
+  color: rgba(248, 250, 252, 0.92);
+  margin: 0.65rem 0 0;
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
+}
+
+.google-headline p strong {
+  color: var(--accent-bright);
+}
+
+.google-search-bar {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  border-radius: 20px;
+  background: rgba(15, 21, 32, 0.74);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow:
+    0 28px 68px -16px rgba(0, 0, 0, 0.75),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.google-search-cell {
+  flex: 1 1 9.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 0.5rem 0.9rem;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.google-search-cell:focus-within {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.google-search-cell span {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(248, 250, 252, 0.72);
+}
+
+.google-search-cell select,
+.google-search-cell input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.15rem 0 0;
+  outline: none;
+}
+
+.google-search-cell select option {
+  background: #131a26;
+  color: var(--text);
+}
+
+.google-search-cta {
+  flex: 0 0 auto;
+  min-height: 3.5rem;
+  padding: 0 1.5rem;
+  border-radius: 13px;
+  font-size: 0.98rem;
+  white-space: nowrap;
+  box-shadow: 0 10px 28px -6px rgba(229, 184, 105, 0.55);
+}
+
+@media (max-width: 780px) {
+  .google-search-cta {
+    width: 100%;
+  }
+}
+
+.google-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.65rem;
+}
+
+.google-info-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  background: rgba(15, 21, 32, 0.68);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  font-size: 0.88rem;
+  box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.5);
+}
+
+.google-info-pill strong {
+  color: var(--accent-bright);
+}
+
+.google-info-pill span {
+  color: rgba(248, 250, 252, 0.88);
+}
+
+.google-compare-drawer {
+  width: 100%;
+  max-width: 44rem;
+  margin-top: 0.25rem;
+}
+
+.google-compare-drawer summary {
+  display: inline-block;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: rgba(248, 250, 252, 0.88);
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(15, 21, 32, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  user-select: none;
+}
+
+.google-compare-drawer summary:hover {
+  color: #ffffff;
+  border-color: rgba(229, 184, 105, 0.45);
+}
+
+.google-compare-drawer__body {
+  margin-top: 0.85rem;
+  padding: 1rem;
+  border-radius: 16px;
+  background: rgba(15, 21, 32, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.google-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1.15rem;
+  border-radius: 999px;
+  background: rgba(15, 20, 30, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  font-size: 0.84rem;
+  color: rgba(248, 250, 252, 0.82);
+}
+
+.google-footer__links {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.google-footer__links a:hover {
+  color: #ffffff;
 }
 
 .topbar {
@@ -75,56 +385,25 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
 }
 
-.fintech-navbar {
-  padding: 0.9rem 1.2rem;
-  border-radius: 16px;
-  background: rgba(17, 22, 32, 0.72);
-  border: 1px solid var(--line);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  box-shadow:
-    0 12px 32px -12px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.fintech-brand {
-  display: grid;
-  gap: 0.2rem;
-}
-
-.fintech-brand__badge-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.fintech-live-dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 999px;
-  background: var(--ok);
-  box-shadow: 0 0 10px var(--ok);
-}
-
-.fintech-brand__title-row {
+.brand-mark {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 0.65rem;
 }
 
-.fintech-version-pill {
-  font-size: 0.7rem;
+.brand-mark h1 {
+  font-size: 1.45rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 0.18rem 0.55rem;
-  border-radius: 999px;
-  background: rgba(224, 172, 105, 0.14);
-  border: 1px solid rgba(224, 172, 105, 0.35);
-  color: var(--accent-bright);
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+
+.brand-tagline {
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 
 h1,
@@ -137,604 +416,244 @@ h3 {
 }
 
 h1 {
-  font-size: clamp(1.65rem, 2.8vw, 2.15rem);
+  font-size: clamp(1.75rem, 3.5vw, 2.35rem);
+  line-height: 1.15;
 }
 
 h2 {
-  font-size: clamp(1.12rem, 1.9vw, 1.38rem);
+  font-size: clamp(1.15rem, 2vw, 1.35rem);
   line-height: 1.3;
 }
 
 .lede,
 .note {
   color: var(--muted);
-  margin: 0.4rem 0 0;
+  margin: 0.45rem 0 0;
 }
 
 .lede {
-  font-size: 1.02rem;
-  line-height: 1.6;
+  font-size: 1.08rem;
+  line-height: 1.55;
 }
 
 .stack {
   display: grid;
-  gap: 1rem;
+  gap: 1.15rem;
   margin-top: 1rem;
 }
 
-.fintech-stack {
-  gap: 1.35rem;
+/* ==========================================================================
+   HERO & AUDIENCE SWITCHER (RENTER vs. LANDLORD)
+   ========================================================================== */
+
+.simple-hero {
+  text-align: center;
+  margin: 0.5rem auto 1.75rem;
+  max-width: 40rem;
+}
+
+.simple-hero h2 {
+  font-size: clamp(1.85rem, 4vw, 2.65rem);
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  line-height: 1.12;
+  margin-top: 0.75rem;
+}
+
+.simple-hero .lede {
+  font-size: 1.08rem;
+  max-width: 34rem;
+  margin: 0.65rem auto 0;
+}
+
+.audience-pill-switch {
+  display: inline-flex;
+  padding: 0.32rem;
+  border-radius: 999px;
+  background: rgba(15, 21, 32, 0.68);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 12px 32px -10px rgba(0, 0, 0, 0.55);
+  gap: 0.3rem;
+  margin-bottom: 0.25rem;
+}
+
+.audience-pill-switch button {
+  min-height: 2.55rem;
+  padding: 0.45rem 1.3rem;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  color: rgba(248, 250, 252, 0.88);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+
+.audience-pill-switch button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 4px 16px rgba(229, 184, 105, 0.45);
 }
 
 /* ==========================================================================
-   GLASSMORPHISM PANELS & FINTECH CARD COMPONENT
+   CARDS & SIMPLE METRIC SUMMARY
    ========================================================================== */
 
 .panel {
-  position: relative;
   background: var(--raised);
   border: 1px solid var(--line);
   border-radius: 18px;
-  padding: 1.35rem;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow:
-    0 18px 42px -18px rgba(0, 0, 0, 0.65),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  transition: border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
+  padding: 1.5rem;
+  box-shadow: 0 16px 36px -18px rgba(0, 0, 0, 0.55);
 }
 
 .fintech-card {
-  overflow: hidden;
-  padding: 1.6rem;
-}
-
-.fintech-card__specular {
-  pointer-events: none;
-  position: absolute;
-  top: 0;
-  left: 8%;
-  right: 8%;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.28) 35%,
-    rgba(224, 172, 105, 0.55) 50%,
-    rgba(255, 255, 255, 0.28) 65%,
-    transparent
-  );
-}
-
-.fintech-card__ambient {
-  pointer-events: none;
-  position: absolute;
-  top: -6rem;
-  right: -6rem;
-  width: 20rem;
-  height: 20rem;
-  border-radius: 999px;
-  background: radial-gradient(circle, var(--glow-gold) 0%, transparent 70%);
-  opacity: 0.75;
-  z-index: 0;
-}
-
-.fintech-card--hero {
-  background:
-    linear-gradient(155deg, rgba(28, 35, 49, 0.88) 0%, rgba(14, 18, 26, 0.92) 100%);
-  border-color: rgba(224, 172, 105, 0.28);
-  box-shadow:
-    0 26px 64px -22px rgba(0, 0, 0, 0.8),
-    0 0 40px -15px rgba(224, 172, 105, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
-
-.fintech-card--hero .fintech-card__title {
-  font-size: clamp(1.5rem, 3.2vw, 2.35rem);
-  line-height: 1.16;
-  letter-spacing: -0.03em;
-  margin-top: 0.35rem;
-  background: linear-gradient(135deg, #ffffff 0%, #f5efe6 55%, #e0ac69 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.fintech-card--gold {
-  border-color: rgba(224, 172, 105, 0.26);
-  background:
-    linear-gradient(165deg, rgba(31, 29, 27, 0.78) 0%, rgba(17, 22, 32, 0.88) 100%);
-}
-
-.fintech-card--emerald {
-  border-color: rgba(110, 231, 183, 0.24);
-  background:
-    linear-gradient(165deg, rgba(16, 33, 32, 0.78) 0%, rgba(15, 20, 29, 0.92) 100%);
-}
-
-.fintech-card--emerald .fintech-card__ambient {
-  background: radial-gradient(circle, var(--glow-emerald) 0%, transparent 70%);
-}
-
-.fintech-card--obsidian {
-  background: rgba(13, 17, 24, 0.88);
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-.fintech-card__header,
-.fintech-card__body,
-.fintech-card__footer {
   position: relative;
-  z-index: 1;
+  overflow: hidden;
+}
+
+.fintech-card--hero,
+.fintech-card--emerald,
+.fintech-card--gold {
+  border-color: rgba(229, 184, 105, 0.28);
+}
+
+.fintech-card__header {
+  margin-bottom: 0.75rem;
 }
 
 .fintech-card__body {
   display: grid;
-  gap: 1.1rem;
+  gap: 1.15rem;
 }
 
-.fintech-card__heading {
+.simple-three-stats {
   display: grid;
-  gap: 0.28rem;
-}
-
-.fintech-card__subtitle {
-  max-width: 56rem;
-}
-
-/* ==========================================================================
-   PERSPECTIVE SWITCHER & METRIC TILES
-   ========================================================================== */
-
-.fintech-perspective-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.85rem;
-  padding: 0.9rem 1.05rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  padding: 1rem;
   border-radius: 14px;
-  background: rgba(9, 12, 18, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.fintech-perspective-bar__meta {
-  display: grid;
-  gap: 0.15rem;
-}
-
-.fintech-perspective-bar__ActiveMotto {
-  font-size: 1.05rem;
-  color: var(--accent-bright);
-}
-
-.fintech-toggle {
-  flex-wrap: wrap;
-  padding: 0.25rem;
-  border-radius: 12px;
-  background: rgba(17, 22, 32, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-}
-
-.fintech-toggle button {
-  border-color: transparent;
-  transition:
-    background-color 200ms cubic-bezier(0.22, 1, 0.36, 1),
-    color 200ms ease,
-    box-shadow 200ms ease,
-    transform 150ms ease;
-}
-
-.fintech-toggle button[aria-pressed="true"] {
-  box-shadow: 0 4px 18px rgba(224, 172, 105, 0.32);
-}
-
-.fintech-metric-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(13.5rem, 1fr));
-  gap: 0.85rem;
-}
-
-.fintech-metric-tile {
-  display: grid;
-  gap: 0.35rem;
-  padding: 1rem 1.1rem;
-  border-radius: 14px;
-  background: rgba(12, 16, 23, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-.fintech-metric-tile--gold {
-  border-color: rgba(224, 172, 105, 0.32);
-  background: linear-gradient(145deg, rgba(42, 33, 22, 0.52), rgba(14, 18, 26, 0.82));
-}
-
-.fintech-metric-tile--emerald {
-  border-color: rgba(110, 231, 183, 0.32);
-  background: linear-gradient(145deg, rgba(16, 48, 38, 0.52), rgba(14, 18, 26, 0.82));
-}
-
-.fintech-metric-tile__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.fintech-metric-tile__label {
-  font-size: 0.76rem;
-  font-weight: 600;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.fintech-metric-tile__badge {
-  font-size: 0.7rem;
-  font-weight: 700;
-  padding: 0.12rem 0.5rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--text);
-}
-
-.fintech-metric-tile--gold .fintech-metric-tile__badge {
-  background: rgba(224, 172, 105, 0.2);
-  color: var(--accent-bright);
-}
-
-.fintech-metric-tile--emerald .fintech-metric-tile__badge {
-  background: rgba(110, 231, 183, 0.18);
-  color: var(--ok);
-}
-
-.fintech-metric-tile__value {
-  font-size: 1.55rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
-  color: var(--text);
-}
-
-.fintech-metric-tile--gold .fintech-metric-tile__value {
-  color: var(--accent-bright);
-}
-
-.fintech-metric-tile--emerald .fintech-metric-tile__value {
-  color: var(--ok);
-}
-
-.fintech-metric-tile__sub {
-  font-size: 0.8rem;
-  color: var(--muted);
-  line-height: 1.4;
-}
-
-.fintech-perspective-callout {
-  padding: 1rem 1.15rem;
-  border-radius: 14px;
-  background: rgba(11, 15, 22, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  transition: border-color 220ms ease, background-color 220ms ease;
-}
-
-.fintech-perspective-callout[data-perspective="tenant"] {
-  border-color: rgba(110, 231, 183, 0.25);
-}
-
-.fintech-callout-lead {
-  margin-top: 0;
-  font-size: 0.98rem;
-  color: var(--text);
-}
-
-.fintech-spec-rows {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.fintech-spec-rows .row {
-  margin-top: 0;
-  padding: 0.55rem 0.75rem;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-/* ==========================================================================
-   14-TO-90-DAY WEALTH & DAILY RATE CALCULATOR WIDGET
-   ========================================================================== */
-
-.fintech-calc-section {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.fintech-calc-section__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.fintech-inline-tag {
-  font-size: 0.74rem;
-  color: var(--accent-bright);
-  font-family: Consolas, "Courier New", monospace;
-}
-
-.fintech-tier-selector {
-  flex-wrap: wrap;
-}
-
-.fintech-tier-selector button {
-  flex: 1 1 13rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
   text-align: center;
 }
 
-.fintech-wealth-split {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr auto 1fr;
-  align-items: stretch;
-  gap: 0.65rem;
-  padding: 1.1rem;
-  border-radius: 16px;
-  background: rgba(8, 11, 17, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-}
-
-@media (max-width: 820px) {
-  .fintech-wealth-split {
+@media (max-width: 640px) {
+  .simple-three-stats {
     grid-template-columns: 1fr;
-  }
-  .fintech-wealth-split__operator {
-    display: none;
+    text-align: left;
   }
 }
 
-.fintech-wealth-split__card {
+.simple-stat {
   display: grid;
-  gap: 0.35rem;
-  padding: 0.95rem 1rem;
-  border-radius: 12px;
-  background: rgba(20, 26, 36, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  gap: 0.2rem;
 }
 
-.fintech-wealth-split__card--vault {
-  border-color: rgba(224, 172, 105, 0.38);
-  background: linear-gradient(155deg, rgba(45, 34, 20, 0.55), rgba(16, 21, 30, 0.85));
-}
-
-.fintech-wealth-split__card--net {
-  border-color: rgba(110, 231, 183, 0.38);
-  background: linear-gradient(155deg, rgba(16, 46, 36, 0.55), rgba(16, 21, 30, 0.85));
-}
-
-.fintech-wealth-split__badge-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.35rem;
-}
-
-.fintech-vault-pill {
-  font-size: 0.68rem;
-  font-weight: 700;
-  padding: 0.1rem 0.45rem;
-  border-radius: 999px;
-  background: rgba(224, 172, 105, 0.22);
-  color: var(--accent-bright);
-}
-
-.fintech-wealth-split__operator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.35rem;
-  font-weight: 700;
+.simple-stat__label {
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--muted);
-  padding: 0 0.15rem;
 }
 
-.fintech-counter-value {
-  font-size: clamp(1.45rem, 2.5vw, 1.9rem);
+.simple-stat__value {
+  font-size: 1.65rem;
   font-weight: 750;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
   color: var(--text);
 }
 
-.fintech-counter-value small {
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--muted);
-}
-
-.fintech-counter-value--gold {
+.simple-stat__value--gold {
   color: var(--accent-bright);
 }
 
-.fintech-counter-value--emerald {
+.simple-stat__value--emerald {
   color: var(--ok);
 }
 
-.fintech-wealth-split__meta {
-  font-size: 0.78rem;
+.simple-stat__sub {
+  font-size: 0.8rem;
   color: var(--muted);
-  line-height: 1.35;
 }
 
-.fintech-vault-box {
+.simple-steps-grid {
   display: grid;
-  gap: 0.6rem;
-  padding: 1rem 1.15rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.85rem;
+  margin-top: 1.25rem;
+}
+
+@media (max-width: 680px) {
+  .simple-steps-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.simple-step-card {
+  background: var(--raised);
+  border: 1px solid var(--line);
   border-radius: 14px;
-  background: linear-gradient(90deg, rgba(224, 172, 105, 0.12), rgba(110, 231, 183, 0.08));
-  border: 1px solid rgba(224, 172, 105, 0.3);
+  padding: 1.15rem;
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
 }
 
-.fintech-vault-box__head {
-  display: flex;
-  flex-wrap: wrap;
+.simple-step-num {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.fintech-vault-box__title {
-  font-size: 1rem;
-  margin-top: 0.15rem;
-}
-
-.fintech-vault-box__amount {
-  font-size: 1.1rem;
-  font-variant-numeric: tabular-nums;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: rgba(229, 184, 105, 0.16);
   color: var(--accent-bright);
-}
-
-.fintech-grid-2 {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-  gap: 0.85rem;
-}
-
-.fintech-slider-panel {
-  display: grid;
-  gap: 0.65rem;
-  padding: 1rem 1.15rem;
-  border-radius: 14px;
-  background: rgba(10, 14, 20, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.fintech-slider-panel__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.fintech-range-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 0.55rem;
-  border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    var(--accent) 0%,
-    var(--ok) var(--slider-fill, 100%),
-    rgba(255, 255, 255, 0.12) var(--slider-fill, 100%)
-  );
-  outline: none;
-  cursor: pointer;
-}
-
-.fintech-range-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 1.35rem;
-  height: 1.35rem;
-  border-radius: 999px;
-  background: #ffffff;
-  border: 3px solid var(--accent);
-  box-shadow: 0 0 14px rgba(224, 172, 105, 0.8);
-  cursor: grab;
-}
-
-.fintech-range-slider::-moz-range-thumb {
-  width: 1.35rem;
-  height: 1.35rem;
-  border-radius: 999px;
-  background: #ffffff;
-  border: 3px solid var(--accent);
-  box-shadow: 0 0 14px rgba(224, 172, 105, 0.8);
-  cursor: grab;
-}
-
-.fintech-slider-ticks {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.74rem;
-  color: var(--muted);
-}
-
-.fintech-ledger {
-  display: grid;
-  gap: 0.45rem;
-  padding: 0.9rem 1.05rem;
-  border-radius: 14px;
-  background: rgba(9, 12, 18, 0.68);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  font-variant-numeric: tabular-nums;
-}
-
-.fintech-ledger .row {
-  margin-top: 0;
-  padding: 0.45rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.fintech-ledger .row:last-child {
-  border-bottom: 0;
-}
-
-.fintech-horizon-strip {
-  padding: 0.85rem 1rem;
-  border-radius: 12px;
-  background: rgba(110, 231, 183, 0.08);
-  border: 1px solid rgba(110, 231, 183, 0.24);
-}
-
-.fintech-pillars-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
-  gap: 1.25rem;
-}
-
-.fintech-pillar-list {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.fintech-pillar-item {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.85rem;
-  align-items: flex-start;
-  padding: 0.85rem 0.95rem;
-  border-radius: 12px;
-  background: rgba(10, 14, 21, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.fintech-pillar-item .note {
-  margin-top: 0.2rem;
-}
-
-.fintech-pillar-item__index {
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  padding: 0.25rem 0.45rem;
-  border-radius: 8px;
-  background: rgba(224, 172, 105, 0.16);
-  color: var(--accent-bright);
-  border: 1px solid rgba(224, 172, 105, 0.3);
 }
 
-.fintech-footer-bar {
-  text-align: center;
-  padding: 1rem;
+.simple-step-card strong {
+  font-size: 1rem;
+}
+
+.simple-step-card p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.simple-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.85rem;
+}
+
+.simple-details {
   border-top: 1px solid var(--line);
+  padding-top: 0.85rem;
+}
+
+.simple-details summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 500;
+  user-select: none;
+}
+
+.simple-details summary:hover {
+  color: var(--text);
 }
 
 /* ==========================================================================
-   CORE PRIMITIVES (ROWS, CHIPS, BUTTONS, INPUTS, TABLES)
+   CORE CONTROLS (BUTTONS, INPUTS, SLIDERS, ROWS, CHIPS)
    ========================================================================== */
 
 .row {
@@ -742,7 +661,7 @@ h2 {
   justify-content: space-between;
   align-items: center;
   gap: 0.75rem;
-  margin-top: 0.75rem;
+  margin-top: 0.65rem;
 }
 
 .row span {
@@ -752,19 +671,19 @@ h2 {
 .chip {
   display: inline-flex;
   align-items: center;
-  min-height: 2rem;
-  padding: 0.2rem 0.8rem;
+  min-height: 1.9rem;
+  padding: 0.15rem 0.75rem;
   border-radius: 999px;
-  background: rgba(224, 172, 105, 0.16);
-  border: 1px solid rgba(224, 172, 105, 0.35);
+  background: rgba(229, 184, 105, 0.15);
+  border: 1px solid rgba(229, 184, 105, 0.32);
   color: var(--accent-bright);
   font-weight: 650;
-  font-size: 0.85rem;
-  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
 }
 
 .toggle {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.45rem;
 }
 
@@ -776,31 +695,25 @@ h2 {
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.03);
   color: var(--text);
-  padding: 0.45rem 0.95rem;
+  padding: 0.5rem 1rem;
   font: inherit;
-  font-size: 0.92rem;
-  text-decoration: none;
+  font-size: 0.93rem;
   cursor: pointer;
-  transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    transform 140ms ease,
-    box-shadow 160ms ease;
+  transition: background-color 140ms ease, border-color 140ms ease;
 }
 
 .toggle button:hover,
 .button:hover,
 .actions button:hover {
-  border-color: rgba(224, 172, 105, 0.45);
+  border-color: rgba(229, 184, 105, 0.45);
 }
 
 .toggle button[aria-pressed="true"],
 .button {
-  background: linear-gradient(135deg, var(--accent-bright) 0%, var(--accent) 100%);
+  background: var(--accent);
   color: var(--accent-ink);
   border-color: transparent;
   font-weight: 650;
-  box-shadow: 0 6px 20px -6px rgba(224, 172, 105, 0.45);
 }
 
 .button {
@@ -809,11 +722,18 @@ h2 {
   justify-content: center;
 }
 
-.fintech-cta-xl {
-  min-height: 3.15rem;
-  padding: 0.65rem 1.35rem;
-  font-size: 1rem;
-  letter-spacing: -0.01em;
+.button-primary-lg {
+  width: 100%;
+  min-height: 3.25rem;
+  font-size: 1.02rem;
+  border-radius: 12px;
+}
+
+.button.button-secondary {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--line);
+  font-weight: 500;
 }
 
 .button:disabled {
@@ -828,7 +748,7 @@ h2 {
 
 .field span {
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: 0.86rem;
 }
 
 .field input,
@@ -836,22 +756,23 @@ h2 {
   min-height: 2.75rem;
   border-radius: 10px;
   border: 1px solid var(--line);
-  background: rgba(10, 14, 20, 0.85);
+  background: #0d121c;
   color: var(--text);
   padding: 0.45rem 0.8rem;
   font: inherit;
-  transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
-.field input:focus,
-.field select:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(224, 172, 105, 0.18);
+.field input[type="range"] {
+  min-height: 1.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 .text-button {
-  min-height: 2.75rem;
+  min-height: 2.5rem;
   border: 0;
   background: transparent;
   color: var(--muted);
@@ -866,21 +787,9 @@ h2 {
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.55rem;
   margin-top: 0.75rem;
-}
-
-.camera {
-  min-height: 16rem;
-  border-radius: 14px;
-  overflow: hidden;
-  background: #0d1015;
-  border: 1px solid var(--line);
-}
-
-.camera video {
-  width: 100%;
-  height: auto;
 }
 
 .payload {
@@ -888,7 +797,7 @@ h2 {
   padding: 0.75rem;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  background: #10141a;
+  background: #0d121c;
   border-radius: 10px;
   color: var(--ok);
 }
@@ -896,6 +805,122 @@ h2 {
 .error {
   color: var(--danger);
   margin: 0.75rem 0 0;
+}
+
+/* ==========================================================================
+   STAY CARDS, BADGES, QR, SCANNER & TABLES
+   ========================================================================== */
+
+.stay-card {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.stay-card h2 {
+  margin: 0;
+}
+
+.stay-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.stay-badge {
+  border-radius: 999px;
+  padding: 0.22rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+}
+
+.stay-badge[data-status="active"] {
+  color: var(--ok);
+  background: var(--ok-bg);
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.stay-badge[data-status="warning"] {
+  color: var(--accent-bright);
+  border-color: rgba(229, 184, 105, 0.4);
+}
+
+.stay-badge[data-status="terminated"] {
+  color: var(--danger);
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+.pass-kicker {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.vault-progress {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.progress {
+  position: relative;
+  height: 0.55rem;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(229, 184, 105, 0.2);
+}
+
+.progress-indicator {
+  height: 100%;
+  width: calc(var(--progress, 0) * 1%);
+  max-width: 100%;
+  background: var(--accent);
+  transition: width 180ms ease;
+}
+
+.vault-label {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.lodger-qr {
+  display: flex;
+  justify-content: center;
+  padding: 1.25rem 1rem;
+  background: #f4efe6;
+  border-radius: 18px;
+}
+
+.lodger-qr svg {
+  display: block;
+  width: min(232px, 72vw);
+  height: auto;
+  background: #ffffff;
+  border-radius: 8px;
+}
+
+.agreement-qr {
+  background: #ffffff;
+  color: #14181f;
+  border-radius: 12px;
+  padding: 0.9rem 0.75rem 0.7rem;
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+}
+
+.agreement-qr p {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .scanner-screen,
@@ -906,19 +931,7 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
-  padding:
-    calc(1rem + env(safe-area-inset-top, 0px))
-    calc(1rem + env(safe-area-inset-right, 0px))
-    calc(1.25rem + env(safe-area-inset-bottom, 0px))
-    calc(1rem + env(safe-area-inset-left, 0px));
-}
-
-.gate-screen {
-  justify-content: center;
-}
-
-.scanner-screen .topbar {
-  margin-bottom: 0;
+  padding: 1.25rem 1rem;
 }
 
 .viewfinder {
@@ -1001,16 +1014,6 @@ h2 {
   border-bottom-width: 3px;
 }
 
-.scanner-screen .actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  margin-top: 0;
-}
-
-.scanner-screen .actions button {
-  width: 100%;
-}
-
 .face-capture {
   margin: 0;
   display: grid;
@@ -1026,86 +1029,6 @@ h2 {
   background: #0d1015;
 }
 
-.stay-card {
-  display: grid;
-  gap: 0.9rem;
-}
-
-.stay-card h2 {
-  margin: 0;
-}
-
-.stay-card-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.75rem;
-}
-
-.stay-badge {
-  border-radius: 999px;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  border: 1px solid var(--line);
-  font-variant-numeric: tabular-nums;
-}
-
-.stay-badge[data-status="active"] {
-  color: var(--ok);
-  background: var(--ok-bg);
-  border-color: rgba(110, 231, 183, 0.35);
-}
-
-.stay-badge[data-status="warning"] {
-  color: #f3c687;
-  background: rgba(224, 172, 105, 0.12);
-  border-color: rgba(224, 172, 105, 0.38);
-}
-
-.stay-badge[data-status="terminated"] {
-  color: #f49b90;
-  background: rgba(244, 155, 144, 0.12);
-  border-color: rgba(244, 155, 144, 0.38);
-}
-
-.agreement-qr {
-  background: #ffffff;
-  color: #14181f;
-  border-radius: 12px;
-  padding: 0.9rem 0.75rem 0.7rem;
-  display: grid;
-  justify-items: center;
-  gap: 0.35rem;
-}
-
-.agreement-qr p {
-  margin: 0;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.stay-card .button {
-  width: auto;
-}
-
-.button.button-secondary {
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--text);
-  border-color: var(--line);
-  font-weight: 500;
-  box-shadow: none;
-}
-
-.button.button-secondary:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
 .alert-scrim {
   position: fixed;
   inset: 0;
@@ -1113,77 +1036,22 @@ h2 {
   display: grid;
   place-items: center;
   background: rgba(0, 0, 0, 0.8);
-  padding:
-    calc(1rem + env(safe-area-inset-top, 0px))
-    calc(1rem + env(safe-area-inset-right, 0px))
-    calc(1rem + env(safe-area-inset-bottom, 0px))
-    calc(1rem + env(safe-area-inset-left, 0px));
+  padding: 1rem;
 }
 
 .alert-panel {
   width: min(24rem, 100%);
-  background: var(--raised-solid);
+  background: var(--raised);
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 1.5rem;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
-}
-
-.alert-kicker {
-  margin: 0;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.alert-panel h2 {
-  margin-top: 0.35rem;
-  font-size: 1.7rem;
-}
-
-.alert-panel .button {
-  width: 100%;
-  margin-top: 1.25rem;
-}
-
-.alert-panel[data-status="active"] {
-  border-color: #3d9a6a;
-}
-
-.alert-panel[data-status="active"] .alert-kicker,
-.alert-panel[data-status="active"] h2 {
-  color: var(--ok);
-}
-
-.alert-panel[data-status="warning"] {
-  border-color: #d4b15a;
-}
-
-.alert-panel[data-status="warning"] .alert-kicker,
-.alert-panel[data-status="warning"] h2 {
-  color: #e0c36a;
-}
-
-.alert-panel[data-status="terminated"] {
-  border-color: #c45c52;
-}
-
-.alert-panel[data-status="terminated"] .alert-kicker,
-.alert-panel[data-status="terminated"] h2 {
-  color: var(--danger);
 }
 
 .scan-ids {
   margin: 1rem 0 0;
   display: grid;
   gap: 0.75rem;
-}
-
-.scan-ids div {
-  display: grid;
-  gap: 0.15rem;
 }
 
 .scan-ids dt {
@@ -1196,97 +1064,12 @@ h2 {
   overflow-wrap: anywhere;
 }
 
-.lodger-screen {
-  margin-top: 0.25rem;
-}
-
-.lodger-qr {
-  display: flex;
-  justify-content: center;
-  padding: 1.25rem 1rem;
-  background: #f4efe6;
-  border-radius: 18px;
-}
-
-.lodger-qr svg {
-  display: block;
-  width: min(232px, 72vw);
-  height: auto;
-  background: #ffffff;
-  border-radius: 8px;
-}
-
-.vault-progress {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.progress {
-  position: relative;
-  height: 0.6rem;
-  width: 100%;
-  overflow: hidden;
-  border-radius: 9999px;
-  background: rgba(224, 172, 105, 0.18);
-  border: 1px solid rgba(224, 172, 105, 0.25);
-}
-
-.progress-indicator {
-  height: 100%;
-  width: calc(var(--progress, 0) * 1%);
-  max-width: 100%;
-  background: linear-gradient(90deg, var(--accent) 0%, var(--ok) 100%);
-  transition: width 220ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.vault-label {
-  margin: 0;
-  font-size: 0.95rem;
-  line-height: 1.4;
-}
-
-.pass-widget {
-  display: grid;
-  gap: 0.9rem;
-}
-
-.pass-widget-alert {
-  border-color: #6d4038;
-  background: #2a1c1a;
-}
-
-.pass-kicker {
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  margin: 0;
-}
-
-.pass-code {
-  margin: 0.35rem 0 0;
-  font-family: Consolas, "Courier New", monospace;
-  overflow-wrap: anywhere;
-}
-
-.pass-amount {
-  margin: 0.15rem 0 0;
-  font-size: 1.6rem;
-  font-weight: 650;
-}
-
-.pass-warning {
-  margin: 0.65rem 0 0;
-  color: var(--danger);
-}
-
 .pipeline-table-wrap {
   width: 100%;
   overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: rgba(10, 14, 20, 0.85);
+  background: #0d121c;
 }
 
 .pipeline-table {
@@ -1309,7 +1092,7 @@ h2 {
   font-weight: 650;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  background: rgba(22, 28, 36, 0.95);
+  background: #131a26;
 }
 
 .pipeline-table tbody tr:last-child td {

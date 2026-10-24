@@ -40,22 +40,32 @@ async function readGmfFloatPoolSnapshot(): Promise<GmfPoolSnapshot> {
     const supabase = getSupabaseServerClient();
     const { data, error } = await supabase
       .from("gmf_float_balance")
-      .select("pool_id, available_balance_cents, reserved_backstop_cents, total_routed_cents")
+      .select("*")
       .eq("pool_id", "primary_gmf_pool")
       .maybeSingle();
 
     if (!error && data && typeof data === "object") {
       const row = data as Record<string, unknown>;
-      const available =
-        typeof row.available_balance_cents === "number" &&
-        Number.isFinite(row.available_balance_cents)
-          ? Math.round(row.available_balance_cents)
-          : DEFAULT_GMF_FLOAT_SEED_CENTS;
-      const reserved =
-        typeof row.reserved_backstop_cents === "number" &&
-        Number.isFinite(row.reserved_backstop_cents)
-          ? Math.round(row.reserved_backstop_cents)
-          : 0;
+      const rawAvailable =
+        typeof row.available_balance_cents === "number"
+          ? row.available_balance_cents
+          : typeof row.available_buffer_cents === "number"
+            ? row.available_buffer_cents
+            : typeof row.total_float_cents === "number"
+              ? row.total_float_cents
+              : DEFAULT_GMF_FLOAT_SEED_CENTS;
+      const available = Number.isFinite(rawAvailable)
+        ? Math.round(rawAvailable)
+        : DEFAULT_GMF_FLOAT_SEED_CENTS;
+
+      const rawReserved =
+        typeof row.reserved_backstop_cents === "number"
+          ? row.reserved_backstop_cents
+          : typeof row.allocated_reserve_cents === "number"
+            ? row.allocated_reserve_cents
+            : 0;
+      const reserved = Number.isFinite(rawReserved) ? Math.round(rawReserved) : 0;
+
       const routed =
         typeof row.total_routed_cents === "number" &&
         Number.isFinite(row.total_routed_cents)

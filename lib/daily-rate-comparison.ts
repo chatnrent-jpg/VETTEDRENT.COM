@@ -5,8 +5,8 @@ import {
 } from "@/lib/marketing-calculator";
 import { INTENDED_STAY_DAYS } from "@/lib/geo-compliance";
 
-/** Default reference rate ($277.00/night) when no custom external offer is entered. */
-export const AGGREGATOR_NIGHTLY_BENCHMARK_CENTS = 27700;
+/** Default reference rate ($144.00/night) when no custom external offer is entered. */
+export const AGGREGATOR_NIGHTLY_BENCHMARK_CENTS = 14400;
 
 export const MIN_COMPARISON_STAY_DAYS = 14;
 export const MAX_COMPARISON_STAY_DAYS = 365;
@@ -46,6 +46,13 @@ export const EXTERNAL_OFFER_PRESETS: readonly ExternalOfferPreset[] = [
     description: "Basic extended-stay room with transient hotel taxes, no kitchen sanctuary, and zero equity return.",
   },
   {
+    id: "hotel-ota-144",
+    providerLabel: "Hotel / Extended-Stay Benchmark ($144/night)",
+    nightlyRateCents: 14400,
+    upfrontDepositCents: 0,
+    description: "Standard mid-scale hotel or extended-stay nightly rate ($144/night) with 100% sunk cost.",
+  },
+  {
     id: "unvetted-mtr-sublet",
     providerLabel: "Unvetted Furnished Sublet / MTR ($145/night + $1,500 Deposit)",
     nightlyRateCents: 14500,
@@ -83,7 +90,7 @@ export const DAILY_RATE_PRESET_TIERS: Record<DailyRateTierId, DailyRateTierPrese
     grossDailyRateCents: 3500,
     dailyGmfVaultCreditCents: 501,
     netEffectiveDailyRateCents: 2999,
-    defaultComparisonNightlyCents: 14500,
+    defaultComparisonNightlyCents: 14400,
     defaultComparisonDepositCents: 150000,
     audienceSummary:
       "Temporary workers & contractors, university/vocational students, and solo 14d+ seasonal remote professionals.",

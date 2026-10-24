@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { JurisdictionSelect } from "@/components/jurisdiction-select";
 import { usePlaidLinkFlow } from "@/hooks/usePlaidLinkFlow";
 import {
   DEFAULT_JURISDICTION_CODE,
+  JURISDICTION_RULES,
   resolveJurisdiction,
 } from "@/lib/compliance/jurisdictions";
 import {
@@ -39,7 +39,7 @@ export function PlaidLinkScreen() {
   const [jurisdictionCode, setJurisdictionCode] = useState(DEFAULT_JURISDICTION_CODE);
   const [prefilledLeadEmail, setPrefilledLeadEmail] = useState<string | null>(null);
   const [prefilledStayDays, setPrefilledStayDays] = useState<number | null>(null);
-  const [comparisonNightlyDollars, setComparisonNightlyDollars] = useState("195");
+  const [comparisonNightlyDollars, setComparisonNightlyDollars] = useState("144");
   const [activatingPass, setActivatingPass] = useState(false);
   const [activationMessage, setActivationMessage] = useState<string | null>(null);
   const [activationError, setActivationError] = useState<string | null>(null);
@@ -121,7 +121,7 @@ export function PlaidLinkScreen() {
   );
   const comparisonNightlyCents = Math.max(
     3500,
-    Math.round((Number(comparisonNightlyDollars) || 195) * 100),
+    Math.round((Number(comparisonNightlyDollars) || 144) * 100),
   );
   const dailyComparison = calculateDailyRateComparison(
     weeklyStayCents,
@@ -234,281 +234,215 @@ export function PlaidLinkScreen() {
   }
 
   return (
-    <main className="shell">
-      <header className="topbar">
-        <div>
-          <p className="pass-kicker">
-            Be Great to Yourself. · Pillar 1 Universal Purpose-Verified Stay Engine
-          </p>
-          <h1>Connect a bank &amp; verify stay purpose</h1>
-          <p className="lede">
-            A weekly stay checks 90 days of deposits (3.00x coverage), a verified temporary stay
-            purpose that lasts through the intended stay, and the listing location&apos;s statutory
-            transient ceiling.
-          </p>
-        </div>
-        <div className="actions">
-          <Link className="button button-secondary" href="/marketing">
-            Marketing Hub
+    <main className="google-home" data-perspective="tenant">
+      <div className="google-hero-backdrop" aria-hidden="true" />
+      <header className="google-topbar">
+        <Link href="/" className="google-logo">
+          <img
+            src="/vettedrent-logo-mark.jpg"
+            alt="VettedRent.Com Crest"
+            className="google-logo-badge"
+            width={42}
+            height={42}
+          />
+          <div className="google-logo-lockup">
+            <strong>
+              VettedRent<em className="google-logo-domain">.Com</em>
+            </strong>
+            <span>Be Great to Yourself.</span>
+          </div>
+        </Link>
+        <nav className="google-nav" aria-label="Main navigation">
+          <Link className="text-button" href="/">
+            ← Home
           </Link>
-          <Link className="button button-secondary" href="/dashboard">
-            Dashboard
+          <Link className="button" href="/dashboard">
+            Sign In
           </Link>
-        </div>
+        </nav>
       </header>
 
-      <section className="stack" aria-label="Bank connection">
-        {prefilledLeadEmail || prefilledStayDays || weeklyStayCents !== DEFAULT_WEEKLY_STAY_CENTS ? (
-          <article className="panel">
-            <div className="stay-card-head">
-              <strong>One-Click Pipeline &amp; Calculator Conversion Active</strong>
-              <span className="chip">
-                {activeCohort.id} · {formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day
-              </span>
-            </div>
-            <p className="note">
-              Pre-configured
-              {prefilledLeadEmail ? ` for ${prefilledLeadEmail}` : ""} ·{" "}
-              {formatCents(weeklyStayCents)}/wk (
-              {formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day) ·{" "}
-              {prefilledStayDays ?? activeCohort.defaultStayDays}-day stay in {jurisdictionCode}.{" "}
-              <strong>Be Great to Yourself.</strong>
-            </p>
-          </article>
-        ) : null}
+      <section className="google-stage" aria-label="Bank connection">
+        <div className="google-headline">
+          <h1>Get approved in 60 seconds.</h1>
+          <p>
+            <strong>{formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day gross</strong> ·{" "}
+            <strong>{formatCurrencyCents(dailyComparison.netEffectiveDailyRateCents)}/day net</strong>{" "}
+            · <strong>$0.00 Security Deposit</strong> ({formatCents(weeklyStayCents)}/wk)
+          </p>
+        </div>
 
-        <article className="panel stay-card">
-          <div className="stay-card-head">
-            <div>
-              <p className="pass-kicker">4 Temporary Stay Cohorts</p>
-              <h2>Purpose-Verified Stay Cohort &amp; Credential</h2>
-            </div>
-            <span className="chip">{activeCohort.id}</span>
-          </div>
-
-          <div>
-            <p className="pass-kicker">Select Lodging Tier ($35/Day Room · $70/Day Suite · $106.43/Day Townhome)</p>
-            <div
-              className="toggle"
-              role="group"
-              aria-label="Select lodging tier rate"
-              style={{ flexWrap: "wrap", marginTop: "0.4rem" }}
+        {/* ONE HORIZONTAL BAR FOR RENTER APPLICATION */}
+        <div className="google-search-bar">
+          <label className="google-search-cell">
+            <span>Space</span>
+            <select
+              value={weeklyStayCents}
+              onChange={(e) => setWeeklyStayCents(Number(e.target.value) || 24500)}
             >
               {DAILY_RATE_TIER_LIST.map((tier) => (
-                <button
-                  key={tier.id}
-                  type="button"
-                  aria-pressed={weeklyStayCents === tier.weeklyRateCents}
-                  onClick={() => setWeeklyStayCents(tier.weeklyRateCents)}
-                >
+                <option key={tier.id} value={tier.weeklyRateCents}>
                   {tier.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <label className="field">
-            <span>
-              Intended Stay Duration: <strong>{selectedStayDays} Days</strong> (14 to 90 days)
-            </span>
-            <input
-              type="range"
-              min={14}
-              max={90}
-              step={1}
-              value={Math.min(90, Math.max(14, selectedStayDays))}
-              onChange={(event) => updateStayDurationDays(Number(event.target.value) || 90)}
-            />
-          </label>
-
-          <div
-            className="toggle"
-            role="group"
-            aria-label="Purpose-Verified Stay Cohort"
-            style={{ flexWrap: "wrap" }}
-          >
-            {PURPOSE_COHORTS.map((cohort) => (
-              <button
-                key={cohort.id}
-                type="button"
-                aria-pressed={activeCohort.id === cohort.id}
-                onClick={() => selectCohort(cohort.id)}
-              >
-                {cohort.title}
-              </button>
-            ))}
-          </div>
-
-          <p className="note">
-            <strong>{activeCohort.audience}</strong> — {activeCohort.summary}
-          </p>
-
-          <label className="field">
-            <span>Purpose-Verified Stay cohort</span>
-            <select
-              value={contract.credentialType}
-              onChange={(event) => selectCohort(event.target.value as PurposeCohortId)}
-            >
-              {PURPOSE_COHORTS.map((cohort) => (
-                <option key={cohort.id} value={cohort.id}>
-                  {cohort.title} — {cohort.audience}
                 </option>
               ))}
             </select>
           </label>
 
-          <label className="field">
-            <span>{activeCohort.identifierLabel}</span>
-            <input
-              value={contract.credentialIdentifier}
-              onChange={(event) =>
-                setContract({ ...contract, credentialIdentifier: event.target.value })
-              }
-            />
+          <label className="google-search-cell">
+            <span>Reason</span>
+            <select
+              value={activeCohort.id}
+              onChange={(e) => selectCohort(e.target.value as PurposeCohortId)}
+            >
+              {PURPOSE_COHORTS.map((cohort) => (
+                <option key={cohort.id} value={cohort.id}>
+                  {cohort.title}
+                </option>
+              ))}
+            </select>
           </label>
 
-          <label className="field">
-            <span>{activeCohort.endDateLabel}</span>
-            <input
-              type="date"
-              value={contract.contractEndDate}
-              onChange={(event) =>
-                setContract({ ...contract, contractEndDate: event.target.value })
-              }
-            />
+          <label className="google-search-cell">
+            <span>Stay Length</span>
+            <select
+              value={selectedStayDays}
+              onChange={(e) => updateStayDurationDays(Number(e.target.value) || 90)}
+            >
+              <option value={14}>14 Days</option>
+              <option value={30}>30 Days</option>
+              <option value={60}>60 Days</option>
+              <option value={90}>90 Days</option>
+            </select>
           </label>
 
-          <label className="field">
-            <span>
-              Intended stay end date
-              {activeCohort.id === "Seasonal-Remote" ? " (14-day minimum stay floor)" : ""}
-            </span>
-            <input
-              type="date"
-              value={contract.intendedStayEndDate}
-              onChange={(event) =>
-                setContract({ ...contract, intendedStayEndDate: event.target.value })
-              }
-            />
+          <label className="google-search-cell">
+            <span>Location</span>
+            <select
+              value={jurisdictionCode}
+              onChange={(e) => setJurisdictionCode(e.target.value)}
+            >
+              {JURISDICTION_RULES.map((rule) => (
+                <option key={rule.code} value={rule.code}>
+                  {rule.name} ({rule.code})
+                </option>
+              ))}
+            </select>
           </label>
 
-          <div className="row">
-            <span>Cohort coverage rule</span>
-            <strong>{activeCohort.inflowRuleLabel}</strong>
-          </div>
-
-          <label className="field">
-            <span>
-              Compare &amp; Contrast Against Competing Offer ($/night — hotel, Airbnb, sublet, or
-              OTA)
-            </span>
-            <input
-              type="number"
-              min={35}
-              max={2500}
-              step={1}
-              value={comparisonNightlyDollars}
-              onChange={(event) => setComparisonNightlyDollars(event.target.value)}
-            />
-          </label>
-
-          <div className="actions" style={{ flexWrap: "wrap" }}>
-            {EXTERNAL_OFFER_PRESETS.map((preset) => {
-              const dollars = String(Math.round(preset.nightlyRateCents / 100));
-              return (
-                <button
-                  key={preset.id}
-                  type="button"
-                  className={
-                    comparisonNightlyDollars === dollars ? "button" : "button button-secondary"
-                  }
-                  onClick={() => setComparisonNightlyDollars(dollars)}
-                >
-                  {preset.providerLabel}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="row">
-            <span>Daily Rate Equivalent ({formatCents(weeklyStayCents)}/wk)</span>
-            <strong>
-              {formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day gross ·{" "}
-              {formatCurrencyCents(dailyComparison.netEffectiveDailyRateCents)}/day net (after +
-              {formatCurrencyCents(dailyComparison.dailyGmfVaultCreditCents)}/day GMF Vault credit)
-            </strong>
-          </div>
-
-          <div className="row">
-            <span>
-              Total Savings vs. {formatCurrencyCents(dailyComparison.aggregatorNightlyCents)}/night
-              Competing Offer ({dailyComparison.stayDays}d)
-            </span>
-            <span className="stay-badge" data-status="active">
-              Save {formatCurrencyCents(dailyComparison.totalSavingsVsAggregatorCents)} (
-              {dailyComparison.savingsPercentage}% Off) +{" "}
-              {formatCurrencyCents(dailyComparison.totalGmfVaultAccumulatedCents)} Vault Credit
-            </span>
-          </div>
-
-          <JurisdictionSelect value={jurisdictionCode} onChange={setJurisdictionCode} />
-        </article>
-
-        <article className="panel">
-          <h2>Deposit history</h2>
           {canSimulate ? (
-            <p className="note">
-              Plaid keys are not configured. This runs a simulated 90-day deposit check for the
-              signed-in account against the weekly rate of {formatCents(weeklyStayCents)}.
-            </p>
+            <button
+              type="button"
+              className="button google-search-cta"
+              disabled={phase === "loading" || checking}
+              onClick={() => simulate(contract)}
+            >
+              {checking ? "Verifying..." : "Verify Income & Get Approved →"}
+            </button>
           ) : (
-            <p className="note">
-              Plaid opens a secure bank login. VettedRent receives the deposit history it needs
-              for the weekly rate of {formatCents(weeklyStayCents)}. The bank login stays with
-              Plaid.
-            </p>
+            <button
+              type="button"
+              className="button google-search-cta"
+              disabled={!ready || checking}
+              onClick={() => open()}
+            >
+              Connect Bank &amp; Verify →
+            </button>
           )}
-          {phase === "loading" ? <p className="note">Preparing the bank connection.</p> : null}
-          {checking ? <p className="note">Reading 90 days of deposits and the contract term.</p> : null}
-          {decision ? (
-            <Decision
-              decision={decision}
-              weeklyStayCents={weeklyStayCents}
-              jurisdictionCode={jurisdictionCode}
-              stayDays={prefilledStayDays ?? activeCohort.defaultStayDays}
-              comparisonNightlyCents={comparisonNightlyCents}
-              applicantEmail={prefilledLeadEmail}
-              activatingPass={activatingPass}
-              activationMessage={activationMessage}
-              activationError={activationError}
-              onActivate={() => void handleActivateWeeklyBillingAndPass()}
-            />
-          ) : null}
-          {error ? (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <div className="actions">
-            {canSimulate ? (
-              <button
-                type="button"
-                className="button"
-                disabled={phase === "loading" || checking}
-                onClick={() => simulate(contract)}
-              >
-                Simulate 90-day bank check
-              </button>
-            ) : (
-              <button type="button" className="button" disabled={!ready || checking} onClick={() => open()}>
-                Connect bank
-              </button>
-            )}
-            <Link className="text-link" href="/dashboard">
-              Back to dashboard
-            </Link>
+        </div>
+
+        {error ? (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        {decision ? (
+          <Decision
+            decision={decision}
+            weeklyStayCents={weeklyStayCents}
+            jurisdictionCode={jurisdictionCode}
+            stayDays={prefilledStayDays ?? activeCohort.defaultStayDays}
+            comparisonNightlyCents={comparisonNightlyCents}
+            applicantEmail={prefilledLeadEmail}
+            activatingPass={activatingPass}
+            activationMessage={activationMessage}
+            activationError={activationError}
+            onActivate={() => void handleActivateWeeklyBillingAndPass()}
+          />
+        ) : null}
+
+        <div className="google-pill-row">
+          <div className="google-info-pill">
+            <strong>{formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day gross</strong>
+            <span>
+              ({formatCurrencyCents(dailyComparison.netEffectiveDailyRateCents)}/day net after +
+              {formatCurrencyCents(dailyComparison.dailyGmfVaultCreditCents)}/day Vault credit)
+            </span>
           </div>
-        </article>
+          <div className="google-info-pill">
+            <strong>Save {formatCurrencyCents(dailyComparison.totalSavingsVsAggregatorCents)}</strong>
+            <span>
+              ({dailyComparison.savingsPercentage}% Off vs.{" "}
+              {formatCurrencyCents(dailyComparison.aggregatorNightlyCents)}/night)
+            </span>
+          </div>
+          <div className="google-info-pill">
+            <strong>$0.00 Deposit</strong>
+            <span>No credit score impact</span>
+          </div>
+        </div>
+
+        <details className="google-compare-drawer">
+          <summary>
+            Optional: Edit verification ID ({contract.credentialIdentifier}), dates, or compare
+            against hotels
+          </summary>
+          <div className="google-compare-drawer__body">
+            <div className="simple-grid-2">
+              <label className="field">
+                <span>{activeCohort.identifierLabel}</span>
+                <input
+                  value={contract.credentialIdentifier}
+                  onChange={(event) =>
+                    setContract({ ...contract, credentialIdentifier: event.target.value })
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Stay End Date</span>
+                <input
+                  type="date"
+                  value={contract.intendedStayEndDate}
+                  onChange={(event) => {
+                    const nextDate = event.target.value;
+                    setContract({
+                      ...contract,
+                      intendedStayEndDate: nextDate,
+                      contractEndDate: nextDate,
+                    });
+                  }}
+                />
+              </label>
+            </div>
+            <div className="actions" style={{ justifyContent: "center" }}>
+              {EXTERNAL_OFFER_PRESETS.map((preset) => {
+                const dollars = String(Math.round(preset.nightlyRateCents / 100));
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className={
+                      comparisonNightlyDollars === dollars ? "button" : "button button-secondary"
+                    }
+                    onClick={() => setComparisonNightlyDollars(dollars)}
+                  >
+                    {preset.providerLabel}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </details>
       </section>
     </main>
   );
@@ -584,103 +518,66 @@ function Decision({
   );
 
   return (
-    <div className="stack">
-      <div className="row">
-        <span>Result</span>
-        <strong>{decision.approved ? "Approved" : "Not approved"}</strong>
+    <div className="panel stack" style={{ width: "100%", textAlign: "left" }}>
+      <div className="stay-card-head">
+        <div>
+          <p className="pass-kicker">Instant Decision · Be Great to Yourself.</p>
+          <h2>{decision.approved ? "Approved for $0 Deposit Stay" : "Not Approved Yet"}</h2>
+        </div>
+        <span
+          className="stay-badge"
+          data-status={decision.approved ? "active" : "terminated"}
+        >
+          {decision.ratio.toFixed(2)}x Verified ({formatDollars(decision.monthlyInflowEstimated)}/mo)
+        </span>
       </div>
-      <div className="row">
-        <span>Approved Daily Rate Advantage</span>
-        <strong>
-          {formatCurrencyCents(decisionComparison.grossDailyRateCents)}/day gross ·{" "}
-          {formatCurrencyCents(decisionComparison.netEffectiveDailyRateCents)}/day net (Save{" "}
-          {formatCurrencyCents(decisionComparison.totalSavingsVsAggregatorCents)} [
-          {decisionComparison.savingsPercentage}%] vs.{" "}
-          {formatCurrencyCents(decisionComparison.aggregatorNightlyCents)}/night competing offer
-          over {decisionComparison.stayDays}d)
-        </strong>
-      </div>
-      <div className="row">
-        <span>Purpose cohort</span>
-        <strong>{decision.credentialType}</strong>
-      </div>
-      <div className="row">
-        <span>Verified credential ID</span>
-        <strong>{decision.credentialIdentifier}</strong>
-      </div>
-      <div className="row">
-        <span>Coverage</span>
-        <strong>{decision.ratio.toFixed(2)}x</strong>
-      </div>
-      <div className="row">
-        <span>Purpose / contract end</span>
-        <strong>{decision.contractEndDate}</strong>
-      </div>
-      <div className="row">
-        <span>Intended stay end</span>
-        <strong>{decision.intendedStayEndDate}</strong>
-      </div>
+
       <p className="note">
-        Estimated monthly deposits {formatDollars(decision.monthlyInflowEstimated)}. Approval
-        requires 3.00x coverage of the four-week stay, a verified purpose that lasts through the
-        intended stay, and compliance with the cohort stay floor. Be Great to Yourself.
+        {formatCurrencyCents(decisionComparison.grossDailyRateCents)}/day gross ·{" "}
+        {formatCurrencyCents(decisionComparison.netEffectiveDailyRateCents)}/day net · Save{" "}
+        {formatCurrencyCents(decisionComparison.totalSavingsVsAggregatorCents)} (
+        {decisionComparison.savingsPercentage}% Off) vs.{" "}
+        {formatCurrencyCents(decisionComparison.aggregatorNightlyCents)}/night.
       </p>
-      {decision.geoCompliance ? <p className="note">{decision.geoCompliance}</p> : null}
+
       {decision.rejection ? (
         <p className="error" role="alert">
           {decision.rejection}
         </p>
       ) : null}
-      {decision.simulated ? <p className="note">Simulated 90-day deposits.</p> : null}
 
       {decision.approved ? (
-        <article className="panel stay-card">
-          <div className="stay-card-head">
-            <div>
-              <p className="pass-kicker">Underwriting Approved · Be Great to Yourself.</p>
-              <h2>Official VettedRent Trust Passport &amp; Lodger Pass Activation</h2>
-            </div>
-            <span className="stay-badge" data-status="active">
-              3.00x Verified
-            </span>
-          </div>
-          <p className="note">
-            Your {decision.credentialType} credential ({decision.credentialIdentifier}) and{" "}
-            {decision.ratio.toFixed(2)}x deposit velocity are verified. Download your official
-            VettedRent Trust Passport PDF to share with any landlord, or activate weekly
-            micro-billing now to issue your QR Lodger Pass and fund your $1,500.00 GMF Move-Out
-            Vault.
-          </p>
-          <div className="actions" style={{ flexWrap: "wrap" }}>
-            <a
-              className="button button-secondary"
-              href={passportHref}
-              download={`VettedRent-Trust-Passport-${decision.credentialType}.pdf`}
-            >
-              Download Official Trust Passport (PDF) ↓
-            </a>
-            <a
-              className="button button-secondary"
-              href={licenseHref}
-              download={`VettedRent-Commercial-License-${decision.credentialType}-${jurisdictionCode}.pdf`}
-            >
-              Download Revocable Commercial License (PDF) ↓
-            </a>
-            <button
-              type="button"
-              className="button"
-              disabled={activatingPass}
-              onClick={onActivate}
-            >
-              {activatingPass
-                ? "Activating Weekly Micro-Billing..."
-                : "Activate Weekly Micro-Billing & Issue Lodger Pass →"}
-            </button>
-          </div>
-          {activationMessage ? <p className="payload">{activationMessage}</p> : null}
-          {activationError ? <p className="error">{activationError}</p> : null}
-        </article>
+        <div className="actions" style={{ justifyContent: "space-between" }}>
+          <button
+            type="button"
+            className="button"
+            disabled={activatingPass}
+            onClick={onActivate}
+          >
+            {activatingPass
+              ? "Activating..."
+              : "Activate Stay & Get Door Code →"}
+          </button>
+
+          <a
+            className="button button-secondary"
+            href={passportHref}
+            download={`VettedRent-Trust-Passport-${decision.credentialType}.pdf`}
+          >
+            Trust Passport (PDF) ↓
+          </a>
+          <a
+            className="button button-secondary"
+            href={licenseHref}
+            download={`VettedRent-Commercial-License-${decision.credentialType}-${jurisdictionCode}.pdf`}
+          >
+            Lodging License (PDF) ↓
+          </a>
+        </div>
       ) : null}
+
+      {activationMessage ? <p className="payload">{activationMessage}</p> : null}
+      {activationError ? <p className="error">{activationError}</p> : null}
     </div>
   );
 }

@@ -28,7 +28,7 @@ type HostListingView =
     };
 
 export default function DashboardPage() {
-  const [gate, setGate] = useState<Gate>("checking");
+  const [gate, setGate] = useState<Gate>("signed-out");
 
   useEffect(() => {
     let cancelled = false;
@@ -58,37 +58,71 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <main className="shell">
-      <header className="topbar">
-        <div>
-          <h1>Dashboard</h1>
-          <p className="note">
-            {gate === "host"
-              ? "Host account."
-              : gate === "lodger"
-                ? "Lodger account."
-                : "Sign in to open your stay."}
-          </p>
-        </div>
-        <div className="actions">
-          <Link className="button button-secondary" href="/marketing">
-            Marketing &amp; Growth
+    <main className="google-home" data-perspective={gate === "host" ? "landlord" : "tenant"}>
+      <div className="google-hero-backdrop" aria-hidden="true" />
+      <header className="google-topbar">
+        <Link href="/" className="google-logo">
+          <img
+            src="/vettedrent-logo-mark.jpg"
+            alt="VettedRent.Com Crest"
+            className="google-logo-badge"
+            width={42}
+            height={42}
+          />
+          <div className="google-logo-lockup">
+            <strong>
+              VettedRent<em className="google-logo-domain">.Com</em>
+            </strong>
+            <span>Be Great to Yourself.</span>
+          </div>
+        </Link>
+        <nav className="google-nav">
+          <Link className="text-button" href="/">
+            ← Home
+          </Link>
+          <Link className="button button-secondary" href="/underwriting">
+            $0 Deposit Approval
           </Link>
           {gate === "host" || gate === "lodger" ? <SignOutButton /> : null}
-        </div>
+        </nav>
       </header>
 
-      {gate === "checking" ? <p className="note">Checking your session.</p> : null}
-      {gate === "signed-out" ? <SignInPanel /> : null}
-      {gate === "unknown" ? (
-        <article className="panel">
-          <h2>Account not assigned</h2>
-          <p className="note">This account is not a host or a lodger yet.</p>
-        </article>
-      ) : null}
-      {gate === "host" ? <HostPanel /> : null}
-      {gate === "lodger" ? <LodgerPanel /> : null}
-      <WeeklyLiquiditySpreadPanel />
+      <section className="google-stage" style={{ width: "100%" }}>
+        {gate === "checking" ? <p className="note">Checking your session...</p> : null}
+        {gate === "signed-out" ? <SignInPanel /> : null}
+        {gate === "unknown" ? (
+          <article className="panel" style={{ width: "min(36rem, 100%)" }}>
+            <h2>Account not assigned</h2>
+            <p className="note">This account is not a host or a lodger yet.</p>
+          </article>
+        ) : null}
+        {gate === "host" ? (
+          <div style={{ width: "100%", textAlign: "left" }}>
+            <HostPanel />
+          </div>
+        ) : null}
+        {gate === "lodger" ? (
+          <div style={{ width: "100%", textAlign: "left" }}>
+            <LodgerPanel />
+          </div>
+        ) : null}
+
+        <details className="google-compare-drawer" style={{ maxWidth: "100%" }}>
+          <summary>Platform Treasury &amp; Weekly Liquidity Spread (System Spec 3.B)</summary>
+          <div style={{ marginTop: "1rem", textAlign: "left" }}>
+            <WeeklyLiquiditySpreadPanel />
+          </div>
+        </details>
+      </section>
+
+      <footer className="google-footer">
+        <span>VettedRent.Com · Be Great to Yourself.</span>
+        <div className="google-footer__links">
+          <Link href="/">Home</Link>
+          <Link href="/underwriting">Renter Approval</Link>
+          <Link href="/marketing">Partner Tools</Link>
+        </div>
+      </footer>
     </main>
   );
 }
@@ -139,36 +173,46 @@ function SignInPanel() {
 
   if (sent) {
     return (
-      <article className="panel">
-        <h2>Check your email</h2>
-        <p className="note">Open the sign-in link to return to this dashboard.</p>
-      </article>
+      <div className="google-headline">
+        <h1>Check your email.</h1>
+        <p>Open the magic sign-in link we just sent to {email} to enter your dashboard.</p>
+      </div>
     );
   }
 
   return (
-    <form className="panel stack" onSubmit={submit}>
-      <h2>Sign in</h2>
-      <label className="field">
-        <span>Email</span>
-        <input
-          type="email"
-          name="email"
-          autoComplete="email"
-          required
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-      </label>
+    <div style={{ width: "min(40rem, 100%)", display: "grid", gap: "1.15rem" }}>
+      <div className="google-headline">
+        <h1>Sign in to VettedRent.Com</h1>
+        <p>
+          Access your <strong>QR Stay Pass</strong>, <strong>Move-Out Vault</strong>, or{" "}
+          <strong>Host Payout Dashboard</strong> with a 1-click email link.
+        </p>
+      </div>
+
+      <form className="google-search-bar" onSubmit={submit}>
+        <label className="google-search-cell" style={{ flex: "1 1 16rem" }}>
+          <span>Your Email Address</span>
+          <input
+            type="email"
+            name="email"
+            autoComplete="email"
+            placeholder="you@domain.com"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+        </label>
+        <button className="button google-search-cta" type="submit" disabled={busy}>
+          {busy ? "Sending..." : "Email Me a Sign-In Link →"}
+        </button>
+      </form>
       {error ? (
         <p className="error" role="alert">
           {error}
         </p>
       ) : null}
-      <button className="button" type="submit" disabled={busy}>
-        {busy ? "Sending" : "Email me a link"}
-      </button>
-    </form>
+    </div>
   );
 }
 

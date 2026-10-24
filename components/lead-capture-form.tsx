@@ -35,9 +35,9 @@ export function LeadCaptureForm({
     String(resolvePurposeCohort(defaultCohort).defaultStayDays),
   );
   const [agencyName, setAgencyName] = useState("");
-  const [utmSource, setUtmSource] = useState(defaultUtmSource);
-  const [utmMedium, setUtmMedium] = useState(defaultUtmMedium);
-  const [utmCampaign, setUtmCampaign] = useState(defaultUtmCampaign);
+  const utmSource = defaultUtmSource;
+  const utmMedium = defaultUtmMedium;
+  const utmCampaign = defaultUtmCampaign;
   const [submitting, setSubmitting] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -119,13 +119,10 @@ export function LeadCaptureForm({
   return (
     <article className="panel stay-card">
       <div>
-        <p className="pass-kicker">Universal Purpose-Verified Stay Intake</p>
-        <h2>Host, 4-Cohort Lodger &amp; Enterprise Partner Lead Funnel</h2>
+        <p className="pass-kicker">Get Started with VettedRent</p>
+        <h2>List a Property, Apply as a Renter, or Partner with Us</h2>
         <p className="note">
-          Captures leads across all 4 temporary stay cohorts (Contract-Assignment,
-          Academic-Enrollment, Seasonal-Remote, Insurance-Relocation), Property Hosts, and
-          University / Insurance / Staffing Enterprise Partners directly into{" "}
-          <code>public.marketing_leads</code>.
+          Tell us who you are and where you need housing or property protection.
         </p>
       </div>
 
@@ -254,35 +251,8 @@ export function LeadCaptureForm({
           </label>
         ) : null}
 
-        <div className="row">
-          <label className="field" style={{ flex: 1 }}>
-            <span>UTM Source</span>
-            <input
-              type="text"
-              value={utmSource}
-              onChange={(event) => setUtmSource(event.target.value)}
-            />
-          </label>
-          <label className="field" style={{ flex: 1 }}>
-            <span>UTM Medium</span>
-            <input
-              type="text"
-              value={utmMedium}
-              onChange={(event) => setUtmMedium(event.target.value)}
-            />
-          </label>
-          <label className="field" style={{ flex: 1 }}>
-            <span>UTM Campaign</span>
-            <input
-              type="text"
-              value={utmCampaign}
-              onChange={(event) => setUtmCampaign(event.target.value)}
-            />
-          </label>
-        </div>
-
-        <button className="button" type="submit" disabled={submitting}>
-          {submitting ? "Logging intake..." : "Submit Purpose-Verified Lead"}
+        <button className="button button-primary-lg" type="submit" disabled={submitting}>
+          {submitting ? "Saving..." : "Get Started →"}
         </button>
       </form>
 
