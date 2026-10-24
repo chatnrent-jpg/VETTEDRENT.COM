@@ -22,6 +22,22 @@ export const dynamic = "force-dynamic";
 export type LeadRole = "host" | "lodger" | "enterprise";
 export type LeadCohort = PurposeCohortId | "Host-Property" | "Enterprise-Partner";
 
+export type PipelineLeadItem = {
+  id: string;
+  role: LeadRole;
+  cohort: LeadCohort;
+  fullName: string | null;
+  emailPreview: string;
+  jurisdictionCode: string;
+  intendedStayDays: number;
+  allowed: boolean;
+  jurisdictionStatus: string;
+  agencyName: string | null;
+  utmSource: string | null;
+  utmCampaign: string | null;
+  createdAt: string;
+};
+
 type ParsedLead = {
   role: LeadRole;
   cohort: LeadCohort;
@@ -38,6 +54,93 @@ type ParsedLead = {
   utmContent: string | null;
   notes: string | null;
 };
+
+export async function GET() {
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("marketing_leads")
+      .select(
+        "id, role, cohort, full_name, email, jurisdiction_code, intended_stay_days, agency_name, utm_source, utm_campaign, created_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(25);
+
+    if (error) {
+      return NextResponse.json({
+        ok: true,
+        storage: "unavailable",
+        leads: [] satisfies PipelineLeadItem[],
+      });
+    }
+
+    const rows = Array.isArray(data) ? data : [];
+    const leads: PipelineLeadItem[] = rows.map((raw) => {
+      const record = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+      const role = parseRole(record.role) ?? "lodger";
+      const cohort = parseCohort(record.cohort, role) ?? "Contract-Assignment";
+      const jurisdictionCode =
+        typeof record.jurisdiction_code === "string" && record.jurisdiction_code.trim() !== ""
+          ? record.jurisdiction_code.trim().toUpperCase()
+          : DEFAULT_JURISDICTION_CODE;
+      const defaultDays = cohort === "Seasonal-Remote" ? 30 : INTENDED_STAY_DAYS;
+      const intendedStayDays =
+        typeof record.intended_stay_days === "number" &&
+        Number.isSafeInteger(record.intended_stay_days) &&
+        record.intended_stay_days > 0
+          ? record.intended_stay_days
+          : defaultDays;
+      const rule = resolveJurisdiction(jurisdictionCode);
+      const compliance = evaluateGeoCompliance(
+        {
+          jurisdiction_code: jurisdictionCode,
+          judicial_risk_tier: rule?.judicialRiskTier,
+          max_transient_days: rule?.maxTransientDays,
+          compliance_structure: rule?.complianceStructure,
+        },
+        intendedStayDays,
+      );
+      const meetsFloor = meetsCohortStayFloor(cohort, intendedStayDays);
+      const allowed = compliance.allowed && meetsFloor;
+      const statusSuffix = !meetsFloor
+        ? "Below 14d Floor"
+        : compliance.allowed
+          ? `Rollover Protected (${intendedStayDays}/${compliance.maxTransientDays}d)`
+          : `Guardrail Blocked (${intendedStayDays}/${compliance.maxTransientDays}d)`;
+
+      return {
+        id: typeof record.id === "string" ? record.id : randomUUID(),
+        role,
+        cohort,
+        fullName: cleanText(record.full_name, 120),
+        emailPreview: maskEmail(typeof record.email === "string" ? record.email : ""),
+        jurisdictionCode: compliance.jurisdictionCode,
+        intendedStayDays,
+        allowed,
+        jurisdictionStatus: `${compliance.jurisdictionCode} · ${statusSuffix}`,
+        agencyName: cleanText(record.agency_name, 120),
+        utmSource: cleanText(record.utm_source, 80),
+        utmCampaign: cleanText(record.utm_campaign, 120),
+        createdAt:
+          typeof record.created_at === "string" ? record.created_at : new Date().toISOString(),
+      };
+    });
+
+    return NextResponse.json({
+      ok: true,
+      storage: "marketing_leads",
+      count: leads.length,
+      leads,
+    });
+  } catch {
+    return NextResponse.json({
+      ok: true,
+      storage: "unavailable",
+      count: 0,
+      leads: [] satisfies PipelineLeadItem[],
+    });
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -315,6 +418,18 @@ async function persistMarketingLead(
   };
 }
 
+function maskEmail(email: string): string {
+  const trimmed = email.trim();
+  const atIndex = trimmed.indexOf("@");
+  if (atIndex <= 1) {
+    return trimmed || "verified@vettedrent.com";
+  }
+  const local = trimmed.slice(0, atIndex);
+  const domain = trimmed.slice(atIndex + 1);
+  const visible = local.slice(0, Math.min(4, local.length));
+  return `${visible}***@${domain}`;
+}
+
 function parseRole(value: unknown): LeadRole | null {
   if (typeof value !== "string") {
     return null;
@@ -328,6 +443,8 @@ function parseRole(value: unknown): LeadRole | null {
 
 function parseCohort(value: unknown, role: LeadRole): LeadCohort | null {
   if (value === undefined || value === null || value === "") {
+    if (role === "host") return "Host-Property";
+    if (role === "enterprise") return "Enterprise-Partner";
     return "Contract-Assignment";
   }
   if (typeof value !== "string") {

@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { LandlordYieldCalculator } from "@/components/landlord-yield-calculator";
 import { LeadCaptureForm } from "@/components/lead-capture-form";
+import type { PipelineLeadItem } from "@/app/api/marketing/lead/route";
 import {
   DEFAULT_JURISDICTION_CODE,
   JURISDICTION_RULES,
@@ -30,6 +31,35 @@ export default function MarketingCommandCenterPage() {
   const [campaignRunning, setCampaignRunning] = useState(false);
   const [campaignResult, setCampaignResult] = useState<string | null>(null);
   const [campaignError, setCampaignError] = useState<string | null>(null);
+
+  const [pipelineLeads, setPipelineLeads] = useState<PipelineLeadItem[]>([]);
+  const [pipelineLoading, setPipelineLoading] = useState(true);
+  const [pipelineStorage, setPipelineStorage] = useState("marketing_leads");
+
+  const loadPipeline = useCallback(async () => {
+    setPipelineLoading(true);
+    try {
+      const response = await fetch("/api/marketing/lead", { cache: "no-store" });
+      const body: unknown = await response.json();
+      if (body && typeof body === "object") {
+        const record = body as { leads?: unknown; storage?: unknown };
+        if (Array.isArray(record.leads)) {
+          setPipelineLeads(record.leads as PipelineLeadItem[]);
+        }
+        if (typeof record.storage === "string") {
+          setPipelineStorage(record.storage);
+        }
+      }
+    } catch {
+      // Keep last known rows on transient network error
+    } finally {
+      setPipelineLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPipeline();
+  }, [loadPipeline]);
 
   const selectedCohortRule = resolvePurposeCohort(campaignCohort);
 
@@ -88,6 +118,8 @@ export default function MarketingCommandCenterPage() {
         leadBody && typeof leadBody === "object"
           ? (leadBody as Record<string, unknown>)
           : {};
+
+      void loadPipeline();
 
       if (!portalKey.trim()) {
         setCampaignResult(
@@ -151,11 +183,12 @@ export default function MarketingCommandCenterPage() {
     <main className="shell">
       <header className="topbar">
         <div>
-          <p className="pass-kicker">Universal Purpose-Verified Stay Platform</p>
+          <p className="pass-kicker">Purpose-Driven Pleasure · Pleasure-Driven Purpose</p>
           <h1>Marketing &amp; Growth Command Center</h1>
           <p className="lede">
-            Acquire Property Hosts, 4-Cohort Purpose-Verified Lodgers, and University / Insurance /
-            Staffing Enterprise Partners across all covered jurisdictions.
+            VettedRent turns temporary purpose (Contract-Assignment &amp; Academic-Enrollment) into
+            frictionless pleasure, and temporary pleasure or sanctuary (Seasonal-Remote &amp;
+            Insurance-Relocation) into verified, rollover-protected purpose.
           </p>
         </div>
         <div className="actions">
@@ -172,6 +205,107 @@ export default function MarketingCommandCenterPage() {
       </header>
 
       <section className="stack">
+        <article className="panel stay-card">
+          <div className="stay-card-head">
+            <div>
+              <p className="pass-kicker">Category Philosophy · Universal Acquisition Narrative</p>
+              <h2>Purpose-Driven Pleasure · Pleasure-Driven Purpose</h2>
+            </div>
+            <span className="chip">Commercial Engine</span>
+          </div>
+          <div className="row">
+            <span>Purpose-Driven Pleasure</span>
+            <strong>Contract-Assignment &amp; Academic-Enrollment</strong>
+          </div>
+          <p className="note">
+            When a clinician, VettedCare / VettedME contractor, or university rotator arrives on an
+            intensive assignment, VettedRent removes housing friction—replacing credit checks and
+            security deposits with 90-day deposit underwriting, $1,500 GMF escrow wealth-building,
+            and instant smart-lock room access.
+          </p>
+          <div className="row">
+            <span>Pleasure-Driven Purpose</span>
+            <strong>Seasonal-Remote &amp; Insurance-Relocation</strong>
+          </div>
+          <p className="note">
+            When a remote worker, extended snowbird, or displaced ALE policyholder seeks sanctuary,
+            VettedRent structures their stay into verified, rollover-protected purpose—enforcing the
+            14-day minimum stay floor, documented departure/claim dates, 3.00x coverage, and state
+            transient ceiling guardrails for hosts.
+          </p>
+        </article>
+
+        <article className="panel stay-card">
+          <div className="stay-card-head">
+            <div>
+              <p className="pass-kicker">
+                Live Supabase Feed · <code>public.{pipelineStorage}</code>
+              </p>
+              <h2>Inbound Acquisition Pipeline</h2>
+            </div>
+            <button
+              type="button"
+              className="button button-secondary"
+              disabled={pipelineLoading}
+              onClick={() => void loadPipeline()}
+            >
+              {pipelineLoading ? "Refreshing..." : `Refresh (${pipelineLeads.length})`}
+            </button>
+          </div>
+          <p className="note">
+            Live leads captured from <code>public.marketing_leads</code> across all 4
+            Purpose-Verified Stay cohorts, Property Hosts, and Enterprise Partners.
+          </p>
+
+          <div className="pipeline-table-wrap">
+            <table className="pipeline-table">
+              <thead>
+                <tr>
+                  <th>Cohort</th>
+                  <th>Lead / Role</th>
+                  <th>Jurisdiction Status</th>
+                  <th>Stay</th>
+                  <th>Timestamp (UTC)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pipelineLeads.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>
+                      {pipelineLoading
+                        ? "Loading live leads from public.marketing_leads..."
+                        : "No leads recorded yet. Submit a lead below to populate the pipeline."}
+                    </td>
+                  </tr>
+                ) : (
+                  pipelineLeads.map((lead) => (
+                    <tr key={lead.id}>
+                      <td>
+                        <span className="stay-badge" data-status={lead.allowed ? "active" : "warning"}>
+                          {lead.cohort}
+                        </span>
+                      </td>
+                      <td>
+                        <strong>{lead.fullName ?? lead.emailPreview}</strong>
+                        <br />
+                        <span className="note">
+                          {lead.role.toUpperCase()}
+                          {lead.agencyName ? ` · ${lead.agencyName}` : ""}
+                        </span>
+                      </td>
+                      <td>{lead.jurisdictionStatus}</td>
+                      <td>
+                        <strong>{lead.intendedStayDays}d</strong>
+                      </td>
+                      <td>{formatUtcTimestamp(lead.createdAt)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </article>
+
         <article className="panel stay-card">
           <div className="stay-card-head">
             <div>
@@ -273,6 +407,7 @@ export default function MarketingCommandCenterPage() {
           defaultUtmSource="marketing_command_center"
           defaultUtmMedium="direct"
           defaultUtmCampaign="purpose_verified_stay_launch"
+          onLeadCaptured={() => void loadPipeline()}
         />
 
         <article className="panel stay-card">
@@ -395,4 +530,12 @@ export default function MarketingCommandCenterPage() {
       </section>
     </main>
   );
+}
+
+function formatUtcTimestamp(iso: string): string {
+  const parsed = Date.parse(iso);
+  if (!Number.isFinite(parsed)) {
+    return iso;
+  }
+  return new Date(parsed).toISOString().replace("T", " ").slice(0, 19);
 }

@@ -5,9 +5,8 @@ import { JURISDICTION_RULES } from "@/lib/compliance/jurisdictions";
 import {
   PURPOSE_COHORTS,
   resolvePurposeCohort,
-  type PurposeCohortId,
 } from "@/lib/underwriting-contract";
-import type { LeadRole } from "@/app/api/marketing/lead/route";
+import type { LeadCohort, LeadRole } from "@/app/api/marketing/lead/route";
 
 export function LeadCaptureForm({
   defaultJurisdictionCode,
@@ -16,16 +15,18 @@ export function LeadCaptureForm({
   defaultUtmSource = "seo_jurisdiction",
   defaultUtmMedium = "organic",
   defaultUtmCampaign = "purpose_verified_stay",
+  onLeadCaptured,
 }: {
   defaultJurisdictionCode: string;
   defaultRole?: LeadRole;
-  defaultCohort?: PurposeCohortId;
+  defaultCohort?: LeadCohort;
   defaultUtmSource?: string;
   defaultUtmMedium?: string;
   defaultUtmCampaign?: string;
+  onLeadCaptured?: () => void;
 }) {
   const [role, setRole] = useState<LeadRole>(defaultRole);
-  const [cohort, setCohort] = useState<PurposeCohortId>(defaultCohort);
+  const [cohort, setCohort] = useState<LeadCohort>(defaultCohort);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -43,9 +44,24 @@ export function LeadCaptureForm({
 
   const activeCohort = resolvePurposeCohort(cohort);
 
-  function selectCohort(nextCohort: PurposeCohortId) {
+  function selectRole(nextRole: LeadRole) {
+    setRole(nextRole);
+    if (nextRole === "host") {
+      setCohort("Host-Property");
+      setIntendedStayDays("90");
+    } else if (nextRole === "enterprise") {
+      setCohort("Enterprise-Partner");
+      setIntendedStayDays("90");
+    } else if (cohort === "Host-Property" || cohort === "Enterprise-Partner") {
+      setCohort("Contract-Assignment");
+      setIntendedStayDays("90");
+    }
+  }
+
+  function selectCohort(nextCohort: LeadCohort) {
     setCohort(nextCohort);
-    setIntendedStayDays(String(resolvePurposeCohort(nextCohort).defaultStayDays));
+    const defaultDays = nextCohort === "Seasonal-Remote" ? 30 : 90;
+    setIntendedStayDays(String(defaultDays));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -92,6 +108,7 @@ export function LeadCaptureForm({
       setResultMessage(
         `Lead ${leadId} stored in ${storage} (${cohort}). ${geo}${blockReason ? ` Note: ${blockReason}` : ""}`,
       );
+      onLeadCaptured?.();
     } catch {
       setErrorMessage("Network error while submitting lead");
     } finally {
@@ -117,21 +134,21 @@ export function LeadCaptureForm({
           <button
             type="button"
             aria-pressed={role === "host"}
-            onClick={() => setRole("host")}
+            onClick={() => selectRole("host")}
           >
             Property Host
           </button>
           <button
             type="button"
             aria-pressed={role === "lodger"}
-            onClick={() => setRole("lodger")}
+            onClick={() => selectRole("lodger")}
           >
             Purpose-Verified Lodger
           </button>
           <button
             type="button"
             aria-pressed={role === "enterprise"}
-            onClick={() => setRole("enterprise")}
+            onClick={() => selectRole("enterprise")}
           >
             University / Insurance / Staffing Partner
           </button>
@@ -141,18 +158,29 @@ export function LeadCaptureForm({
           <span>Purpose-Verified Stay cohort</span>
           <select
             value={cohort}
-            onChange={(event) => selectCohort(event.target.value as PurposeCohortId)}
+            onChange={(event) => selectCohort(event.target.value as LeadCohort)}
           >
             {PURPOSE_COHORTS.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.title} — {item.audience}
               </option>
             ))}
+            <option value="Host-Property">
+              Host-Property — Property Owner / Rollover-Protected Weekly Room Host
+            </option>
+            <option value="Enterprise-Partner">
+              Enterprise-Partner — University / ALE Insurance / Healthcare Staffing Partner
+            </option>
           </select>
         </label>
 
         <p className="note">
-          <strong>{activeCohort.title}:</strong> {activeCohort.summary}
+          <strong>{cohort}:</strong>{" "}
+          {cohort === "Host-Property"
+            ? "Onboards a weekly room with 75.5% automated host payouts, 14.3% GMF escrow protection, and statutory ceiling guardrails."
+            : cohort === "Enterprise-Partner"
+              ? "Connects a university, ALE insurance carrier, or healthcare staffing agency to batch-place verified guests."
+              : activeCohort.summary}
         </p>
 
         <label className="field">

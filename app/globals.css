@@ -579,3 +579,39 @@ h2 {
   margin: 0.65rem 0 0;
   color: var(--danger);
 }
+
+.pipeline-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #10141a;
+}
+
+.pipeline-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  text-align: left;
+}
+
+.pipeline-table th,
+.pipeline-table td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.pipeline-table th {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: #161c24;
+}
+
+.pipeline-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
