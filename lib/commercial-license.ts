@@ -49,6 +49,7 @@ export type CommercialLicenseDocument = {
   dualBrandHeader: {
     landlordShield: "Unvetted renting is over.";
     lodgerCreed: "Be Great to Yourself.";
+    umiEngineProvenance: "VettedRent.com · Powered by the Vettilo™ UMI Engine (Vettilo.com)";
     systemSpecificationSection: "Section 3.C — Revocable Commercial License & 1:1 Weekly Payment Token Binding";
   };
   licenseId: string;
@@ -242,6 +243,8 @@ export function generateCommercialLicense(
     dualBrandHeader: {
       landlordShield: "Unvetted renting is over.",
       lodgerCreed: "Be Great to Yourself.",
+      umiEngineProvenance:
+        "VettedRent.com · Powered by the Vettilo™ UMI Engine (Vettilo.com)",
       systemSpecificationSection:
         "Section 3.C — Revocable Commercial License & 1:1 Weekly Payment Token Binding",
     },
@@ -315,10 +318,10 @@ export function buildCommercialLicensePdf(input: CommercialLicenseInput = {}): U
   const lines: PdfLine[] = [
     // Dual-Brand Header Banner
     {
-      text: "VETTEDRENT.COM - SECTION 3.C UNDERWRITTEN MID-TERM INFRASTRUCTURE (UMI)",
+      text: "VettedRent.com | Powered by the Vettilo™ UMI Engine (Vettilo.com) - Section 3.C UMI",
       x: 44,
       y: 742,
-      size: 10,
+      size: 9.6,
       bold: true,
     },
     {
@@ -525,7 +528,7 @@ export function buildCommercialLicensePdf(input: CommercialLicenseInput = {}): U
       size: 9,
     },
     {
-      text: "Electronically executed via VettedRent Automated Underwriting & GMF Escrow Rail.",
+      text: "VettedRent.com | Powered by the Vettilo™ UMI Engine (Vettilo.com) - Automated UMI & GMF Escrow Rail.",
       x: 44,
       y: 116,
       size: 8.5,
@@ -629,6 +632,7 @@ function cleanText(value: string | undefined, maxLength: number): string | null 
 
 function sanitizePdfText(value: string): string {
   return value
+    .replace(/\u2122/g, "TM")
     .replace(/[\u2014\u2013]/g, "-")
     .replace(/\u00b7/g, "|")
     .replace(/[\u2018\u2019]/g, "'")

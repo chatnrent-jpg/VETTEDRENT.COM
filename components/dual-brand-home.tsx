@@ -174,6 +174,22 @@ export function DualBrandHome({
 
       {/* CENTERED GOOGLE-STYLE STAGE */}
       <section className="google-stage" id="daily-rate-calculator">
+        {/* INSTITUTIONAL CO-BRANDING FINTECH BADGE */}
+        <div
+          className="vettilo-fintech-badge"
+          aria-label="VettedRent.com · Powered by Vettilo™ UMI Engine"
+        >
+          <span className="vettilo-fintech-badge__top">
+            <span className="fintech-live-dot" aria-hidden="true" />
+            VettedRent.com · Powered by Vettilo™
+          </span>
+          <span className="vettilo-fintech-badge__sub">
+            Vettilo (vettilo.com) proprietary Underwritten Mid-Term Infrastructure (UMI) engine
+            powering payroll webhooks, the 14.3% GMF Escrow Vault &amp; revocable commercial
+            license tokens
+          </span>
+        </div>
+
         {/* 1-CLICK AUDIENCE SWITCH */}
         <div
           className="audience-pill-switch"
@@ -514,7 +530,10 @@ export function DualBrandHome({
 
       {/* MINIMAL BOTTOM FOOTER */}
       <footer className="google-footer">
-        <span>VettedRent · MD-PG, MD, FL, TX, CA &amp; NY</span>
+        <span>
+          VettedRent.com · Powered by Vettilo™ (vettilo.com UMI Engine) · MD-PG, MD, FL, TX, CA
+          &amp; NY
+        </span>
         <div className="google-footer__links">
           <Link href="/underwriting">Renter Approval</Link>
           <Link href="/dashboard">Host &amp; Renter Sign In</Link>

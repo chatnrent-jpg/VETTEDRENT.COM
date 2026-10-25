@@ -60,6 +60,20 @@ export default function HostScannerPage() {
 function AccessDenied({ checking }: { checking: boolean }) {
   return (
     <main className="gate-screen">
+      <div
+        className="vettilo-fintech-badge"
+        aria-label="VettedRent.com · Powered by Vettilo™ UMI Engine"
+      >
+        <span className="vettilo-fintech-badge__top">
+          <span className="fintech-live-dot" aria-hidden="true" />
+          VettedRent.com · Powered by Vettilo™
+        </span>
+        <span className="vettilo-fintech-badge__sub">
+          Vettilo (vettilo.com) proprietary Underwritten Mid-Term Infrastructure (UMI) engine
+          powering payroll webhooks, the 14.3% GMF Escrow Vault &amp; revocable commercial license
+          tokens
+        </span>
+      </div>
       <h1>{checking ? "Checking access" : "Hosts only"}</h1>
       <p className="lede">
         {checking
@@ -337,8 +351,24 @@ function UmiPayrollDisconnectSimulator() {
   return (
     <section className="shell" aria-label="UMI Payroll Disconnect Simulator">
       <article className="panel stack" id="umi-payroll-disconnect-simulator">
+        <div
+          className="vettilo-fintech-badge"
+          aria-label="VettedRent.com · Powered by Vettilo™ UMI Engine"
+        >
+          <span className="vettilo-fintech-badge__top">
+            <span className="fintech-live-dot" aria-hidden="true" />
+            VettedRent.com · Powered by Vettilo™
+          </span>
+          <span className="vettilo-fintech-badge__sub">
+            Vettilo (vettilo.com) proprietary Underwritten Mid-Term Infrastructure (UMI) engine
+            powering payroll webhooks, the 14.3% GMF Escrow Vault &amp; revocable commercial
+            license tokens
+          </span>
+        </div>
         <div>
-          <p className="pass-kicker">Section 3.C · Unvetted renting is over.</p>
+          <p className="pass-kicker">
+            Section 3.C · VettedRent.com · Powered by Vettilo™ · Unvetted renting is over.
+          </p>
           <h2>UMI Payroll Disconnect Simulator</h2>
           <p className="note">
             Models a payroll or stipend disconnect on the active Revocable Commercial License

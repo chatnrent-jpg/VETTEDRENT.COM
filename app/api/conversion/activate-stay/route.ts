@@ -13,9 +13,12 @@ export async function GET(): Promise<NextResponse> {
     const milestone = await getValuationMilestoneSnapshot();
     return NextResponse.json({
       ok: true,
+      coBranding: milestone.coBranding,
       activeStaysCount: milestone.activeStaysCount,
       targetStaysCount: milestone.targetStaysCount,
       progressPercentage: milestone.progressPercentage,
+      target45StayBaseTimingFloatCents: milestone.target45StayBaseTimingFloatCents,
+      universalFloorPricing: milestone.universalFloorPricing,
       milestone,
     });
   } catch {
@@ -78,9 +81,12 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     return NextResponse.json({
       ok: true,
+      coBranding: result.milestone.coBranding,
       activeStaysCount: result.milestone.activeStaysCount,
       targetStaysCount: result.milestone.targetStaysCount,
       progressPercentage: result.milestone.progressPercentage,
+      target45StayBaseTimingFloatCents: result.milestone.target45StayBaseTimingFloatCents,
+      universalFloorPricing: result.milestone.universalFloorPricing,
       license: result.license,
       ledgerEntry: result.ledgerEntry,
       reservedDates: result.reservedDates,

@@ -84,10 +84,10 @@ export function buildTrustPassportPdf(input: TrustPassportInput): Uint8Array {
   const lines: PdfLine[] = [
     // Header Banner
     {
-      text: "VETTEDRENT.COM - UNDERWRITTEN MID-TERM INFRASTRUCTURE (UMI)",
+      text: "VettedRent.com | Powered by the Vettilo™ UMI Engine (Vettilo.com) - UMI INFRASTRUCTURE",
       x: 48,
       y: 736,
-      size: 11,
+      size: 10,
       bold: true,
     },
     {
@@ -277,7 +277,7 @@ export function buildTrustPassportPdf(input: TrustPassportInput): Uint8Array {
       bold: true,
     },
     {
-      text: "Verify this Trust Passport online at https://vettedrent.com  |  Be Great to Yourself.",
+      text: "VettedRent.com | Powered by the Vettilo™ UMI Engine (Vettilo.com) | Be Great to Yourself.",
       x: 48,
       y: 112,
       size: 9,
@@ -339,6 +339,7 @@ export function buildTrustPassportPdf(input: TrustPassportInput): Uint8Array {
 
 function sanitizePdfText(value: string): string {
   return value
+    .replace(/\u2122/g, "TM")
     .replace(/[\u2014\u2013]/g, "-")
     .replace(/\u00b7/g, "|")
     .replace(/[\u2018\u2019]/g, "'")

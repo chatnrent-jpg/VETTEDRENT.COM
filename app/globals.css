@@ -541,6 +541,54 @@ a {
 }
 
 /* ==========================================================================
+   INSTITUTIONAL CO-BRANDING BADGE (POWERED BY VETTILO™ UMI ENGINE)
+   ========================================================================== */
+
+.vettilo-fintech-badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  max-width: 48rem;
+  padding: 0.48rem 1.05rem;
+  border-radius: 999px;
+  background: rgba(13, 18, 28, 0.76);
+  border: 1px solid rgba(229, 184, 105, 0.42);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow:
+    0 12px 28px -12px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  text-align: center;
+}
+
+.vettilo-fintech-badge__top {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  color: var(--accent-bright);
+}
+
+.vettilo-fintech-badge__sub {
+  font-size: 0.74rem;
+  color: rgba(248, 250, 252, 0.82);
+  line-height: 1.35;
+}
+
+.fintech-live-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--ok);
+  box-shadow: 0 0 10px var(--ok);
+}
+
+/* ==========================================================================
    45-STAY ($1M VALUATION) LIVE TRACKER WIDGET
    ========================================================================== */
 
@@ -557,6 +605,11 @@ a {
   -webkit-backdrop-filter: blur(18px);
   box-shadow: 0 14px 36px -14px rgba(0, 0, 0, 0.6);
   font-size: 0.84rem;
+}
+
+.vr-valuation-compact .fintech-card__body {
+  display: grid;
+  gap: 0.45rem;
 }
 
 .vr-valuation-compact__top {

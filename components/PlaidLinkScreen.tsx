@@ -326,6 +326,21 @@ export function PlaidLinkScreen() {
       </header>
 
       <section className="google-stage" aria-label="Bank connection">
+        <div
+          className="vettilo-fintech-badge"
+          aria-label="VettedRent.com · Powered by Vettilo™ UMI Engine"
+        >
+          <span className="vettilo-fintech-badge__top">
+            <span className="fintech-live-dot" aria-hidden="true" />
+            VettedRent.com · Powered by Vettilo™
+          </span>
+          <span className="vettilo-fintech-badge__sub">
+            Vettilo (vettilo.com) proprietary Underwritten Mid-Term Infrastructure (UMI) engine
+            powering payroll webhooks, the 14.3% GMF Escrow Vault &amp; revocable commercial
+            license tokens
+          </span>
+        </div>
+
         <div className="google-headline">
           <h1>Get approved in 60 seconds.</h1>
           <p>

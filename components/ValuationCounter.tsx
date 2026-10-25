@@ -15,14 +15,27 @@ const FALLBACK_SNAPSHOT: ValuationMilestoneSnapshot = {
   cumulativeWeeklyGrossCents: 190000,
   cumulativeMonthlyGrossCents: 823270,
   cumulativeAnnualizedGmvCents: 9880000,
-  cumulativeWeeklyHostPayoutCents: 143451,
+  cumulativeWeeklyHostPayoutCents: 143452,
   cumulativeWeeklyGmfVaultCents: 27172,
-  cumulativeWeeklyPlatformFeeCents: 19377,
+  cumulativeWeeklyPlatformFeeCents: 19376,
   rolling21DayGmfTimingFloatCents: 570000,
+  target45StayBaseTimingFloatCents: 4252500,
   liveGmfPoolBalanceCents: 1500000,
   combinedTreasuryFloatCents: 2070000,
   estimatedPlatformValuationCents: 8888889,
   targetValuationCents: 100000000,
+  universalFloorPricing: {
+    tierId: "RoomSanctuary",
+    weeklyRateCents: 31500,
+    grossDailyRateCents: 4500,
+    dailyGmfVaultCreditCents: 644,
+    netEffectiveDailyRateCents: 3856,
+    weeklyHostPayoutCents: 23783,
+    monthlyHostNetPayoutCents: 103058,
+    savingsVs277NightlyPercent: 84,
+    benchmark45Stays21DayTimingFloatCents: 4252500,
+  },
+  coBranding: "VettedRent.com · Powered by Vettilo™",
   cohortDistribution: {
     "Contract-Assignment": 1,
     "Academic-Enrollment": 1,
@@ -77,11 +90,15 @@ export function ValuationCounter({
 
   if (variant === "compact") {
     return (
-      <div
+      <FintechCard
+        as="div"
+        variant="gold"
         className="vr-valuation-compact"
-        aria-label="45-Stay $1M Valuation Live Tracker"
       >
-        <div className="vr-valuation-compact__top">
+        <div
+          className="vr-valuation-compact__top"
+          aria-label="45-Stay $1M Valuation Live Tracker"
+        >
           <div className="vr-valuation-compact__title">
             <span className="fintech-live-dot" aria-hidden="true" />
             <strong>
@@ -89,10 +106,18 @@ export function ValuationCounter({
               Underwritten Stays
             </strong>
             <span>
-              ({snapshot.progressPercentage}% toward $1.00M Valuation Milestone)
+              ({snapshot.progressPercentage}% toward $1.00M Valuation · VettedRent.com · Powered by
+              Vettilo™)
             </span>
           </div>
           <div className="vr-valuation-compact__metrics">
+            <span>
+              Floor:{" "}
+              <strong>
+                $315/wk ($45.00/day · $38.56/day net)
+              </strong>
+            </span>
+            <span>·</span>
             <span>
               Weekly Gross:{" "}
               <strong>
@@ -101,9 +126,11 @@ export function ValuationCounter({
             </span>
             <span>·</span>
             <span>
-              21d GMF Float:{" "}
+              45-Stay 21d Float:{" "}
               <strong>
-                {formatCurrencyCents(snapshot.rolling21DayGmfTimingFloatCents)}
+                {formatCurrencyCents(
+                  snapshot.target45StayBaseTimingFloatCents ?? 4252500,
+                )}
               </strong>
             </span>
           </div>
@@ -112,7 +139,7 @@ export function ValuationCounter({
           value={snapshot.progressPercentage}
           aria-label={`45-Stay Milestone Progress: ${snapshot.activeStaysCount} of ${snapshot.targetStaysCount} active stays`}
         />
-      </div>
+      </FintechCard>
     );
   }
 
@@ -120,7 +147,7 @@ export function ValuationCounter({
     <FintechCard
       id="valuation-counter"
       variant="gold"
-      kicker="Real-Time Conversion Engine · Commercial North Star"
+      kicker="VettedRent.com · Powered by Vettilo™ (vettilo.com UMI Engine)"
       title="45-Stay ($1M Valuation) Live Underwritten Stay Tracker"
       badge={`${snapshot.activeStaysCount} / ${snapshot.targetStaysCount} Active Stays (${snapshot.progressPercentage}%)`}
       badgeTone="active"
@@ -135,7 +162,9 @@ export function ValuationCounter({
             <strong>{snapshot.activeStaysCount}</strong> active underwritten
             stays live across all 4 Purpose-Verified cohorts (
             <strong>{snapshot.remainingStaysToTarget}</strong> stays remaining to{" "}
-            <strong>45-Stay / $1,000,000.00 Valuation</strong> target).
+            <strong>45-Stay / $1,000,000.00 Valuation</strong> target ·{" "}
+            <strong>$42,525.00</strong> 21-day timing float across 45 base-tier
+            stays @ $315/wk).
           </span>
           <button
             type="button"
@@ -162,14 +191,14 @@ export function ValuationCounter({
         <FintechMetricTile
           tone="emerald"
           label="Cumulative Weekly Gross"
-          badge="7d–90d Stays"
+          badge="$315/wk Floor"
           value={`${formatCurrencyCents(snapshot.cumulativeWeeklyGrossCents)}/wk`}
           subvalue={`${formatCurrencyCents(snapshot.cumulativeAnnualizedGmvCents)}/yr annualized GMV`}
         />
         <FintechMetricTile
           tone="gold"
           label="Rolling 21-Day GMF Float"
-          badge="3-Wk Hold"
+          badge="$42,525 @ 45 Stays"
           value={formatCurrencyCents(snapshot.rolling21DayGmfTimingFloatCents)}
           subvalue={`+${formatCurrencyCents(snapshot.cumulativeWeeklyGmfVaultCents)}/wk 14.3% GMF Vault`}
         />
@@ -178,7 +207,7 @@ export function ValuationCounter({
           label="Combined Treasury Capacity"
           badge="GMF Pool + Float"
           value={formatCurrencyCents(snapshot.combinedTreasuryFloatCents)}
-          subvalue={`75.5% Host Payouts: ${formatCurrencyCents(snapshot.cumulativeWeeklyHostPayoutCents)}/wk`}
+          subvalue={`75.5% Host Payouts: ${formatCurrencyCents(snapshot.cumulativeWeeklyHostPayoutCents)}/wk ($237.83/wk base)`}
         />
       </div>
 

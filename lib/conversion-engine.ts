@@ -30,6 +30,11 @@ import {
 
 export const VALUATION_TARGET_STAYS = BENCHMARK_45_STAYS;
 export const VALUATION_TARGET_DOLLARS = 1000000;
+export const UNIVERSAL_FLOOR_WEEKLY_CENTS = 31500;
+export const UNIVERSAL_FLOOR_DAILY_GROSS_CENTS = 4500;
+export const UNIVERSAL_FLOOR_DAILY_VAULT_CENTS = 644;
+export const UNIVERSAL_FLOOR_DAILY_NET_CENTS = 3856;
+export const UNIVERSAL_FLOOR_45_STAY_21D_FLOAT_CENTS = 4252500; // $42,525.00 across 45 base-tier stays
 
 export type ActivateStayPayload = {
   applicant?: string;
@@ -93,10 +98,23 @@ export type ValuationMilestoneSnapshot = {
   cumulativeWeeklyGmfVaultCents: number;
   cumulativeWeeklyPlatformFeeCents: number;
   rolling21DayGmfTimingFloatCents: number;
+  target45StayBaseTimingFloatCents: 4252500;
   liveGmfPoolBalanceCents: number;
   combinedTreasuryFloatCents: number;
   estimatedPlatformValuationCents: number;
   targetValuationCents: 100000000;
+  universalFloorPricing: {
+    tierId: "RoomSanctuary";
+    weeklyRateCents: 31500;
+    grossDailyRateCents: 4500;
+    dailyGmfVaultCreditCents: 644;
+    netEffectiveDailyRateCents: 3856;
+    weeklyHostPayoutCents: 23783;
+    monthlyHostNetPayoutCents: 103058;
+    savingsVs277NightlyPercent: 84;
+    benchmark45Stays21DayTimingFloatCents: 4252500;
+  };
+  coBranding: "VettedRent.com · Powered by Vettilo™";
   cohortDistribution: Record<PurposeCohortId, number>;
   tierDistribution: Record<DailyRateTierId, number>;
   recentLicenses: ActiveCommercialLicenseRecord[];
@@ -224,6 +242,26 @@ function createSeededLedger(
     map.set(entry.ledger_id, entry);
   }
   return map;
+}
+
+function normalizeHydratedLicenseFloor(
+  rec: ActiveCommercialLicenseRecord,
+): ActiveCommercialLicenseRecord {
+  if (rec.tier === "RoomSanctuary" && rec.weekly_rate_cents < 31500) {
+    return {
+      ...rec,
+      weekly_rate_cents: 31500,
+      daily_rate_cents: 4500,
+    };
+  }
+  if (rec.tier === "PrivateSuite" && rec.weekly_rate_cents < 52500) {
+    return {
+      ...rec,
+      weekly_rate_cents: 52500,
+      daily_rate_cents: 7500,
+    };
+  }
+  return rec;
 }
 
 function listingIdForTier(tier: DailyRateTierId): string {
@@ -587,7 +625,9 @@ export async function getValuationMilestoneSnapshot(): Promise<ValuationMileston
       storageSource = "public.active_commercial_licenses";
       for (const row of commRows) {
         if (row && typeof row === "object") {
-          const rec = row as ActiveCommercialLicenseRecord;
+          const rec = normalizeHydratedLicenseFloor(
+            row as ActiveCommercialLicenseRecord,
+          );
           if (typeof rec.agreement_id === "string") {
             memoryLicenses.set(rec.agreement_id, rec);
           }
@@ -610,7 +650,9 @@ export async function getValuationMilestoneSnapshot(): Promise<ValuationMileston
               : null;
           if (typeof notes === "string" && notes.startsWith("{")) {
             try {
-              const parsed = JSON.parse(notes) as ActiveCommercialLicenseRecord;
+              const parsed = normalizeHydratedLicenseFloor(
+                JSON.parse(notes) as ActiveCommercialLicenseRecord,
+              );
               if (
                 parsed &&
                 typeof parsed.agreement_id === "string" &&
@@ -721,10 +763,23 @@ export async function getValuationMilestoneSnapshot(): Promise<ValuationMileston
     cumulativeWeeklyGmfVaultCents,
     cumulativeWeeklyPlatformFeeCents,
     rolling21DayGmfTimingFloatCents,
+    target45StayBaseTimingFloatCents: 4252500,
     liveGmfPoolBalanceCents,
     combinedTreasuryFloatCents,
     estimatedPlatformValuationCents,
     targetValuationCents,
+    universalFloorPricing: {
+      tierId: "RoomSanctuary",
+      weeklyRateCents: 31500,
+      grossDailyRateCents: 4500,
+      dailyGmfVaultCreditCents: 644,
+      netEffectiveDailyRateCents: 3856,
+      weeklyHostPayoutCents: 23783,
+      monthlyHostNetPayoutCents: 103058,
+      savingsVs277NightlyPercent: 84,
+      benchmark45Stays21DayTimingFloatCents: 4252500,
+    },
+    coBranding: "VettedRent.com · Powered by Vettilo™",
     cohortDistribution,
     tierDistribution,
     recentLicenses,
