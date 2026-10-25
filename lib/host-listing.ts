@@ -10,8 +10,8 @@ export type HostProperty = {
   geoCompliance: string;
 };
 
-/** Weekly stay rate used when a listing has no weekly_price_cents yet. */
-const WEEKLY_STAY_CENTS = 24500;
+/** Weekly stay rate used when a listing has no weekly_price_cents yet ($315.00/wk Universal Floor). */
+const WEEKLY_STAY_CENTS = 31500;
 
 const FEATURED_LISTING_ID = "vr-weekly-room";
 const FEATURED_LISTING_NAME = "VettedRent Weekly Room";
@@ -23,7 +23,7 @@ export type FeaturedStay = {
 };
 
 /**
- * The public featured stay. Missing price columns fall back to $245.00.
+ * The public featured stay. Missing price columns fall back to $315.00 ($45.00/day).
  * A database miss still returns the weekly room at that rate.
  */
 export async function getFeaturedStay(supabase: SupabaseClient): Promise<FeaturedStay> {
@@ -41,7 +41,7 @@ export async function getFeaturedStay(supabase: SupabaseClient): Promise<Feature
     const compliance = await readListingCompliance(supabase, FEATURED_LISTING_ID, INTENDED_STAY_DAYS);
     return {
       name: title === "" ? FEATURED_LISTING_NAME : title,
-      weeklyPriceCents: listed ?? WEEKLY_STAY_CENTS,
+      weeklyPriceCents: Math.max(listed ?? WEEKLY_STAY_CENTS, WEEKLY_STAY_CENTS),
       geoCompliance: compliance.statusLabel,
     };
   } catch {

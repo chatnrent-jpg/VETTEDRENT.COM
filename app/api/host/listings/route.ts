@@ -46,7 +46,7 @@ export async function GET(request: Request) {
   }
 }
 
-const WEEKLY_STAY_CENTS = 24500;
+const WEEKLY_STAY_CENTS = 31500;
 
 async function readHostListings(
   supabase: ReturnType<typeof getSupabaseServerClient>,

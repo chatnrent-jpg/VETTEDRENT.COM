@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 const FALLBACK_STAY = {
   name: "VettedRent Weekly Room",
-  weeklyPriceCents: 24500,
+  weeklyPriceCents: 31500,
   geoCompliance: defaultGeoStatusLabel(),
 };
 

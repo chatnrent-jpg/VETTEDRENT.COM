@@ -15,7 +15,7 @@ import { getSupabaseServerClient } from "@/lib/supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const WEEKLY_STAY_CENTS = 24500;
+const WEEKLY_STAY_CENTS = 31500;
 
 type StayCard = {
   agreementId: string;

@@ -67,16 +67,19 @@ export function buildTrustPassportPdf(input: TrustPassportInput): Uint8Array {
   const safeInflow =
     Number.isFinite(input.monthlyInflowDollars) && input.monthlyInflowDollars > 0
       ? input.monthlyInflowDollars
-      : 2940;
+      : 3780;
   const issuedDate = (input.issuedAtIso ?? new Date().toISOString()).slice(0, 10);
   const certId =
     input.certificateId ??
     `VR-UMI-${cohortRule.id.slice(0, 3).toUpperCase()}-${effectiveJurisdictionCode}-${issuedDate.replace(/-/g, "")}`;
+  const effectiveWeeklyCents = input.weeklyRateCents ?? 31500;
   const dailyComparison = calculateDailyRateComparison(
-    input.weeklyRateCents ?? 24500,
+    effectiveWeeklyCents,
     safeStayDays,
     input.comparisonNightlyCents,
   );
+  const hostWeeklyCents = Math.round((effectiveWeeklyCents * 7550) / 10000);
+  const hostMonthlyCents = Math.round(((effectiveWeeklyCents * 52) / 12 * 7550) / 10000);
 
   const lines: PdfLine[] = [
     // Header Banner
@@ -149,10 +152,10 @@ export function buildTrustPassportPdf(input: TrustPassportInput): Uint8Array {
       size: 10,
     },
     {
-      text: `Approved Daily Rate: ${formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day vs. ${formatCurrencyCents(dailyComparison.aggregatorNightlyCents)}/night competing offer (${dailyComparison.savingsPercentage}% savings + 14.3% GMF Vault credit)`,
+      text: `Approved Rate: ${formatCurrencyCents(effectiveWeeklyCents)}/wk | ${formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day (${formatCurrencyCents(dailyComparison.netEffectiveDailyRateCents)}/day net after +${formatCurrencyCents(dailyComparison.dailyGmfVaultCreditCents)}/day 14.3% GMF Vault credit) | ${dailyComparison.savingsPercentage}% less than ${formatCurrencyCents(dailyComparison.aggregatorNightlyCents)}/night`,
       x: 56,
       y: 546,
-      size: 9.5,
+      size: 8.8,
       bold: true,
     },
 
@@ -185,10 +188,10 @@ export function buildTrustPassportPdf(input: TrustPassportInput): Uint8Array {
       bold: true,
     },
     {
-      text: "Weekly Settlement Split: 75.5% Automated Landlord Payout  |  14.3% GMF Escrow  |  10.2% Platform Rail",
+      text: `Weekly Settlement Split: 75.5% Guaranteed Landlord Payout (${formatCurrencyCents(hostWeeklyCents)}/wk = ${formatCurrencyCents(hostMonthlyCents)}/mo net) | 14.3% GMF | 10.2% Platform`,
       x: 56,
       y: 442,
-      size: 10,
+      size: 9.2,
     },
     {
       text: "Tenant Wealth-Building Rail: 14.3% Weekly Allocation -> $1,500.00 GMF Move-Out Vault",
@@ -260,10 +263,10 @@ export function buildTrustPassportPdf(input: TrustPassportInput): Uint8Array {
       bold: true,
     },
     {
-      text: "risk, bypass security deposit friction, and lock in guaranteed payouts at:",
+      text: `risk, bypass security deposit friction, and lock in ${formatCurrencyCents(hostWeeklyCents)}/wk (${formatCurrencyCents(hostMonthlyCents)}/mo net) guaranteed payouts at:`,
       x: 48,
       y: 176,
-      size: 10,
+      size: 9.5,
       bold: true,
     },
     {

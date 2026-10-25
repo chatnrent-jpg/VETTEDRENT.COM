@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { HOST_BPS, VAULT_BPS, type WeeklySplitCents } from "@/lib/stripe";
 import { creditAgreementVault, creditVaultCents } from "@/lib/vault";
 
-/** Active weekly stay used when Stripe is not configured, in integer cents. */
-export const SIMULATED_WEEKLY_CENTS = 24500;
+/** Active weekly stay used when Stripe is not configured, in integer cents ($315.00/wk Universal Floor). */
+export const SIMULATED_WEEKLY_CENTS = 31500;
 
 /**
  * Half-up host and vault shares. Platform cents are the remainder so the parts
- * equal the weekly total. 24500 cents splits to $184.98 / $35.04 / $24.98.
+ * equal the weekly total. 31500 cents splits to $237.83 / $45.05 / $32.12.
  */
 export function exactWeeklySplit(totalCents: number): WeeklySplitCents {
   if (!Number.isSafeInteger(totalCents) || totalCents <= 0) {
@@ -31,9 +31,9 @@ export function exactWeeklySplit(totalCents: number): WeeklySplitCents {
 }
 
 const SAMPLE = exactWeeklySplit(SIMULATED_WEEKLY_CENTS);
-assert.equal(SAMPLE.hostCents, 18498);
-assert.equal(SAMPLE.vaultCents, 3504);
-assert.equal(SAMPLE.platformCents, 2498);
+assert.equal(SAMPLE.hostCents, 23783);
+assert.equal(SAMPLE.vaultCents, 4505);
+assert.equal(SAMPLE.platformCents, 3212);
 
 export type SimulatedWeeklyResult = {
   ok: true;

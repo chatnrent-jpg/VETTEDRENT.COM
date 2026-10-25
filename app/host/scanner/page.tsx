@@ -307,7 +307,7 @@ function HostScanner({ onDenied }: { onDenied: () => void }) {
   );
 }
 
-const SIMULATOR_WEEKLY_CENTS = 24500;
+const SIMULATOR_WEEKLY_CENTS = 31500;
 const SIMULATOR_BACKSTOP_CAP_CENTS = 30000;
 const SIMULATOR_SIGNALS = [
   "PAYROLL_DISCONNECTED",
@@ -323,13 +323,14 @@ function UmiPayrollDisconnectSimulator() {
   const [outcome, setOutcome] = useState<string | null>(null);
 
   const hostCents = Math.round((SIMULATOR_WEEKLY_CENTS * 7550) / 10000);
+  const hostMonthlyCents = Math.round(((SIMULATOR_WEEKLY_CENTS * 52) / 12 * 7550) / 10000);
   const vaultCents = Math.round((SIMULATOR_WEEKLY_CENTS * 1430) / 10000);
   const platformCents = SIMULATOR_WEEKLY_CENTS - hostCents - vaultCents;
   const backstopCents = Math.min(SIMULATOR_BACKSTOP_CAP_CENTS, SIMULATOR_WEEKLY_CENTS);
 
   function runSimulation() {
     setOutcome(
-      `License_Revoked. Signal ${signal} stops the weekly micro-deduction. Seam access ends and the GMF pool routes ${formatCurrencyCents(backstopCents)} (cap ${formatCurrencyCents(SIMULATOR_BACKSTOP_CAP_CENTS)}). Last settled week was ${formatCurrencyCents(hostCents)} host / ${formatCurrencyCents(vaultCents)} GMF escrow / ${formatCurrencyCents(platformCents)} platform.`,
+      `License_Revoked. Signal ${signal} stops the weekly micro-deduction. Seam access ends and the GMF pool routes ${formatCurrencyCents(backstopCents)} (cap ${formatCurrencyCents(SIMULATOR_BACKSTOP_CAP_CENTS)}). Last settled week was ${formatCurrencyCents(hostCents)}/wk (${formatCurrencyCents(hostMonthlyCents)}/mo net) host / ${formatCurrencyCents(vaultCents)} GMF escrow / ${formatCurrencyCents(platformCents)} platform.`,
     );
   }
 
@@ -340,10 +341,13 @@ function UmiPayrollDisconnectSimulator() {
           <p className="pass-kicker">Section 3.C · Unvetted renting is over.</p>
           <h2>UMI Payroll Disconnect Simulator</h2>
           <p className="note">
-            Models a payroll or stipend disconnect on the active Revocable Commercial License.
-            The license token flips to License_Revoked, smart-lock access ends, and the GMF
-            backstop is capped at {formatCurrencyCents(SIMULATOR_BACKSTOP_CAP_CENTS)}. Be Great
-            to Yourself.
+            Models a payroll or stipend disconnect on the active Revocable Commercial License
+            ($315/wk · $45.00/day [$38.56/day net after +$6.44/day 14.3% GMF Vault credit] · 84%
+            less than $277/night hotel &amp; aggregator rates). The license token flips to
+            License_Revoked, smart-lock access ends, and the GMF backstop protects the landlord’s{" "}
+            {formatCurrencyCents(hostCents)}/wk ({formatCurrencyCents(hostMonthlyCents)}/mo net)
+            guaranteed payout (capped at {formatCurrencyCents(SIMULATOR_BACKSTOP_CAP_CENTS)}). Be
+            Great to Yourself.
           </p>
         </div>
         <label className="field">
@@ -362,10 +366,11 @@ function UmiPayrollDisconnectSimulator() {
           </select>
         </label>
         <div className="row">
-          <span>Modeled weekly license fee</span>
+          <span>Modeled weekly license fee ($315/wk · $45.00/day)</span>
           <strong>
-            {formatCurrencyCents(hostCents)} host · {formatCurrencyCents(vaultCents)} GMF ·{" "}
-            {formatCurrencyCents(platformCents)} platform
+            {formatCurrencyCents(hostCents)}/wk ({formatCurrencyCents(hostMonthlyCents)}/mo net)
+            host · {formatCurrencyCents(vaultCents)} GMF · {formatCurrencyCents(platformCents)}{" "}
+            platform
           </strong>
         </div>
         <div className="actions" style={{ flexWrap: "wrap" }}>
@@ -374,7 +379,7 @@ function UmiPayrollDisconnectSimulator() {
           </button>
           <a
             className="button button-secondary"
-            href="/api/agreements/license?format=pdf&jurisdiction=MD-PG&cohort=Contract-Assignment&weeklyFeeCents=24500"
+            href="/api/agreements/license?format=pdf&jurisdiction=MD-PG&cohort=Contract-Assignment&weeklyFeeCents=31500"
             download="VettedRent-Commercial-License.pdf"
           >
             Download Revocable Commercial License (PDF) ↓

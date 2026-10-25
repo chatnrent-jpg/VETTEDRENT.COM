@@ -43,7 +43,7 @@ export async function GET(request: Request) {
     const monthlyInflowDollars =
       Number.isFinite(rawInflow) && rawInflow >= 500 && rawInflow <= 500000
         ? rawInflow
-        : 2940;
+        : 3780;
 
     const credentialIdentifier =
       cleanText(url.searchParams.get("credentialId"), 80) ?? cohortRule.defaultIdentifier;
@@ -141,7 +141,7 @@ export async function POST(request: Request) {
     const monthlyInflowDollars =
       Number.isFinite(rawInflow) && rawInflow >= 500 && rawInflow <= 500000
         ? rawInflow
-        : 2940;
+        : 3780;
 
     const credentialIdentifier =
       cleanText(

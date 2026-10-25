@@ -108,7 +108,10 @@ export function WeeklyLiquiditySpreadPanel({
       <p className="note">
         <strong>Be Great to Yourself.</strong> VettedRent collects tenant payments weekly across the{" "}
         <strong>4.3333 weeks/month calendar (52 / 12)</strong> on Days 1, 8, 15, 22, and 29 while
-        disbursing landlord payouts on a scheduled bi-weekly or monthly cadence. On the{" "}
+        disbursing landlord payouts on a scheduled bi-weekly or monthly cadence. At the{" "}
+        <strong>$315.00/wk ($45.00/day) RoomSanctuary Universal Floor</strong>, landlords receive{" "}
+        <strong>$237.83/wk = $1,030.58/mo net</strong> with a{" "}
+        <strong>$42,525.00 21-day timing float across 45 stays</strong>. On the{" "}
         <strong>$745.00/wk ($106.43/day) Executive/Family Townhome tier</strong>, weekly collections
         yield <strong>$3,228.08/mo</strong> against a <strong>$3,000.00/mo</strong> flat landlord
         benchmark—generating a <strong>+$228.08/mo per stay</strong> compound delta alongside the
@@ -187,9 +190,10 @@ export function WeeklyLiquiditySpreadPanel({
             {formatCurrencyCents(singleStaySpread.grossDailyRateCents)}/day)
           </span>
           <strong>
-            Host 75.5%: {formatCurrencyCents(singleStaySpread.perStayWeeklyHostCents)} · GMF 14.3%:{" "}
-            {formatCurrencyCents(singleStaySpread.perStayWeeklyGmfVaultCents)} · Platform 10.2%:{" "}
-            {formatCurrencyCents(singleStaySpread.perStayWeeklyPlatformFeeCents)}
+            Host 75.5%: {formatCurrencyCents(singleStaySpread.perStayWeeklyHostCents)}/wk (
+            {formatCurrencyCents(singleStaySpread.perStayScheduledHostMonthlyDisbursementCents)}/mo
+            net) · GMF 14.3%: {formatCurrencyCents(singleStaySpread.perStayWeeklyGmfVaultCents)} ·
+            Platform 10.2%: {formatCurrencyCents(singleStaySpread.perStayWeeklyPlatformFeeCents)}
           </strong>
         </div>
 

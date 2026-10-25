@@ -36,8 +36,8 @@ import {
   type PurposeCohortId,
 } from "@/lib/underwriting-contract";
 
-/** Default weekly stay rate in integer cents ($245.00/wk = $35.00/day). */
-const DEFAULT_WEEKLY_STAY_CENTS = 24500;
+/** Default weekly stay rate in integer cents ($315.00/wk = $45.00/day Universal Floor). */
+const DEFAULT_WEEKLY_STAY_CENTS = 31500;
 
 export function PlaidLinkScreen() {
   const router = useRouter();
@@ -49,7 +49,7 @@ export function PlaidLinkScreen() {
   const [prefilledStayDays, setPrefilledStayDays] = useState<number | null>(null);
   const [checkInIso, setCheckInIso] = useState<string>(() => todayIsoUtc());
   const [showCalendar, setShowCalendar] = useState<boolean>(false);
-  const [comparisonNightlyDollars, setComparisonNightlyDollars] = useState("144");
+  const [comparisonNightlyDollars, setComparisonNightlyDollars] = useState("277");
   const [activatingPass, setActivatingPass] = useState(false);
   const [activationMessage, setActivationMessage] = useState<string | null>(null);
   const [activationError, setActivationError] = useState<string | null>(null);
@@ -139,7 +139,7 @@ export function PlaidLinkScreen() {
   );
   const comparisonNightlyCents = Math.max(
     3500,
-    Math.round((Number(comparisonNightlyDollars) || 144) * 100),
+    Math.round((Number(comparisonNightlyDollars) || 277) * 100),
   );
   const dailyComparison = calculateDailyRateComparison(
     weeklyStayCents,
@@ -150,7 +150,7 @@ export function PlaidLinkScreen() {
   const selectedTierId: DailyRateTierId =
     weeklyStayCents === 74500
       ? "ExecutiveTownhome"
-      : weeklyStayCents === 49000
+      : weeklyStayCents === 52500 || weeklyStayCents === 49000
         ? "PrivateSuite"
         : "RoomSanctuary";
 
@@ -329,9 +329,13 @@ export function PlaidLinkScreen() {
         <div className="google-headline">
           <h1>Get approved in 60 seconds.</h1>
           <p>
-            <strong>{formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day gross</strong> ·{" "}
+            <strong>{formatCents(weeklyStayCents)}/wk</strong> ·{" "}
+            <strong>{formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day</strong> (
             <strong>{formatCurrencyCents(dailyComparison.netEffectiveDailyRateCents)}/day net</strong>{" "}
-            · <strong>$0.00 Security Deposit</strong> ({formatCents(weeklyStayCents)}/wk)
+            after +{formatCurrencyCents(dailyComparison.dailyGmfVaultCreditCents)}/day 14.3% GMF
+            Vault credit) · <strong>{dailyComparison.savingsPercentage}% less</strong> than{" "}
+            <strong>{formatCurrencyCents(dailyComparison.aggregatorNightlyCents)}/night</strong>{" "}
+            hotel &amp; aggregator rates · <strong>$0.00 Security Deposit</strong>
           </p>
         </div>
 
@@ -341,7 +345,7 @@ export function PlaidLinkScreen() {
             <span>Space</span>
             <select
               value={weeklyStayCents}
-              onChange={(e) => setWeeklyStayCents(Number(e.target.value) || 24500)}
+              onChange={(e) => setWeeklyStayCents(Number(e.target.value) || 31500)}
             >
               {DAILY_RATE_TIER_LIST.map((tier) => (
                 <option key={tier.id} value={tier.weeklyRateCents}>
@@ -457,22 +461,27 @@ export function PlaidLinkScreen() {
 
         <div className="google-pill-row">
           <div className="google-info-pill">
-            <strong>{formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day gross</strong>
+            <strong>
+              {formatCents(weeklyStayCents)}/wk ·{" "}
+              {formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day
+            </strong>
             <span>
               ({formatCurrencyCents(dailyComparison.netEffectiveDailyRateCents)}/day net after +
-              {formatCurrencyCents(dailyComparison.dailyGmfVaultCreditCents)}/day Vault credit)
+              {formatCurrencyCents(dailyComparison.dailyGmfVaultCreditCents)}/day 14.3% GMF Vault
+              credit)
             </span>
           </div>
           <div className="google-info-pill">
             <strong>Save {formatCurrencyCents(dailyComparison.totalSavingsVsAggregatorCents)}</strong>
             <span>
-              ({dailyComparison.savingsPercentage}% Off vs.{" "}
-              {formatCurrencyCents(dailyComparison.aggregatorNightlyCents)}/night)
+              ({dailyComparison.savingsPercentage}% less than{" "}
+              {formatCurrencyCents(dailyComparison.aggregatorNightlyCents)}/night hotel &amp;
+              aggregator rates)
             </span>
           </div>
           <div className="google-info-pill">
             <strong>$0.00 Deposit</strong>
-            <span>No credit score impact</span>
+            <span>Landlord guaranteed $237.83/wk ($1,030.58/mo net)</span>
           </div>
           <button
             type="button"
@@ -487,13 +496,7 @@ export function PlaidLinkScreen() {
         {showCalendar ? (
           <AvailabilityCalendar
             mode="tenant"
-            tierId={
-              weeklyStayCents === 74500
-                ? "ExecutiveTownhome"
-                : weeklyStayCents === 49000
-                  ? "PrivateSuite"
-                  : "RoomSanctuary"
-            }
+            tierId={selectedTierId}
             stayDays={selectedStayDays}
             checkInIso={checkInIso}
             onSelectCheckIn={(iso) => updateCheckInDate(iso)}

@@ -139,11 +139,24 @@ export function generateCommercialLicense(
       : DEFAULT_CALCULATOR_WEEKLY_CENTS;
 
   const hostWeeklyPayoutCents = Math.round((safeWeeklyCents * CALCULATOR_HOST_BPS) / 10000);
+  const hostMonthlyNetPayoutCents = Math.round(
+    (((safeWeeklyCents * 52) / 12) * CALCULATOR_HOST_BPS) / 10000,
+  );
   const gmfVaultWeeklyAllocationCents = Math.round(
     (safeWeeklyCents * CALCULATOR_VAULT_BPS) / 10000,
   );
   const platformWeeklyFeeCents =
     safeWeeklyCents - hostWeeklyPayoutCents - gmfVaultWeeklyAllocationCents;
+
+  const grossDailyRateCents = Math.round(safeWeeklyCents / 7);
+  const dailyGmfVaultCreditCents = Math.round(
+    (grossDailyRateCents * CALCULATOR_VAULT_BPS) / 10000,
+  );
+  const netEffectiveDailyRateCents = grossDailyRateCents - dailyGmfVaultCreditCents;
+  const savingsVs277Pct = Math.max(
+    0,
+    Math.round(((27700 - grossDailyRateCents) / 27700) * 100),
+  );
 
   const issuedAtUtc = (input.issuedAtIso ?? new Date().toISOString()).slice(0, 19) + "Z";
   const issuedDate = issuedAtUtc.slice(0, 10);
@@ -276,7 +289,7 @@ export function generateCommercialLicense(
       gmfMoveOutVaultTargetCents: 150000,
       currentVaultBalanceCents,
       seamAccessCodeId,
-      oneToOneBindingClause: `1:1 CRYPTOGRAPHIC TOKEN BINDING: Digital entry token ${licenseToken} (Seam keyway ${seamAccessCodeId}) is cryptographically bound 1:1 to each confirmed 7-day micro-deduction of ${formatCurrencyCents(safeWeeklyCents)} (${formatCurrencyCents(hostWeeklyPayoutCents)} [75.5%] Host Payout / ${formatCurrencyCents(gmfVaultWeeklyAllocationCents)} [14.3%] GMF Escrow & $1,500.00 Move-Out Vault / ${formatCurrencyCents(platformWeeklyFeeCents)} [10.2%] Platform Rail). $0.00 security deposit is collected.`,
+      oneToOneBindingClause: `1:1 CRYPTOGRAPHIC TOKEN BINDING: Digital entry token ${licenseToken} (Seam keyway ${seamAccessCodeId}) is cryptographically bound 1:1 to each confirmed 7-day micro-deduction of ${formatCurrencyCents(safeWeeklyCents)}/wk · ${formatCurrencyCents(grossDailyRateCents)}/day (${formatCurrencyCents(netEffectiveDailyRateCents)}/day net after +${formatCurrencyCents(dailyGmfVaultCreditCents)}/day 14.3% GMF Vault credit · ${savingsVs277Pct}% less than $277/night hotel & aggregator rates; ${formatCurrencyCents(hostWeeklyPayoutCents)}/wk [${formatCurrencyCents(hostMonthlyNetPayoutCents)}/mo net, 75.5%] Guaranteed Host Payout / ${formatCurrencyCents(gmfVaultWeeklyAllocationCents)} [14.3%] GMF Escrow & $1,500.00 Move-Out Vault / ${formatCurrencyCents(platformWeeklyFeeCents)} [10.2%] Platform Rail). $0.00 security deposit is collected.`,
       payrollDisconnectRevocationClause:
         "AUTOMATIC REVOCATION ON STREAM DISCONNECT: Upon any missed weekly micro-deduction or verified payroll/stipend/ALE stream disconnect signal (PAYROLL_DISCONNECTED, DIRECT_DEPOSIT_SWITCHED, EMPLOYMENT_TERMINATED, INCOME_STREAM_REVOKED), system state immediately transitions to License_Revoked, Seam smart-lock access is revoked, and the GMF Escrow pool routes up to $300.00 in instant host backstop funding.",
     },
@@ -292,6 +305,12 @@ export function buildCommercialLicensePdf(input: CommercialLicenseInput = {}): U
   const split = doc.tokenAndWeeklySplitBinding;
   const cohort = doc.universalCohortBinding;
   const guardrail = doc.jurisdictionGuardrailClause;
+  const grossDailyCents = Math.round(split.weeklyFeeCents / 7);
+  const dailyVaultCents = Math.round((grossDailyCents * CALCULATOR_VAULT_BPS) / 10000);
+  const netDailyCents = grossDailyCents - dailyVaultCents;
+  const hostMonthlyNetCents = Math.round(
+    (((split.weeklyFeeCents * 52) / 12) * CALCULATOR_HOST_BPS) / 10000,
+  );
 
   const lines: PdfLine[] = [
     // Dual-Brand Header Banner
@@ -441,16 +460,16 @@ export function buildCommercialLicensePdf(input: CommercialLicenseInput = {}): U
       bold: true,
     },
     {
-      text: `Weekly Commercial License Fee: ${formatCurrencyCents(split.weeklyFeeCents)}/wk  |  Upfront Security Deposit: $0.00 (Zero Deposit Friction)`,
+      text: `Weekly Commercial License Fee: ${formatCurrencyCents(split.weeklyFeeCents)}/wk | ${formatCurrencyCents(grossDailyCents)}/day (${formatCurrencyCents(netDailyCents)}/day net after +${formatCurrencyCents(dailyVaultCents)}/day 14.3% GMF Vault credit) | $0.00 Deposit`,
       x: 52,
       y: 347,
-      size: 9,
+      size: 8.6,
     },
     {
-      text: `1:1 Weekly Split: 75.5% Host Payout (${formatCurrencyCents(split.hostWeeklyPayoutCents)}) | 14.3% GMF Escrow & Vault (${formatCurrencyCents(split.gmfVaultWeeklyAllocationCents)}) | 10.2% Platform (${formatCurrencyCents(split.platformWeeklyFeeCents)})`,
+      text: `1:1 Weekly Split: 75.5% Guaranteed Host Payout (${formatCurrencyCents(split.hostWeeklyPayoutCents)}/wk = ${formatCurrencyCents(hostMonthlyNetCents)}/mo net) | 14.3% GMF (${formatCurrencyCents(split.gmfVaultWeeklyAllocationCents)}) | 10.2% Platform (${formatCurrencyCents(split.platformWeeklyFeeCents)})`,
       x: 52,
       y: 332,
-      size: 9,
+      size: 8.6,
       bold: true,
     },
     {

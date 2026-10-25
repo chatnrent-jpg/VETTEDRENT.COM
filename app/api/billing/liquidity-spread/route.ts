@@ -583,8 +583,8 @@ function renderLiquiditySpreadHtml(
 
     <section class="stage">
       <div class="pill-switch" role="group" aria-label="Select Space Tier">
-        <a href="/api/billing/liquidity-spread?tier=RoomSanctuary&amp;stays=45" class="${activeTier === "RoomSanctuary" ? "active" : ""}">Room ($35/day · $245/wk)</a>
-        <a href="/api/billing/liquidity-spread?tier=PrivateSuite&amp;stays=45" class="${activeTier === "PrivateSuite" ? "active" : ""}">Suite ($70/day · $490/wk)</a>
+        <a href="/api/billing/liquidity-spread?tier=RoomSanctuary&amp;stays=45" class="${activeTier === "RoomSanctuary" ? "active" : ""}">Room ($45/day · $315/wk)</a>
+        <a href="/api/billing/liquidity-spread?tier=PrivateSuite&amp;stays=45" class="${activeTier === "PrivateSuite" ? "active" : ""}">Suite ($75/day · $525/wk)</a>
         <a href="/api/billing/liquidity-spread?tier=ExecutiveTownhome&amp;stays=45" class="${activeTier === "ExecutiveTownhome" ? "active" : ""}">Townhome ($106.43/day · $745/wk)</a>
       </div>
 
@@ -621,7 +621,7 @@ function renderLiquiditySpreadHtml(
       <div class="pills">
         <div class="info-pill">
           <strong>75.5% Host Payout</strong>
-          <span>${formatCurrencyCents(requested.perStayWeeklyHostCents)}/wk per stay</span>
+          <span>${formatCurrencyCents(requested.perStayWeeklyHostCents)}/wk (${formatCurrencyCents(requested.perStayScheduledHostMonthlyDisbursementCents)}/mo net) per stay</span>
         </div>
         <div class="info-pill">
           <strong>14.3% Move-Out Vault</strong>

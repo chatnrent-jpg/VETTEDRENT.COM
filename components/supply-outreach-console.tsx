@@ -55,7 +55,7 @@ export function SupplyOutreachConsole({ onOutreachDispatched }: SupplyOutreachCo
     "College Park / Capital Beltway 90-Day Furnished University, Contractor & Relocation Suite",
   );
   const [customJurisdiction, setCustomJurisdiction] = useState("MD-PG");
-  const [customWeeklyCents, setCustomWeeklyCents] = useState("27500");
+  const [customWeeklyCents, setCustomWeeklyCents] = useState("31500");
   const [customDepositCents, setCustomDepositCents] = useState("165000");
   const [customLeaseType, setCustomLeaseType] =
     useState<SupplyLeaseType>("month_to_month_lease");
@@ -199,7 +199,7 @@ export function SupplyOutreachConsole({ onOutreachDispatched }: SupplyOutreachCo
             source: customSource,
             listingTitle: customTitle.trim(),
             jurisdictionCode: customJurisdiction,
-            weeklyRateCents: Number(customWeeklyCents) || 24500,
+            weeklyRateCents: Number(customWeeklyCents) || 31500,
             securityDepositCents: Number(customDepositCents) || 150000,
             leaseType: customLeaseType,
             matchedCohorts: customCohorts,

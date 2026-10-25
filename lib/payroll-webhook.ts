@@ -14,7 +14,7 @@ export const DISCONNECT_SIGNALS = [
 export type PayrollDisconnectSignal = (typeof DISCONNECT_SIGNALS)[number];
 
 export const DEFAULT_BACKSTOP_CAP_CENTS = 30000; // $300.00 hard cap per revocation event
-export const DEFAULT_WEEKLY_BACKSTOP_CENTS = 24500; // $245.00 benchmark weekly room rate
+export const DEFAULT_WEEKLY_BACKSTOP_CENTS = 31500; // $315.00 Universal Floor weekly room rate
 
 export type PayrollDisconnectPayload = {
   webhookEventId: string;

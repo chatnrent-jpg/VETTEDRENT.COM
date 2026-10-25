@@ -52,7 +52,7 @@ export function DualBrandHome({
   const [stayDays, setStayDays] = useState<number>(90);
   const [checkInIso, setCheckInIso] = useState<string>(() => todayIsoUtc());
   const [showCalendar, setShowCalendar] = useState<boolean>(false);
-  const [externalNightlyDollars, setExternalNightlyDollars] = useState<string>("144");
+  const [externalNightlyDollars, setExternalNightlyDollars] = useState<string>("277");
 
   const [hostEmail, setHostEmail] = useState("");
   const [hostSubmitting, setHostSubmitting] = useState(false);
@@ -61,7 +61,7 @@ export function DualBrandHome({
   const activeTier = DAILY_RATE_PRESET_TIERS[selectedTierId];
   const parsedNightlyCents = Math.max(
     3500,
-    Math.round((Number(externalNightlyDollars) || 144) * 100),
+    Math.round((Number(externalNightlyDollars) || 277) * 100),
   );
 
   const comparison = calculateDailyRateComparison(
@@ -77,8 +77,9 @@ export function DualBrandHome({
     stayDays,
   );
 
+  const featuredWeeklyCents = Math.max(stay.weeklyPriceCents, 31500);
   const featuredComparison = calculateDailyRateComparison(
-    stay.weeklyPriceCents,
+    featuredWeeklyCents,
     90,
     AGGREGATOR_NIGHTLY_BENCHMARK_CENTS,
   );
@@ -202,17 +203,22 @@ export function DualBrandHome({
               {formatCurrencyCents(comparison.grossDailyRateCents)} / day. $0 deposit.
             </h1>
             <p>
-              Furnished weekly stays (7 to 90 days) for workers, students &amp; families —{" "}
-              <strong>{comparison.savingsPercentage}% less</strong> than a{" "}
-              <strong>{formatCurrencyCents(comparison.aggregatorNightlyCents)}/night</strong> hotel.
+              <strong>{formatCurrencyCents(comparison.weeklyRateCents)}/wk</strong> ·{" "}
+              <strong>{formatCurrencyCents(comparison.grossDailyRateCents)}/day</strong> (
+              <strong>{formatCurrencyCents(comparison.netEffectiveDailyRateCents)}/day net</strong>{" "}
+              after +{formatCurrencyCents(comparison.dailyGmfVaultCreditCents)}/day 14.3% GMF Vault
+              credit) — <strong>{comparison.savingsPercentage}% less</strong> than{" "}
+              <strong>{formatCurrencyCents(comparison.aggregatorNightlyCents)}/night</strong> hotel
+              &amp; aggregator rates.
             </p>
           </div>
         ) : (
           <div className="google-headline">
             <h1>Unvetted renting is over.</h1>
             <p>
-              Get <strong>{formatCurrencyCents(hostYield.hostWeeklyCents)}/week</strong> guaranteed
-              rent from 3x bank-verified guests with zero eviction holdovers.
+              Get <strong>{formatCurrencyCents(hostYield.hostWeeklyCents)}/wk</strong> (
+              <strong>{formatCurrencyCents(hostYield.hostMonthlyCents)}/mo net</strong>) guaranteed
+              payout from 3x bank-verified guests with zero eviction holdovers.
             </p>
           </div>
         )}
@@ -385,10 +391,14 @@ export function DualBrandHome({
         {!isLandlord ? (
           <div className="google-pill-row" aria-label="Key benefits">
             <div className="google-info-pill">
-              <strong>{formatCurrencyCents(comparison.grossDailyRateCents)} / day</strong>
+              <strong>
+                {formatCurrencyCents(comparison.weeklyRateCents)}/wk ·{" "}
+                {formatCurrencyCents(comparison.grossDailyRateCents)}/day
+              </strong>
               <span>
-                ({formatCurrencyCents(comparison.netEffectiveDailyRateCents)}/day net with Move-Out
-                Savings)
+                ({formatCurrencyCents(comparison.netEffectiveDailyRateCents)}/day net after +
+                {formatCurrencyCents(comparison.dailyGmfVaultCreditCents)}/day 14.3% GMF Vault
+                credit)
               </span>
             </div>
             <div className="google-info-pill">
@@ -398,8 +408,9 @@ export function DualBrandHome({
             <div className="google-info-pill">
               <strong>Save {formatCurrencyCents(comparison.totalSavingsVsAggregatorCents)}</strong>
               <span>
-                vs. {formatCurrencyCents(comparison.aggregatorNightlyCents)}/night over{" "}
-                {comparison.stayDays} days
+                ({comparison.savingsPercentage}% less than{" "}
+                {formatCurrencyCents(comparison.aggregatorNightlyCents)}/night over{" "}
+                {comparison.stayDays} days)
               </span>
             </div>
             <button
@@ -416,10 +427,13 @@ export function DualBrandHome({
         ) : (
           <div className="google-pill-row" aria-label="Landlord benefits">
             <div className="google-info-pill">
-              <strong>{formatCurrencyCents(hostYield.hostWeeklyCents)} / week</strong>
+              <strong>
+                {formatCurrencyCents(hostYield.hostWeeklyCents)}/wk (
+                {formatCurrencyCents(hostYield.hostMonthlyCents)}/mo net)
+              </strong>
               <span>
-                ({formatCurrencyCents(hostYield.hostTotalCents)} over {hostYield.estimatedWeeks}{" "}
-                weeks)
+                Guaranteed payout · {formatCurrencyCents(hostYield.hostTotalCents)} over{" "}
+                {hostYield.estimatedWeeks} weeks
               </span>
             </div>
             <div className="google-info-pill">
@@ -460,8 +474,10 @@ export function DualBrandHome({
         {/* SUBTLE EXPANDABLE COMPARE LINK */}
         <details className="google-compare-drawer">
           <summary>
-            Compare {formatCurrencyCents(featuredComparison.grossDailyRateCents)} / day ({weeklyRate}{" "}
-            / week) against hotels, Airbnb, or sublets
+            Compare {formatCurrencyCents(featuredComparison.weeklyRateCents)}/wk ·{" "}
+            {formatCurrencyCents(featuredComparison.grossDailyRateCents)}/day (
+            {formatCurrencyCents(featuredComparison.netEffectiveDailyRateCents)}/day net) against
+            $277/night hotel &amp; aggregator rates ({weeklyRate}/wk listing)
           </summary>
           <div className="google-compare-drawer__body">
             <div className="actions" style={{ justifyContent: "center", marginTop: 0 }}>
@@ -482,11 +498,14 @@ export function DualBrandHome({
               })}
             </div>
             <p className="note" style={{ marginTop: "0.5rem" }}>
-              {stay.name}: {formatCurrencyCents(featuredComparison.grossDailyRateCents)} / day (
-              {formatCurrencyCents(featuredComparison.netEffectiveDailyRateCents)}/day net after
-              14.3% GMF Vault credit) · Save {featuredComparison.savingsPercentage}% vs.{" "}
-              {formatCurrencyCents(AGGREGATOR_NIGHTLY_BENCHMARK_CENTS)}/night sample OTA rate.
-              The unvetted rental market forces you to settle for risk. It’s time to be great to
+              {stay.name}: {formatCurrencyCents(featuredComparison.weeklyRateCents)}/wk ·{" "}
+              {formatCurrencyCents(featuredComparison.grossDailyRateCents)}/day (
+              {formatCurrencyCents(featuredComparison.netEffectiveDailyRateCents)}/day net after +
+              {formatCurrencyCents(featuredComparison.dailyGmfVaultCreditCents)}/day 14.3% GMF Vault
+              credit) · {featuredComparison.savingsPercentage}% less than{" "}
+              {formatCurrencyCents(AGGREGATOR_NIGHTLY_BENCHMARK_CENTS)}/night hotel &amp;
+              aggregator rates · Landlord guaranteed payout: $237.83/wk ($1,030.58/mo net). The
+              unvetted rental market forces you to settle for risk. It’s time to be great to
               yourself.
             </p>
           </div>

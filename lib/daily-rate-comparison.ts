@@ -5,8 +5,8 @@ import {
 } from "@/lib/marketing-calculator";
 import { INTENDED_STAY_DAYS } from "@/lib/geo-compliance";
 
-/** Default reference rate ($144.00/night) when no custom external offer is entered. */
-export const AGGREGATOR_NIGHTLY_BENCHMARK_CENTS = 14400;
+/** Default reference rate ($277.00/night Cozycozy/OTA benchmark) when no custom external offer is entered. */
+export const AGGREGATOR_NIGHTLY_BENCHMARK_CENTS = 27700;
 
 export const MIN_COMPARISON_STAY_DAYS = 7;
 export const MAX_COMPARISON_STAY_DAYS = 365;
@@ -85,24 +85,24 @@ export const EXTERNAL_OFFER_PRESETS: readonly ExternalOfferPreset[] = [
 export const DAILY_RATE_PRESET_TIERS: Record<DailyRateTierId, DailyRateTierPreset> = {
   RoomSanctuary: {
     id: "RoomSanctuary",
-    label: "Room Sanctuary ($245/wk · $35.00/day)",
-    weeklyRateCents: 24500,
-    grossDailyRateCents: 3500,
-    dailyGmfVaultCreditCents: 501,
-    netEffectiveDailyRateCents: 2999,
-    defaultComparisonNightlyCents: 14400,
+    label: "Room Sanctuary ($315/wk · $45.00/day)",
+    weeklyRateCents: 31500,
+    grossDailyRateCents: 4500,
+    dailyGmfVaultCreditCents: 644,
+    netEffectiveDailyRateCents: 3856,
+    defaultComparisonNightlyCents: 27700,
     defaultComparisonDepositCents: 150000,
     audienceSummary:
       "Temporary workers & contractors, university/vocational students, and solo 14d+ seasonal remote professionals.",
   },
   PrivateSuite: {
     id: "PrivateSuite",
-    label: "Private Suite ($490/wk · $70.00/day)",
-    weeklyRateCents: 49000,
-    grossDailyRateCents: 7000,
-    dailyGmfVaultCreditCents: 1001,
-    netEffectiveDailyRateCents: 5999,
-    defaultComparisonNightlyCents: 19500,
+    label: "Private Suite ($525/wk · $75.00/day)",
+    weeklyRateCents: 52500,
+    grossDailyRateCents: 7500,
+    dailyGmfVaultCreditCents: 1073,
+    netEffectiveDailyRateCents: 6427,
+    defaultComparisonNightlyCents: 27700,
     defaultComparisonDepositCents: 150000,
     audienceSummary:
       "Visiting scholars, corporate/IT/engineering fellows, and extended remote builders seeking private bath & workspace.",
@@ -220,7 +220,7 @@ export function calculateDailyRateComparison(
         )
       : 0;
 
-  const headlineSummary = `${formatCurrencyCents(grossDailyRateCents)} / day (${formatCurrencyCents(netEffectiveDailyRateCents)}/day net after 14.3% GMF Vault credit) · Save ${savingsPercentage}% vs. ${formatCurrencyCents(safeComparisonNightlyCents)}/night external offering`;
+  const headlineSummary = `${formatCurrencyCents(safeWeeklyCents)}/wk · ${formatCurrencyCents(grossDailyRateCents)}/day (${formatCurrencyCents(netEffectiveDailyRateCents)}/day net after +${formatCurrencyCents(dailyGmfVaultCreditCents)}/day 14.3% GMF Vault credit) · ${savingsPercentage}% less than ${formatCurrencyCents(safeComparisonNightlyCents)}/night hotel & aggregator rates`;
 
   return {
     weeklyRateCents: safeWeeklyCents,

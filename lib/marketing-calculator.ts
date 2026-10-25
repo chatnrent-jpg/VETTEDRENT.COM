@@ -13,7 +13,7 @@ export const CALCULATOR_VAULT_BPS = 1430;
 /** VettedRent platform fee: 10.2%. */
 export const CALCULATOR_PLATFORM_BPS = 1020;
 
-export const DEFAULT_CALCULATOR_WEEKLY_CENTS = 24500;
+export const DEFAULT_CALCULATOR_WEEKLY_CENTS = 31500;
 export const DEFAULT_CALCULATOR_STAY_DAYS = INTENDED_STAY_DAYS;
 
 export type YieldBreakdown = {
@@ -22,6 +22,7 @@ export type YieldBreakdown = {
   intendedStayDays: number;
   estimatedWeeks: number;
   hostWeeklyCents: number;
+  hostMonthlyCents: number;
   vaultWeeklyCents: number;
   platformWeeklyCents: number;
   hostTotalCents: number;
@@ -57,6 +58,9 @@ export function calculateJurisdictionYield(
       : DEFAULT_CALCULATOR_STAY_DAYS;
 
   const hostWeeklyCents = Math.round((safeWeeklyCents * CALCULATOR_HOST_BPS) / 10000);
+  const hostMonthlyCents = Math.round(
+    (((safeWeeklyCents * 52) / 12) * CALCULATOR_HOST_BPS) / 10000,
+  );
   const vaultWeeklyCents = Math.round((safeWeeklyCents * CALCULATOR_VAULT_BPS) / 10000);
   const platformWeeklyCents = safeWeeklyCents - hostWeeklyCents - vaultWeeklyCents;
   const estimatedWeeks = Math.max(1, Math.round(safeStayDays / 7));
@@ -77,6 +81,7 @@ export function calculateJurisdictionYield(
     intendedStayDays: safeStayDays,
     estimatedWeeks,
     hostWeeklyCents,
+    hostMonthlyCents,
     vaultWeeklyCents,
     platformWeeklyCents,
     hostTotalCents: hostWeeklyCents * estimatedWeeks,

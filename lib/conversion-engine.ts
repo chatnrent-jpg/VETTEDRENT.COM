@@ -251,7 +251,7 @@ function resolveTierFromInput(
   if (cents === 74500) {
     return "ExecutiveTownhome";
   }
-  if (cents === 49000) {
+  if (cents === 52500 || cents === 49000) {
     return "PrivateSuite";
   }
   return "RoomSanctuary";

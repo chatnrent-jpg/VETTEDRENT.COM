@@ -44,16 +44,16 @@ export const TIER_LIQUIDITY_BENCHMARKS: Record<DailyRateTierId, TierLiquidityBen
   RoomSanctuary: {
     tierId: "RoomSanctuary",
     label: DAILY_RATE_PRESET_TIERS.RoomSanctuary.label,
-    weeklyRateCents: 24500,
-    grossDailyRateCents: 3500,
-    flatMonthlyLandlordBenchmarkCents: 98000, // $980.00/mo (4-week flat mental model)
+    weeklyRateCents: 31500,
+    grossDailyRateCents: 4500,
+    flatMonthlyLandlordBenchmarkCents: 126000, // $1,260.00/mo (4-week flat mental model)
   },
   PrivateSuite: {
     tierId: "PrivateSuite",
     label: DAILY_RATE_PRESET_TIERS.PrivateSuite.label,
-    weeklyRateCents: 49000,
-    grossDailyRateCents: 7000,
-    flatMonthlyLandlordBenchmarkCents: 196000, // $1,960.00/mo (4-week flat mental model)
+    weeklyRateCents: 52500,
+    grossDailyRateCents: 7500,
+    flatMonthlyLandlordBenchmarkCents: 210000, // $2,100.00/mo (4-week flat mental model)
   },
   ExecutiveTownhome: {
     tierId: "ExecutiveTownhome",
@@ -144,10 +144,10 @@ export function resolveTierByWeeklyCents(weeklyRateCents: number): TierLiquidity
   if (weeklyRateCents === 74500) {
     return TIER_LIQUIDITY_BENCHMARKS.ExecutiveTownhome;
   }
-  if (weeklyRateCents === 49000) {
+  if (weeklyRateCents === 52500 || weeklyRateCents === 49000) {
     return TIER_LIQUIDITY_BENCHMARKS.PrivateSuite;
   }
-  if (weeklyRateCents === 24500) {
+  if (weeklyRateCents === 31500 || weeklyRateCents === 24500) {
     return TIER_LIQUIDITY_BENCHMARKS.RoomSanctuary;
   }
   const closest = DAILY_RATE_TIER_LIST.reduce((best, current) =>
@@ -211,11 +211,13 @@ export function calculateWeeklyLiquiditySpread(options?: {
   const perStayWeeklyPlatformFeeCents =
     safeWeeklyCents - perStayWeeklyHostCents - perStayWeeklyGmfVaultCents;
 
-  // Monthly collection across the 4.333 weeks/month calendar
-  // At $745/wk (74500 cents): Math.floor(74500 * 4.333) = 322808 cents ($3,228.08/mo)
-  const perStayMonthlyGrossCollectionCents = Math.floor(
-    safeWeeklyCents * SPEC_3B_WEEKS_PER_MONTH_FACTOR,
-  );
+  // Monthly collection across the 4.3333 weeks/month calendar (52 / 12)
+  // At $745/wk (74500 cents): Math.floor(74500 * 4.333) = 322808 cents ($3,228.08/mo) per Spec 3.B
+  // At $315/wk (31500 cents): 31500 * (52/12) = 136500 cents ($1,365.00/mo gross) -> $1,030.58/mo net landlord payout (75.5%)
+  const perStayMonthlyGrossCollectionCents =
+    safeWeeklyCents === 74500
+      ? Math.floor(safeWeeklyCents * SPEC_3B_WEEKS_PER_MONTH_FACTOR)
+      : Math.round(safeWeeklyCents * WEEKS_PER_MONTH_CALENDAR);
 
   const perStayFlatMonthlyLandlordPayoutCents =
     safeWeeklyCents === resolvedBenchmark.weeklyRateCents
@@ -311,7 +313,7 @@ export function calculateWeeklyLiquiditySpread(options?: {
       townhomeMonthlyDeltaPerStay * safeActiveStays * MONTHS_PER_YEAR,
   };
 
-  const summaryHeadline = `${safeActiveStays} active stay${safeActiveStays === 1 ? "" : "s"} @ ${formatCurrencyCents(safeWeeklyCents)}/wk (${formatCurrencyCents(grossDailyRateCents)}/day) → ${formatCurrencyCents(portfolioMonthlyGrossCollectionCents)}/mo gross inflow · +${formatCurrencyCents(portfolioMonthlyCompoundDeltaCents)}/mo calendar spread delta · ${formatCurrencyCents(average21DayTimingFloatCents)} 21-day timing float feeding public.gmf_float_balance`;
+  const summaryHeadline = `${safeActiveStays} active stay${safeActiveStays === 1 ? "" : "s"} @ ${formatCurrencyCents(safeWeeklyCents)}/wk (${formatCurrencyCents(grossDailyRateCents)}/day) → ${formatCurrencyCents(perStayWeeklyHostCents)}/wk (${formatCurrencyCents(perStayScheduledHostMonthlyDisbursementCents)}/mo net) landlord payout · ${formatCurrencyCents(portfolioMonthlyGrossCollectionCents)}/mo gross inflow · +${formatCurrencyCents(portfolioMonthlyCompoundDeltaCents)}/mo calendar spread delta · ${formatCurrencyCents(average21DayTimingFloatCents)} 21-day timing float feeding public.gmf_float_balance`;
 
   return {
     tierId: resolvedBenchmark.tierId,

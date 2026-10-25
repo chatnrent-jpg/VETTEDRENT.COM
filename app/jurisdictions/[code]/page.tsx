@@ -55,7 +55,7 @@ export default async function JurisdictionLandingPage({
 
   const summary = jurisdictionMarketSummary(rule);
   const sampleYield = calculateJurisdictionYield(rule.code);
-  const daily90 = calculateDailyRateComparison(24500, 90);
+  const daily90 = calculateDailyRateComparison(31500, 90);
 
   return (
     <main className="shell">
@@ -113,16 +113,22 @@ export default async function JurisdictionLandingPage({
             </strong>
           </div>
           <div className="row">
-            <span>Benchmark 90-day host payout ($245/wk)</span>
-            <span className="chip">{formatCurrencyCents(sampleYield.hostTotalCents)}</span>
+            <span>Guaranteed landlord payout ($315/wk Room Tier)</span>
+            <span className="chip">
+              {formatCurrencyCents(sampleYield.hostWeeklyCents)}/wk (
+              {formatCurrencyCents(sampleYield.hostMonthlyCents)}/mo net ·{" "}
+              {formatCurrencyCents(sampleYield.hostTotalCents)} / 90d)
+            </span>
           </div>
           <div className="row">
-            <span>14–90 Day Daily Rate Advantage ($245/wk Room Tier)</span>
+            <span>7–90 Day Daily Rate Advantage ($315/wk · $45.00/day Room Tier)</span>
             <strong>
-              {formatCurrencyCents(daily90.grossDailyRateCents)}/day (
-              {formatCurrencyCents(daily90.netEffectiveDailyRateCents)}/day net after 14.3% GMF
-              Vault credit) · Compare &amp; contrast against any motel, sublet, Airbnb, or OTA
-              offer
+              $315/wk · {formatCurrencyCents(daily90.grossDailyRateCents)}/day (
+              {formatCurrencyCents(daily90.netEffectiveDailyRateCents)}/day net after +
+              {formatCurrencyCents(daily90.dailyGmfVaultCreditCents)}/day 14.3% GMF Vault credit) ·{" "}
+              {daily90.savingsPercentage}% less than{" "}
+              {formatCurrencyCents(daily90.aggregatorNightlyCents)}/night hotel &amp; aggregator
+              rates
             </strong>
           </div>
           <p className="note">{summary.lodgerPitch}</p>
@@ -157,13 +163,13 @@ export default async function JurisdictionLandingPage({
           <div className="stack">
             {EXTERNAL_OFFER_PRESETS.map((preset) => {
               const cmp30 = calculateDailyRateComparison(
-                24500,
+                31500,
                 30,
                 preset.nightlyRateCents,
                 preset.upfrontDepositCents,
               );
               const cmp90 = calculateDailyRateComparison(
-                24500,
+                31500,
                 90,
                 preset.nightlyRateCents,
                 preset.upfrontDepositCents,
@@ -197,7 +203,7 @@ export default async function JurisdictionLandingPage({
               className="button"
               href={`/underwriting?jurisdiction=${encodeURIComponent(rule.code)}&days=90`}
             >
-              Lock In $35.00/Day in {rule.code} →
+              Lock In $45.00/Day ($38.56/Day Net) in {rule.code} →
             </Link>
             <Link className="button button-secondary" href="/#daily-rate-calculator">
               Compare Custom Nightly Offer →
@@ -221,7 +227,7 @@ export default async function JurisdictionLandingPage({
             {PURPOSE_COHORTS.map((cohort) => {
               const cohortYield = calculateJurisdictionYield(
                 rule.code,
-                24500,
+                31500,
                 cohort.defaultStayDays,
               );
               return (

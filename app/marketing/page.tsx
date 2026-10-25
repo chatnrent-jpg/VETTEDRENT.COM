@@ -43,7 +43,7 @@ export default function MarketingCommandCenterPage() {
   const [agencyBillingEmail, setAgencyBillingEmail] = useState("billing@vettedcare.com");
   const [workerFullName, setWorkerFullName] = useState("Jordan Taylor, RN");
   const [workerEmail, setWorkerEmail] = useState("jordan.rn@vettedcare.com");
-  const [weeklyStipendCents, setWeeklyStipendCents] = useState("24500");
+  const [weeklyStipendCents, setWeeklyStipendCents] = useState("31500");
   const [listingId, setListingId] = useState("vr-weekly-room");
   const [portalKey, setPortalKey] = useState("");
   const [campaignRunning, setCampaignRunning] = useState(false);
@@ -123,7 +123,7 @@ export default function MarketingCommandCenterPage() {
           email: agencyBillingEmail.trim(),
           jurisdictionCode: DEFAULT_JURISDICTION_CODE,
           agencyName: agencyName.trim(),
-          weeklyRateCents: Number(weeklyStipendCents) || 24500,
+          weeklyRateCents: Number(weeklyStipendCents) || 31500,
           intendedStayDays: selectedCohortRule.defaultStayDays,
           utmSource: "marketing_command_center",
           utmMedium: "enterprise_outreach",
@@ -168,7 +168,7 @@ export default function MarketingCommandCenterPage() {
               workerFullName: workerFullName.trim(),
               contractStartDate: startIso,
               contractEndDate: endIso,
-              weeklyStipendCents: Number(weeklyStipendCents) || 24500,
+              weeklyStipendCents: Number(weeklyStipendCents) || 31500,
               listingId: listingId.trim(),
             },
           ],
@@ -324,7 +324,8 @@ export default function MarketingCommandCenterPage() {
             <p className="vault-label">
               Pipeline Progress: <strong>{totalLeads}</strong> captured leads toward{" "}
               <strong>{MILESTONE_TARGET_STAYS} active stays</strong> ($1M Valuation Milestone at
-              $245.00/wk benchmark).
+              $315.00/wk · $45.00/day Universal Floor; $42,525.00 21-day timing float across 45
+              stays).
             </p>
           </div>
 
@@ -542,7 +543,7 @@ export default function MarketingCommandCenterPage() {
                     </span>
                   </div>
                   <div className="row">
-                    <span>90-day host payout @ $245/wk</span>
+                    <span>90-day host payout @ $315/wk ($237.83/wk · $1,030.58/mo net)</span>
                     <strong>{formatCurrencyCents(preview.hostTotalCents)}</strong>
                   </div>
                   <div className="row">

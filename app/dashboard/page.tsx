@@ -322,9 +322,17 @@ function HostPanel() {
           {listing.kind === "ready" && listing.weeklyPriceCents !== null ? (
             <span className="chip">{formatCentsAsDollars(listing.weeklyPriceCents)}</span>
           ) : (
-            <strong>{listing.kind === "loading" ? "Checking" : "Not set"}</strong>
+            <strong>{listing.kind === "loading" ? "Checking" : "$315.00/wk ($45.00/day)"}</strong>
           )}
         </div>
+        <div className="row">
+          <span>Guaranteed Landlord Payout (75.5%)</span>
+          <strong>$237.83/wk ($1,030.58/mo net)</strong>
+        </div>
+        <p className="note">
+          Universal Entry Floor: $315/wk · $45.00/day ($38.56/day net after +$6.44/day 14.3% GMF
+          Vault credit) · 84% less than $277/night hotel &amp; aggregator rates.
+        </p>
         <button
           type="button"
           className="button"
@@ -347,7 +355,7 @@ function HostPanel() {
         {listing.kind === "ready" ? (
           <a
             className="button button-secondary"
-            href={`/api/agreements/license?format=pdf&jurisdiction=${encodeURIComponent(listing.jurisdictionCode)}&weeklyFeeCents=${listing.weeklyPriceCents ?? 24500}&propertyTitle=${encodeURIComponent(listing.name)}`}
+            href={`/api/agreements/license?format=pdf&jurisdiction=${encodeURIComponent(listing.jurisdictionCode)}&weeklyFeeCents=${listing.weeklyPriceCents ?? 31500}&propertyTitle=${encodeURIComponent(listing.name)}`}
             download={`VettedRent-Commercial-License-${listing.jurisdictionCode}.pdf`}
           >
             Download Revocable Commercial License (PDF) ↓

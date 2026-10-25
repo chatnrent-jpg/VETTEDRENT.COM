@@ -118,7 +118,10 @@ export function LandlordYieldCalculator({
         </div>
         <div className="row">
           <span>Host net payout (75.5%)</span>
-          <strong>{formatCurrencyCents(breakdown.hostWeeklyCents)} / week</strong>
+          <strong>
+            {formatCurrencyCents(breakdown.hostWeeklyCents)} / week (
+            {formatCurrencyCents(breakdown.hostMonthlyCents)} / month net)
+          </strong>
         </div>
         <div className="row">
           <span>GMF escrow reserve (14.3%)</span>
