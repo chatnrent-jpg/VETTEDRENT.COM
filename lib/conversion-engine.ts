@@ -7,6 +7,7 @@ import {
 } from "@/lib/compliance/jurisdictions";
 import {
   DAILY_RATE_PRESET_TIERS,
+  clampTierWeeklyRateCents,
   type DailyRateTierId,
 } from "@/lib/daily-rate-comparison";
 import { reserveStayDatesInAvailability } from "@/lib/host-availability";
@@ -247,18 +248,17 @@ function createSeededLedger(
 function normalizeHydratedLicenseFloor(
   rec: ActiveCommercialLicenseRecord,
 ): ActiveCommercialLicenseRecord {
-  if (rec.tier === "RoomSanctuary" && rec.weekly_rate_cents < 31500) {
+  const safeTier: DailyRateTierId =
+    rec.tier === "PrivateSuite" || rec.tier === "ExecutiveTownhome"
+      ? rec.tier
+      : "RoomSanctuary";
+  const clampedWeekly = clampTierWeeklyRateCents(safeTier, rec.weekly_rate_cents);
+  if (clampedWeekly !== rec.weekly_rate_cents) {
     return {
       ...rec,
-      weekly_rate_cents: 31500,
-      daily_rate_cents: 4500,
-    };
-  }
-  if (rec.tier === "PrivateSuite" && rec.weekly_rate_cents < 52500) {
-    return {
-      ...rec,
-      weekly_rate_cents: 52500,
-      daily_rate_cents: 7500,
+      tier: safeTier,
+      weekly_rate_cents: clampedWeekly,
+      daily_rate_cents: Math.round(clampedWeekly / 7),
     };
   }
   return rec;
@@ -368,13 +368,12 @@ export async function activateStayFromUnderwriting(
     JURISDICTION_RULES[0];
 
   const tierId = resolveTierFromInput(payload.tier, payload.weeklyRateCents);
-  const tierPreset = DAILY_RATE_PRESET_TIERS[tierId];
 
   const rawWeekly = Number(payload.weeklyRateCents);
-  const weeklyRateCents =
-    Number.isFinite(rawWeekly) && rawWeekly >= 5000 && rawWeekly <= 500000
-      ? Math.round(rawWeekly)
-      : tierPreset.weeklyRateCents;
+  const weeklyRateCents = clampTierWeeklyRateCents(
+    tierId,
+    Number.isFinite(rawWeekly) ? rawWeekly : undefined,
+  );
 
   const minFloorDays =
     cohortRule.id === "Seasonal-Remote" ? SEASONAL_REMOTE_MIN_DAYS : 7;

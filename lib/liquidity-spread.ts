@@ -1,6 +1,7 @@
 import {
   DAILY_RATE_PRESET_TIERS,
   DAILY_RATE_TIER_LIST,
+  clampTierWeeklyRateCents,
   type DailyRateTierId,
 } from "@/lib/daily-rate-comparison";
 import {
@@ -183,7 +184,9 @@ export function calculateWeeklyLiquiditySpread(options?: {
     typeof options?.weeklyRateCents === "number" &&
     Number.isFinite(options.weeklyRateCents) &&
     options.weeklyRateCents > 0
-      ? Math.round(options.weeklyRateCents)
+      ? options?.tierId
+        ? clampTierWeeklyRateCents(options.tierId, options.weeklyRateCents)
+        : Math.round(options.weeklyRateCents)
       : resolvedBenchmark.weeklyRateCents;
 
   const safeActiveStays =

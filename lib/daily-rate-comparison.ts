@@ -16,8 +16,14 @@ export type DailyRateTierId = "RoomSanctuary" | "PrivateSuite" | "ExecutiveTownh
 export type DailyRateTierPreset = {
   id: DailyRateTierId;
   label: string;
+  shortLabel: string;
+  bandLabel: string;
   weeklyRateCents: number;
+  minWeeklyRateCents: number;
+  maxWeeklyRateCents: number;
   grossDailyRateCents: number;
+  minDailyRateCents: number;
+  maxDailyRateCents: number;
   dailyGmfVaultCreditCents: number;
   netEffectiveDailyRateCents: number;
   defaultComparisonNightlyCents: number;
@@ -85,9 +91,15 @@ export const EXTERNAL_OFFER_PRESETS: readonly ExternalOfferPreset[] = [
 export const DAILY_RATE_PRESET_TIERS: Record<DailyRateTierId, DailyRateTierPreset> = {
   RoomSanctuary: {
     id: "RoomSanctuary",
-    label: "Room Sanctuary ($315/wk · $45.00/day)",
+    label: "Room Sanctuary ($45–$90/day · $315–$630/wk)",
+    shortLabel: "Room Sanctuary",
+    bandLabel: "$45.00–$90.00/day ($315–$630/wk)",
     weeklyRateCents: 31500,
+    minWeeklyRateCents: 31500,
+    maxWeeklyRateCents: 63000,
     grossDailyRateCents: 4500,
+    minDailyRateCents: 4500,
+    maxDailyRateCents: 9000,
     dailyGmfVaultCreditCents: 644,
     netEffectiveDailyRateCents: 3856,
     defaultComparisonNightlyCents: 27700,
@@ -97,9 +109,15 @@ export const DAILY_RATE_PRESET_TIERS: Record<DailyRateTierId, DailyRateTierPrese
   },
   PrivateSuite: {
     id: "PrivateSuite",
-    label: "Private Suite ($525/wk · $75.00/day)",
+    label: "Private Suite ($75–$120/day · $525–$840/wk)",
+    shortLabel: "Private Suite",
+    bandLabel: "$75.00–$120.00/day ($525–$840/wk)",
     weeklyRateCents: 52500,
+    minWeeklyRateCents: 52500,
+    maxWeeklyRateCents: 84000,
     grossDailyRateCents: 7500,
+    minDailyRateCents: 7500,
+    maxDailyRateCents: 12000,
     dailyGmfVaultCreditCents: 1073,
     netEffectiveDailyRateCents: 6427,
     defaultComparisonNightlyCents: 27700,
@@ -109,9 +127,15 @@ export const DAILY_RATE_PRESET_TIERS: Record<DailyRateTierId, DailyRateTierPrese
   },
   ExecutiveTownhome: {
     id: "ExecutiveTownhome",
-    label: "Family / Executive Townhome ($745/wk · $106.43/day)",
+    label: "Family / Executive Townhome ($106.43–$180/day · $745–$1,260/wk)",
+    shortLabel: "Family / Executive Townhome",
+    bandLabel: "$106.43–$180.00/day ($745–$1,260/wk)",
     weeklyRateCents: 74500,
+    minWeeklyRateCents: 74500,
+    maxWeeklyRateCents: 126000,
     grossDailyRateCents: 10643,
+    minDailyRateCents: 10643,
+    maxDailyRateCents: 18000,
     dailyGmfVaultCreditCents: 1522,
     netEffectiveDailyRateCents: 9121,
     defaultComparisonNightlyCents: 27700,
@@ -126,6 +150,89 @@ export const DAILY_RATE_TIER_LIST: readonly DailyRateTierPreset[] = [
   DAILY_RATE_PRESET_TIERS.PrivateSuite,
   DAILY_RATE_PRESET_TIERS.ExecutiveTownhome,
 ];
+
+export type TierRateOption = {
+  weeklyRateCents: number;
+  grossDailyRateCents: number;
+  dailyGmfVaultCreditCents: number;
+  netEffectiveDailyRateCents: number;
+  hostWeeklyNetCents: number;
+  hostMonthlyNetCents: number;
+  label: string;
+  isFloor: boolean;
+  isCeiling: boolean;
+};
+
+/**
+ * Clamps any requested weekly rate in integer cents to the hard floor and ceiling
+ * for the given tier:
+ * - RoomSanctuary: $315/wk ($45/day) floor → $630/wk ($90/day) ceiling
+ * - PrivateSuite: $525/wk ($75/day) floor → $840/wk ($120/day) ceiling
+ * - ExecutiveTownhome: $745/wk ($106.43/day) floor → $1,260/wk ($180/day) ceiling
+ */
+export function clampTierWeeklyRateCents(
+  tierId: DailyRateTierId,
+  weeklyRateCents?: number | null,
+): number {
+  const preset = DAILY_RATE_PRESET_TIERS[tierId] ?? DAILY_RATE_PRESET_TIERS.RoomSanctuary;
+  if (typeof weeklyRateCents !== "number" || !Number.isFinite(weeklyRateCents)) {
+    return preset.weeklyRateCents;
+  }
+  const rounded = Math.round(weeklyRateCents);
+  return Math.max(
+    preset.minWeeklyRateCents,
+    Math.min(preset.maxWeeklyRateCents, rounded),
+  );
+}
+
+export function clampTierDailyRateCents(
+  tierId: DailyRateTierId,
+  dailyRateCents?: number | null,
+): number {
+  const preset = DAILY_RATE_PRESET_TIERS[tierId] ?? DAILY_RATE_PRESET_TIERS.RoomSanctuary;
+  if (typeof dailyRateCents !== "number" || !Number.isFinite(dailyRateCents)) {
+    return preset.grossDailyRateCents;
+  }
+  const rounded = Math.round(dailyRateCents);
+  return Math.max(
+    preset.minDailyRateCents,
+    Math.min(preset.maxDailyRateCents, rounded),
+  );
+}
+
+export function getTierRateOptions(tierId: DailyRateTierId): TierRateOption[] {
+  const preset = DAILY_RATE_PRESET_TIERS[tierId] ?? DAILY_RATE_PRESET_TIERS.RoomSanctuary;
+  const weeklySteps: number[] =
+    tierId === "RoomSanctuary"
+      ? [31500, 35000, 38500, 42000, 45500, 49000, 52500, 56000, 59500, 63000]
+      : tierId === "PrivateSuite"
+        ? [52500, 56000, 59500, 63000, 66500, 70000, 73500, 77000, 80500, 84000]
+        : [74500, 80500, 87500, 94500, 105000, 115500, 126000];
+
+  return weeklySteps.map((weeklyRateCents) => {
+    const grossDailyRateCents = Math.round(weeklyRateCents / 7);
+    const dailyGmfVaultCreditCents = Math.round(
+      (grossDailyRateCents * CALCULATOR_VAULT_BPS) / 10000,
+    );
+    const netEffectiveDailyRateCents = grossDailyRateCents - dailyGmfVaultCreditCents;
+    const hostWeeklyNetCents = Math.round((weeklyRateCents * 7550) / 10000);
+    const hostMonthlyNetCents = Math.round((((weeklyRateCents * 52) / 12) * 7550) / 10000);
+    const isFloor = weeklyRateCents === preset.minWeeklyRateCents;
+    const isCeiling = weeklyRateCents === preset.maxWeeklyRateCents;
+    const suffix = isFloor ? " (Floor)" : isCeiling ? " (Ceiling)" : "";
+    return {
+      weeklyRateCents,
+      grossDailyRateCents,
+      dailyGmfVaultCreditCents,
+      netEffectiveDailyRateCents,
+      hostWeeklyNetCents,
+      hostMonthlyNetCents,
+      label: `${formatCurrencyCents(grossDailyRateCents)}/day · ${formatCurrencyCents(weeklyRateCents)}/wk${suffix}`,
+      isFloor,
+      isCeiling,
+    };
+  });
+}
 
 export type DailyRateComparison = {
   weeklyRateCents: number;

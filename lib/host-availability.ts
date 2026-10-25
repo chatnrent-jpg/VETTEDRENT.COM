@@ -3,7 +3,11 @@ import {
   todayIsoUtc,
   type TierAvailabilitySchedule,
 } from "@/lib/availability-calendar";
-import type { DailyRateTierId } from "@/lib/daily-rate-comparison";
+import {
+  DAILY_RATE_PRESET_TIERS,
+  clampTierWeeklyRateCents,
+  type DailyRateTierId,
+} from "@/lib/daily-rate-comparison";
 import { getSupabaseServerClient } from "@/lib/supabase";
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -17,6 +21,7 @@ function createDefaultSchedules(): Record<DailyRateTierId, TierAvailabilitySched
     RoomSanctuary: {
       tierId: "RoomSanctuary",
       listingId: "vr-weekly-room",
+      weeklyRateCents: DAILY_RATE_PRESET_TIERS.RoomSanctuary.weeklyRateCents,
       availableFromIso: today,
       blockedDates: [],
       updatedAtIso: new Date().toISOString(),
@@ -24,6 +29,7 @@ function createDefaultSchedules(): Record<DailyRateTierId, TierAvailabilitySched
     PrivateSuite: {
       tierId: "PrivateSuite",
       listingId: "vr-private-suite",
+      weeklyRateCents: DAILY_RATE_PRESET_TIERS.PrivateSuite.weeklyRateCents,
       availableFromIso: today,
       blockedDates: [addDaysIsoUtc(today, 18), addDaysIsoUtc(today, 19)],
       updatedAtIso: new Date().toISOString(),
@@ -31,6 +37,7 @@ function createDefaultSchedules(): Record<DailyRateTierId, TierAvailabilitySched
     ExecutiveTownhome: {
       tierId: "ExecutiveTownhome",
       listingId: "vr-executive-townhome",
+      weeklyRateCents: DAILY_RATE_PRESET_TIERS.ExecutiveTownhome.weeklyRateCents,
       availableFromIso: today,
       blockedDates: [addDaysIsoUtc(today, 25), addDaysIsoUtc(today, 26), addDaysIsoUtc(today, 27)],
       updatedAtIso: new Date().toISOString(),
@@ -89,6 +96,7 @@ export async function hydrateAvailabilitySchedules(): Promise<
             tierId?: unknown;
             blockedDates?: unknown;
             availableFromIso?: unknown;
+            weeklyRateCents?: unknown;
           };
           const tierId = parseAvailabilityTierId(parsed.tierId);
           if (!tierId || seen.has(tierId)) {
@@ -101,9 +109,15 @@ export async function hydrateAvailabilitySchedules(): Promise<
             ISO_DATE_RE.test(parsed.availableFromIso)
               ? parsed.availableFromIso
               : todayIsoUtc();
+          const hydratedWeekly =
+            typeof parsed.weeklyRateCents === "number" &&
+            Number.isFinite(parsed.weeklyRateCents)
+              ? clampTierWeeklyRateCents(tierId, parsed.weeklyRateCents)
+              : memorySchedules[tierId].weeklyRateCents;
 
           memorySchedules[tierId] = {
             ...memorySchedules[tierId],
+            weeklyRateCents: hydratedWeekly,
             availableFromIso,
             blockedDates,
             updatedAtIso:
@@ -128,6 +142,7 @@ export async function saveTierAvailabilitySchedule(options: {
   availableFromIso?: string;
   blockedDates: string[];
   hostEmail?: string;
+  weeklyRateCents?: number;
 }): Promise<{
   schedule: TierAvailabilitySchedule;
   schedules: Record<DailyRateTierId, TierAvailabilitySchedule>;
@@ -141,9 +156,14 @@ export async function saveTierAvailabilitySchedule(options: {
     typeof options.hostEmail === "string" && options.hostEmail.includes("@")
       ? options.hostEmail.trim().toLowerCase()
       : "host-calendar@vettedrent.com";
+  const clampedWeeklyCents = clampTierWeeklyRateCents(
+    options.tierId,
+    options.weeklyRateCents ?? memorySchedules[options.tierId]?.weeklyRateCents,
+  );
 
   const updated: TierAvailabilitySchedule = {
     ...memorySchedules[options.tierId],
+    weeklyRateCents: clampedWeeklyCents,
     availableFromIso: safeAvailableFrom,
     blockedDates: safeBlocked,
     updatedAtIso: new Date().toISOString(),
@@ -157,12 +177,14 @@ export async function saveTierAvailabilitySchedule(options: {
       cohort: "Host-Property",
       email: hostEmail,
       jurisdiction_code: "MD-PG",
+      weekly_rate_cents: clampedWeeklyCents,
       intended_stay_days: 90,
       utm_source: "availability_calendar",
       utm_medium: "host_setup",
       utm_campaign: "host_availability_calendar",
       notes: JSON.stringify({
         tierId: options.tierId,
+        weeklyRateCents: clampedWeeklyCents,
         availableFromIso: safeAvailableFrom,
         blockedDates: safeBlocked,
       }),

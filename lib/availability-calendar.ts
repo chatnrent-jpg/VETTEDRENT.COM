@@ -23,6 +23,7 @@ export type CalendarDayCell = {
 export type TierAvailabilitySchedule = {
   tierId: DailyRateTierId;
   listingId: string;
+  weeklyRateCents?: number;
   availableFromIso: string;
   blockedDates: string[];
   updatedAtIso: string;

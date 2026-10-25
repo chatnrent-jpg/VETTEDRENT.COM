@@ -35,12 +35,17 @@ export async function POST(request: Request): Promise<NextResponse> {
       typeof body.availableFromIso === "string" ? body.availableFromIso : undefined;
     const hostEmail =
       typeof body.hostEmail === "string" ? body.hostEmail : undefined;
+    const weeklyRateCents =
+      typeof body.weeklyRateCents === "number" && Number.isFinite(body.weeklyRateCents)
+        ? body.weeklyRateCents
+        : undefined;
 
     const { schedule, schedules } = await saveTierAvailabilitySchedule({
       tierId,
       availableFromIso,
       blockedDates,
       hostEmail,
+      weeklyRateCents,
     });
 
     return NextResponse.json({

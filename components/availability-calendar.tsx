@@ -12,9 +12,15 @@ import {
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/compliance/jurisdictions";
 import {
   DAILY_RATE_PRESET_TIERS,
+  calculateDailyRateComparison,
+  clampTierWeeklyRateCents,
+  getTierRateOptions,
   type DailyRateTierId,
 } from "@/lib/daily-rate-comparison";
-import { formatCurrencyCents } from "@/lib/marketing-calculator";
+import {
+  CALCULATOR_HOST_BPS,
+  formatCurrencyCents,
+} from "@/lib/marketing-calculator";
 import {
   resolvePurposeCohort,
   type PurposeCohortId,
@@ -42,15 +48,11 @@ export type InstantBookingConfirmation = {
   commercialLicensePdfHref: string;
 };
 
-const TIER_SUMMARY_LABELS: Record<DailyRateTierId, string> = {
-  RoomSanctuary: "RoomSanctuary $45.00/day · $315/wk ($38.56/day net)",
-  PrivateSuite: "PrivateSuite $75.00/day · $525/wk ($64.27/day net)",
-  ExecutiveTownhome: "ExecutiveTownhome $106.43/day · $745/wk ($91.21/day net)",
-};
-
 export function AvailabilityCalendar({
   mode,
   tierId,
+  weeklyRateCents,
+  onChangeWeeklyRateCents,
   stayDays,
   checkInIso,
   onSelectCheckIn,
@@ -64,6 +66,8 @@ export function AvailabilityCalendar({
 }: {
   mode: "tenant" | "landlord";
   tierId: DailyRateTierId;
+  weeklyRateCents?: number;
+  onChangeWeeklyRateCents?: (weeklyRateCents: number) => void;
   stayDays: number;
   checkInIso: string;
   onSelectCheckIn: (isoDate: string) => void;
@@ -79,6 +83,9 @@ export function AvailabilityCalendar({
     Record<DailyRateTierId, TierAvailabilitySchedule> | null
   >(null);
   const [localBlocked, setLocalBlocked] = useState<string[]>([]);
+  const [localWeeklyCents, setLocalWeeklyCents] = useState<number>(
+    () => clampTierWeeklyRateCents(tierId, weeklyRateCents),
+  );
   const [newlyBookedDates, setNewlyBookedDates] = useState<string[]>([]);
   const [windowOffsetDays, setWindowOffsetDays] = useState<number>(0);
   const [saving, setSaving] = useState(false);
@@ -90,6 +97,22 @@ export function AvailabilityCalendar({
 
   const tier = DAILY_RATE_PRESET_TIERS[tierId];
   const cohortRule = resolvePurposeCohort(cohortId);
+  const rateOptions = getTierRateOptions(tierId);
+  const effectiveWeeklyCents = clampTierWeeklyRateCents(
+    tierId,
+    weeklyRateCents ?? localWeeklyCents,
+  );
+  const rateComparison = calculateDailyRateComparison(effectiveWeeklyCents, stayDays);
+  const hostWeeklyNetCents = Math.round(
+    (effectiveWeeklyCents * CALCULATOR_HOST_BPS) / 10000,
+  );
+  const hostMonthlyNetCents = Math.round(
+    (((effectiveWeeklyCents * 52) / 12) * CALCULATOR_HOST_BPS) / 10000,
+  );
+
+  useEffect(() => {
+    setLocalWeeklyCents(clampTierWeeklyRateCents(tierId, weeklyRateCents));
+  }, [tierId, weeklyRateCents]);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,6 +130,10 @@ export function AvailabilityCalendar({
           if (map) {
             setSchedules(map);
             setLocalBlocked(map[tierId]?.blockedDates ?? []);
+            const savedWeekly = map[tierId]?.weeklyRateCents;
+            if (typeof savedWeekly === "number" && weeklyRateCents === undefined) {
+              setLocalWeeklyCents(clampTierWeeklyRateCents(tierId, savedWeekly));
+            }
           }
         }
       } catch {
@@ -117,13 +144,17 @@ export function AvailabilityCalendar({
     return () => {
       cancelled = true;
     };
-  }, [tierId]);
+  }, [tierId, weeklyRateCents]);
 
   useEffect(() => {
     if (schedules && schedules[tierId]) {
       setLocalBlocked(schedules[tierId].blockedDates);
+      const savedWeekly = schedules[tierId].weeklyRateCents;
+      if (typeof savedWeekly === "number" && weeklyRateCents === undefined) {
+        setLocalWeeklyCents(clampTierWeeklyRateCents(tierId, savedWeekly));
+      }
     }
-  }, [schedules, tierId]);
+  }, [schedules, tierId, weeklyRateCents]);
 
   const windowStartIso = addDaysIsoUtc(todayIsoUtc(), windowOffsetDays);
   const calendar = buildCalendarWindow({
@@ -140,12 +171,17 @@ export function AvailabilityCalendar({
       ? `${weeklyBillingCycles} weekly billing cycle${weeklyBillingCycles === 1 ? "" : "s"}`
       : `${weeklyBillingCycles.toFixed(1)} weekly billing cycles`;
 
-  const underwritingBookingHref = `/underwriting?tier=${encodeURIComponent(tierId)}&weeklyCents=${tier.weeklyRateCents}&days=${stayDays}&checkIn=${encodeURIComponent(calendar.checkInIso)}&cohort=${encodeURIComponent(cohortRule.id)}&jurisdiction=${encodeURIComponent(jurisdictionCode)}`;
+  const underwritingBookingHref = `/underwriting?tier=${encodeURIComponent(tierId)}&weeklyCents=${effectiveWeeklyCents}&days=${stayDays}&checkIn=${encodeURIComponent(calendar.checkInIso)}&cohort=${encodeURIComponent(cohortRule.id)}&jurisdiction=${encodeURIComponent(jurisdictionCode)}`;
 
   async function persistHostBlockedDates(
     nextBlocked: string[],
     confirmationNote: string,
+    overrideWeeklyCents?: number,
   ) {
+    const targetWeeklyCents = clampTierWeeklyRateCents(
+      tierId,
+      overrideWeeklyCents ?? effectiveWeeklyCents,
+    );
     setSaving(true);
     setSaveMessage(confirmationNote);
     try {
@@ -154,6 +190,7 @@ export function AvailabilityCalendar({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tierId,
+          weeklyRateCents: targetWeeklyCents,
           availableFromIso: todayIsoUtc(),
           blockedDates: nextBlocked,
           hostEmail: hostEmail?.trim() || undefined,
@@ -175,6 +212,30 @@ export function AvailabilityCalendar({
       setSaveMessage("Network error while saving availability.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  function handleRateSelectChange(nextWeeklyCentsRaw: number) {
+    const clamped = clampTierWeeklyRateCents(tierId, nextWeeklyCentsRaw);
+    setLocalWeeklyCents(clamped);
+    if (onChangeWeeklyRateCents) {
+      onChangeWeeklyRateCents(clamped);
+    }
+    const nextDailyCents = Math.round(clamped / 7);
+    const nextHostWeekly = Math.round((clamped * CALCULATOR_HOST_BPS) / 10000);
+    const nextHostMonthly = Math.round(
+      (((clamped * 52) / 12) * CALCULATOR_HOST_BPS) / 10000,
+    );
+    if (mode === "landlord") {
+      void persistHostBlockedDates(
+        localBlocked,
+        `✓ Saved ${tier.shortLabel} rate: ${formatCurrencyCents(nextDailyCents)}/day (${formatCurrencyCents(clamped)}/wk) → Landlord net ${formatCurrencyCents(nextHostWeekly)}/wk (${formatCurrencyCents(nextHostMonthly)}/mo) within ${tier.bandLabel}.`,
+        clamped,
+      );
+    } else {
+      setSaveMessage(
+        `✓ Rate updated to ${formatCurrencyCents(nextDailyCents)}/day (${formatCurrencyCents(clamped)}/wk) within ${tier.bandLabel}.`,
+      );
     }
   }
 
@@ -261,7 +322,7 @@ export function AvailabilityCalendar({
           cohort: cohortRule.id,
           jurisdiction: jurisdictionCode,
           tier: tierId,
-          weeklyRateCents: tier.weeklyRateCents,
+          weeklyRateCents: effectiveWeeklyCents,
           stayDays,
           checkInDate: calendar.checkInIso,
           credentialIdentifier: effectiveCredential,
@@ -339,7 +400,7 @@ export function AvailabilityCalendar({
         cohort: cohortRule.id,
         jurisdiction: jurisdictionCode,
         days: String(stayDays),
-        weeklyCents: String(tier.weeklyRateCents),
+        weeklyCents: String(effectiveWeeklyCents),
         credentialId: effectiveCredential,
         ratio: "3.25",
         contractEnd: validUntil,
@@ -356,7 +417,7 @@ export function AvailabilityCalendar({
         days: String(stayDays),
         credentialId: effectiveCredential,
         ratio: "3.25",
-        weeklyFeeCents: String(tier.weeklyRateCents),
+        weeklyFeeCents: String(effectiveWeeklyCents),
         purposeEnd: validUntil,
         stayEnd: validUntil,
         licensee: effectiveApplicant,
@@ -372,8 +433,8 @@ export function AvailabilityCalendar({
         credentialIdentifier: effectiveCredential,
         jurisdiction: jurisdictionCode,
         tier: tierId,
-        weeklyRateCents: tier.weeklyRateCents,
-        dailyRateCents: tier.grossDailyRateCents,
+        weeklyRateCents: effectiveWeeklyCents,
+        dailyRateCents: rateComparison.grossDailyRateCents,
         stayDays,
         checkInDate: calendar.checkInIso,
         validUntil,
@@ -421,17 +482,45 @@ export function AvailabilityCalendar({
         <div className="vr-calendar-title">
           <strong>
             {mode === "tenant"
-              ? `Interactive Stay Calendar · ${tier.label}`
-              : `Landlord Availability Setup · ${tier.label}`}
+              ? `Interactive Stay Calendar · ${tier.shortLabel} (${formatCurrencyCents(rateComparison.grossDailyRateCents)}/day · ${formatCurrencyCents(effectiveWeeklyCents)}/wk)`
+              : `Landlord Availability & Pricing Setup · ${tier.shortLabel} (Allowed Band: ${tier.bandLabel})`}
           </strong>
           <span>
             {mode === "tenant"
-              ? `Click any open date to set Check-In: ${formatReadableDate(calendar.checkInIso)} → Check-Out: ${formatReadableDate(calendar.checkOutIso)} (${stayDays} days)`
-              : "Click any date cell to immediately toggle Available (green) or Blocked (red) with live /api/host/availability persistence."}
+              ? `Click any open date to set Check-In: ${formatReadableDate(calendar.checkInIso)} → Check-Out: ${formatReadableDate(calendar.checkOutIso)} (${stayDays} days · ${formatCurrencyCents(rateComparison.netEffectiveDailyRateCents)}/day net)`
+              : `Set your rate between ${tier.bandLabel} (Host 75.5% net: ${formatCurrencyCents(hostWeeklyNetCents)}/wk · ${formatCurrencyCents(hostMonthlyNetCents)}/mo) and click any date to toggle Available or Blocked.`}
           </span>
         </div>
 
         <div className="vr-calendar-controls">
+          <label
+            className="vr-cal-btn"
+            style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem" }}
+          >
+            <span>{mode === "landlord" ? "Host Rate:" : "Tier Rate:"}</span>
+            <select
+              aria-label={`${tier.shortLabel} rate within ${tier.bandLabel}`}
+              value={effectiveWeeklyCents}
+              onChange={(e) => handleRateSelectChange(Number(e.target.value))}
+              style={{
+                background: "transparent",
+                color: "inherit",
+                border: "none",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              {rateOptions.map((opt) => (
+                <option
+                  key={opt.weeklyRateCents}
+                  value={opt.weeklyRateCents}
+                  style={{ color: "#0b1220" }}
+                >
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
           {mode === "tenant" ? (
             <span
               className="vr-calendar-status"
@@ -610,12 +699,16 @@ export function AvailabilityCalendar({
               </strong>
             </div>
             <div className="vr-booking-bar__tier">
-              <span>Selected Tier:</span>{" "}
-              <strong>{TIER_SUMMARY_LABELS[tierId]}</strong>
+              <span>Selected Tier ({tier.bandLabel}):</span>{" "}
+              <strong>
+                {tierId} {formatCurrencyCents(rateComparison.grossDailyRateCents)}/day ·{" "}
+                {formatCurrencyCents(effectiveWeeklyCents)}/wk (
+                {formatCurrencyCents(rateComparison.netEffectiveDailyRateCents)}/day net)
+              </strong>
               <span>
                 · Total:{" "}
                 <strong>
-                  {formatCurrencyCents(tier.grossDailyRateCents * stayDays)}
+                  {formatCurrencyCents(rateComparison.grossDailyRateCents * stayDays)}
                 </strong>{" "}
                 ($0.00 Security Deposit)
               </span>

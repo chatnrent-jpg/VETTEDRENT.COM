@@ -20,6 +20,8 @@ import {
   DAILY_RATE_TIER_LIST,
   EXTERNAL_OFFER_PRESETS,
   calculateDailyRateComparison,
+  clampTierWeeklyRateCents,
+  getTierRateOptions,
   type DailyRateTierId,
 } from "@/lib/daily-rate-comparison";
 import {
@@ -44,6 +46,7 @@ export function DualBrandHome({
   const isLandlord = perspective === "landlord";
 
   const [selectedTierId, setSelectedTierId] = useState<DailyRateTierId>("RoomSanctuary");
+  const [selectedWeeklyCents, setSelectedWeeklyCents] = useState<number>(31500);
   const [selectedCohortId, setSelectedCohortId] =
     useState<PurposeCohortId>("Contract-Assignment");
   const [selectedJurisdictionCode, setSelectedJurisdictionCode] = useState<string>(
@@ -59,13 +62,23 @@ export function DualBrandHome({
   const [hostNotice, setHostNotice] = useState<string | null>(null);
 
   const activeTier = DAILY_RATE_PRESET_TIERS[selectedTierId];
+  const tierRateOptions = getTierRateOptions(selectedTierId);
+  const clampedWeeklyCents = clampTierWeeklyRateCents(
+    selectedTierId,
+    selectedWeeklyCents,
+  );
   const parsedNightlyCents = Math.max(
     3500,
     Math.round((Number(externalNightlyDollars) || 277) * 100),
   );
 
+  function selectTier(nextTierId: DailyRateTierId) {
+    setSelectedTierId(nextTierId);
+    setSelectedWeeklyCents(DAILY_RATE_PRESET_TIERS[nextTierId].weeklyRateCents);
+  }
+
   const comparison = calculateDailyRateComparison(
-    activeTier.weeklyRateCents,
+    clampedWeeklyCents,
     stayDays,
     parsedNightlyCents,
     0,
@@ -73,7 +86,7 @@ export function DualBrandHome({
 
   const hostYield = calculateJurisdictionYield(
     selectedJurisdictionCode,
-    activeTier.weeklyRateCents,
+    clampedWeeklyCents,
     stayDays,
   );
 
@@ -102,7 +115,7 @@ export function DualBrandHome({
           cohort: "Host-Property",
           email: hostEmail.trim(),
           jurisdictionCode: selectedJurisdictionCode,
-          weeklyRateCents: activeTier.weeklyRateCents,
+          weeklyRateCents: clampedWeeklyCents,
           intendedStayDays: stayDays,
         }),
       });
@@ -262,11 +275,29 @@ export function DualBrandHome({
               <span>Space</span>
               <select
                 value={selectedTierId}
-                onChange={(e) => setSelectedTierId(e.target.value as DailyRateTierId)}
+                onChange={(e) => selectTier(e.target.value as DailyRateTierId)}
               >
                 {DAILY_RATE_TIER_LIST.map((tier) => (
                   <option key={tier.id} value={tier.id}>
                     {tier.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="google-search-cell">
+              <span>Daily / Weekly Rate ({activeTier.bandLabel})</span>
+              <select
+                value={clampedWeeklyCents}
+                onChange={(e) =>
+                  setSelectedWeeklyCents(
+                    clampTierWeeklyRateCents(selectedTierId, Number(e.target.value)),
+                  )
+                }
+              >
+                {tierRateOptions.map((opt) => (
+                  <option key={opt.weeklyRateCents} value={opt.weeklyRateCents}>
+                    {opt.label}
                   </option>
                 ))}
               </select>
@@ -367,11 +398,29 @@ export function DualBrandHome({
               <span>Property Type</span>
               <select
                 value={selectedTierId}
-                onChange={(e) => setSelectedTierId(e.target.value as DailyRateTierId)}
+                onChange={(e) => selectTier(e.target.value as DailyRateTierId)}
               >
                 {DAILY_RATE_TIER_LIST.map((tier) => (
                   <option key={tier.id} value={tier.id}>
                     {tier.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="google-search-cell">
+              <span>Host Rate ({activeTier.bandLabel})</span>
+              <select
+                value={clampedWeeklyCents}
+                onChange={(e) =>
+                  setSelectedWeeklyCents(
+                    clampTierWeeklyRateCents(selectedTierId, Number(e.target.value)),
+                  )
+                }
+              >
+                {tierRateOptions.map((opt) => (
+                  <option key={opt.weeklyRateCents} value={opt.weeklyRateCents}>
+                    {opt.label} → {formatCurrencyCents(opt.hostWeeklyNetCents)}/wk net
                   </option>
                 ))}
               </select>
@@ -497,6 +546,8 @@ export function DualBrandHome({
           <AvailabilityCalendar
             mode={isLandlord ? "landlord" : "tenant"}
             tierId={selectedTierId}
+            weeklyRateCents={clampedWeeklyCents}
+            onChangeWeeklyRateCents={(next) => setSelectedWeeklyCents(next)}
             stayDays={comparison.stayDays}
             checkInIso={checkInIso}
             onSelectCheckIn={(iso) => {

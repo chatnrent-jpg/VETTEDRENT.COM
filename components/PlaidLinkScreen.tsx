@@ -25,10 +25,15 @@ import {
   DAILY_RATE_TIER_LIST,
   EXTERNAL_OFFER_PRESETS,
   calculateDailyRateComparison,
+  clampTierWeeklyRateCents,
+  getTierRateOptions,
   type DailyRateTierId,
 } from "@/lib/daily-rate-comparison";
 import { intendedStayLengthDays } from "@/lib/geo-compliance";
-import { formatCurrencyCents } from "@/lib/marketing-calculator";
+import {
+  CALCULATOR_HOST_BPS,
+  formatCurrencyCents,
+} from "@/lib/marketing-calculator";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import {
   PURPOSE_COHORTS,
@@ -46,6 +51,7 @@ const DEFAULT_WEEKLY_STAY_CENTS = 31500;
 export function PlaidLinkScreen() {
   const router = useRouter();
   const initial = defaultContractTerm();
+  const [selectedTierId, setSelectedTierId] = useState<DailyRateTierId>("RoomSanctuary");
   const [weeklyStayCents, setWeeklyStayCents] = useState<number>(DEFAULT_WEEKLY_STAY_CENTS);
   const [contract, setContract] = useState<ContractTerm>(initial);
   const [jurisdictionCode, setJurisdictionCode] = useState(DEFAULT_JURISDICTION_CODE);
@@ -85,18 +91,29 @@ export function PlaidLinkScreen() {
       return;
     }
 
-    if (weeklyCentsParam) {
-      const parsedWeekly = Number(weeklyCentsParam);
-      if (Number.isFinite(parsedWeekly) && parsedWeekly >= 5000 && parsedWeekly <= 500000) {
-        setWeeklyStayCents(Math.round(parsedWeekly));
-      }
-    } else if (
+    const parsedWeekly = weeklyCentsParam ? Number(weeklyCentsParam) : NaN;
+    let resolvedTier: DailyRateTierId = "RoomSanctuary";
+    if (
       tierParam === "RoomSanctuary" ||
       tierParam === "PrivateSuite" ||
       tierParam === "ExecutiveTownhome"
     ) {
-      setWeeklyStayCents(DAILY_RATE_PRESET_TIERS[tierParam as DailyRateTierId].weeklyRateCents);
+      resolvedTier = tierParam;
+    } else if (Number.isFinite(parsedWeekly)) {
+      if (parsedWeekly >= 74500) {
+        resolvedTier = "ExecutiveTownhome";
+      } else if (parsedWeekly === 52500 || parsedWeekly === 49000) {
+        resolvedTier = "PrivateSuite";
+      }
     }
+
+    setSelectedTierId(resolvedTier);
+    setWeeklyStayCents(
+      clampTierWeeklyRateCents(
+        resolvedTier,
+        Number.isFinite(parsedWeekly) ? parsedWeekly : undefined,
+      ),
+    );
 
     const startIso =
       checkInParam && /^\d{4}-\d{2}-\d{2}$/.test(checkInParam)
@@ -132,8 +149,21 @@ export function PlaidLinkScreen() {
     }
   }, []);
 
-  const { phase, error, decision, ready, open, canSimulate, simulate } = usePlaidLinkFlow(
+  const activeTierPreset = DAILY_RATE_PRESET_TIERS[selectedTierId];
+  const tierRateOptions = getTierRateOptions(selectedTierId);
+  const clampedWeeklyStayCents = clampTierWeeklyRateCents(
+    selectedTierId,
     weeklyStayCents,
+  );
+  const hostWeeklyNetCents = Math.round(
+    (clampedWeeklyStayCents * CALCULATOR_HOST_BPS) / 10000,
+  );
+  const hostMonthlyNetCents = Math.round(
+    (((clampedWeeklyStayCents * 52) / 12) * CALCULATOR_HOST_BPS) / 10000,
+  );
+
+  const { phase, error, decision, ready, open, canSimulate, simulate } = usePlaidLinkFlow(
+    clampedWeeklyStayCents,
     contract,
     jurisdictionCode,
   );
@@ -148,17 +178,15 @@ export function PlaidLinkScreen() {
     Math.round((Number(comparisonNightlyDollars) || 277) * 100),
   );
   const dailyComparison = calculateDailyRateComparison(
-    weeklyStayCents,
+    clampedWeeklyStayCents,
     selectedStayDays,
     comparisonNightlyCents,
   );
 
-  const selectedTierId: DailyRateTierId =
-    weeklyStayCents === 74500
-      ? "ExecutiveTownhome"
-      : weeklyStayCents === 52500 || weeklyStayCents === 49000
-        ? "PrivateSuite"
-        : "RoomSanctuary";
+  function selectTier(nextTierId: DailyRateTierId) {
+    setSelectedTierId(nextTierId);
+    setWeeklyStayCents(DAILY_RATE_PRESET_TIERS[nextTierId].weeklyRateCents);
+  }
 
   function selectCohort(cohortId: PurposeCohortId) {
     const nextCohort = resolvePurposeCohort(cohortId);
@@ -228,7 +256,7 @@ export function PlaidLinkScreen() {
           cohort: contract.credentialType,
           jurisdiction: jurisdictionCode,
           tier: selectedTierId,
-          weeklyRateCents: weeklyStayCents,
+          weeklyRateCents: clampedWeeklyStayCents,
           stayDays: selectedStayDays,
           checkInDate: checkInIso,
           credentialIdentifier: contract.credentialIdentifier,
@@ -316,7 +344,7 @@ export function PlaidLinkScreen() {
         cohort: activeCohort.id,
         jurisdiction: jurisdictionCode,
         days: String(selectedStayDays),
-        weeklyCents: String(weeklyStayCents),
+        weeklyCents: String(clampedWeeklyStayCents),
         credentialId: contract.credentialIdentifier,
         ratio: String(decision?.ratio ?? 3.25),
         contractEnd: validUntil,
@@ -333,7 +361,7 @@ export function PlaidLinkScreen() {
         days: String(selectedStayDays),
         credentialId: contract.credentialIdentifier,
         ratio: String(decision?.ratio ?? 3.25),
-        weeklyFeeCents: String(weeklyStayCents),
+        weeklyFeeCents: String(clampedWeeklyStayCents),
         purposeEnd: validUntil,
         stayEnd: validUntil,
         licensee: applicantEmail,
@@ -349,8 +377,8 @@ export function PlaidLinkScreen() {
         credentialIdentifier: contract.credentialIdentifier,
         jurisdiction: jurisdictionCode,
         tier: selectedTierId,
-        weeklyRateCents: weeklyStayCents,
-        dailyRateCents: Math.round(weeklyStayCents / 7),
+        weeklyRateCents: clampedWeeklyStayCents,
+        dailyRateCents: Math.round(clampedWeeklyStayCents / 7),
         stayDays: selectedStayDays,
         checkInDate: checkInIso,
         validUntil,
@@ -445,7 +473,7 @@ export function PlaidLinkScreen() {
         <div className="google-headline">
           <h1>Get approved in 60 seconds.</h1>
           <p>
-            <strong>{formatCents(weeklyStayCents)}/wk</strong> ·{" "}
+            <strong>{formatCents(clampedWeeklyStayCents)}/wk</strong> ·{" "}
             <strong>{formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day</strong> (
             <strong>{formatCurrencyCents(dailyComparison.netEffectiveDailyRateCents)}/day net</strong>{" "}
             after +{formatCurrencyCents(dailyComparison.dailyGmfVaultCreditCents)}/day 14.3% GMF
@@ -463,12 +491,30 @@ export function PlaidLinkScreen() {
           <label className="google-search-cell">
             <span>Space</span>
             <select
-              value={weeklyStayCents}
-              onChange={(e) => setWeeklyStayCents(Number(e.target.value) || 31500)}
+              value={selectedTierId}
+              onChange={(e) => selectTier(e.target.value as DailyRateTierId)}
             >
               {DAILY_RATE_TIER_LIST.map((tier) => (
-                <option key={tier.id} value={tier.weeklyRateCents}>
+                <option key={tier.id} value={tier.id}>
                   {tier.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="google-search-cell">
+            <span>Daily / Weekly Rate ({activeTierPreset.bandLabel})</span>
+            <select
+              value={clampedWeeklyStayCents}
+              onChange={(e) =>
+                setWeeklyStayCents(
+                  clampTierWeeklyRateCents(selectedTierId, Number(e.target.value)),
+                )
+              }
+            >
+              {tierRateOptions.map((opt) => (
+                <option key={opt.weeklyRateCents} value={opt.weeklyRateCents}>
+                  {opt.label}
                 </option>
               ))}
             </select>
@@ -578,7 +624,7 @@ export function PlaidLinkScreen() {
         {decision ? (
           <Decision
             decision={decision}
-            weeklyStayCents={weeklyStayCents}
+            weeklyStayCents={clampedWeeklyStayCents}
             jurisdictionCode={jurisdictionCode}
             stayDays={prefilledStayDays ?? activeCohort.defaultStayDays}
             comparisonNightlyCents={comparisonNightlyCents}
@@ -593,7 +639,7 @@ export function PlaidLinkScreen() {
         <div className="google-pill-row">
           <div className="google-info-pill">
             <strong>
-              {formatCents(weeklyStayCents)}/wk ·{" "}
+              {formatCents(clampedWeeklyStayCents)}/wk ·{" "}
               {formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day
             </strong>
             <span>
@@ -612,7 +658,10 @@ export function PlaidLinkScreen() {
           </div>
           <div className="google-info-pill">
             <strong>$0.00 Deposit</strong>
-            <span>Landlord guaranteed $237.83/wk ($1,030.58/mo net)</span>
+            <span>
+              Landlord guaranteed {formatCurrencyCents(hostWeeklyNetCents)}/wk (
+              {formatCurrencyCents(hostMonthlyNetCents)}/mo net)
+            </span>
           </div>
           <button
             type="button"
@@ -699,6 +748,8 @@ export function PlaidLinkScreen() {
           <AvailabilityCalendar
             mode="tenant"
             tierId={selectedTierId}
+            weeklyRateCents={clampedWeeklyStayCents}
+            onChangeWeeklyRateCents={(next) => setWeeklyStayCents(next)}
             stayDays={selectedStayDays}
             checkInIso={checkInIso}
             onSelectCheckIn={(iso) => updateCheckInDate(iso)}

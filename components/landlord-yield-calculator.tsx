@@ -3,6 +3,13 @@
 import { useState } from "react";
 import { JURISDICTION_RULES } from "@/lib/compliance/jurisdictions";
 import {
+  DAILY_RATE_PRESET_TIERS,
+  DAILY_RATE_TIER_LIST,
+  clampTierWeeklyRateCents,
+  getTierRateOptions,
+  type DailyRateTierId,
+} from "@/lib/daily-rate-comparison";
+import {
   calculateJurisdictionYield,
   DEFAULT_CALCULATOR_STAY_DAYS,
   DEFAULT_CALCULATOR_WEEKLY_CENTS,
@@ -21,14 +28,28 @@ export function LandlordYieldCalculator({
   allowJurisdictionSwitch?: boolean;
 }) {
   const [jurisdictionCode, setJurisdictionCode] = useState(initialJurisdictionCode);
+  const [selectedTierId, setSelectedTierId] = useState<DailyRateTierId>("RoomSanctuary");
   const [weeklyDollarsInput, setWeeklyDollarsInput] = useState(String(initialWeeklyDollars));
   const [stayDaysInput, setStayDaysInput] = useState(String(initialStayDays));
 
+  const activeTier = DAILY_RATE_PRESET_TIERS[selectedTierId];
+  const rateOptions = getTierRateOptions(selectedTierId);
+  const minWeeklyDollars = activeTier.minWeeklyRateCents / 100;
+  const maxWeeklyDollars = activeTier.maxWeeklyRateCents / 100;
+
   const parsedDollars = Number(weeklyDollarsInput);
-  const weeklyRateCents =
-    Number.isFinite(parsedDollars) && parsedDollars >= 50 && parsedDollars <= 5000
-      ? Math.round(parsedDollars * 100)
-      : DEFAULT_CALCULATOR_WEEKLY_CENTS;
+  const weeklyRateCents = clampTierWeeklyRateCents(
+    selectedTierId,
+    Number.isFinite(parsedDollars) ? Math.round(parsedDollars * 100) : undefined,
+  );
+  const grossDailyCents = Math.round(weeklyRateCents / 7);
+
+  function handleTierChange(nextTierId: DailyRateTierId) {
+    setSelectedTierId(nextTierId);
+    setWeeklyDollarsInput(
+      String(DAILY_RATE_PRESET_TIERS[nextTierId].weeklyRateCents / 100),
+    );
+  }
 
   const parsedDays = Number(stayDaysInput);
   const intendedStayDays =
@@ -87,13 +108,52 @@ export function LandlordYieldCalculator({
         ) : null}
 
         <label className="field">
-          <span>Weekly room rate (USD)</span>
+          <span>Property tier &amp; allowed pricing band</span>
+          <select
+            value={selectedTierId}
+            onChange={(event) =>
+              handleTierChange(event.target.value as DailyRateTierId)
+            }
+          >
+            {DAILY_RATE_TIER_LIST.map((tier) => (
+              <option key={tier.id} value={tier.id}>
+                {tier.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span>
+            Choose host rate within {activeTier.bandLabel} (Currently{" "}
+            {formatCurrencyCents(grossDailyCents)}/day · {formatCurrencyCents(weeklyRateCents)}/wk)
+          </span>
+          <select
+            value={weeklyRateCents}
+            onChange={(event) =>
+              setWeeklyDollarsInput(String(Number(event.target.value) / 100))
+            }
+          >
+            {rateOptions.map((opt) => (
+              <option key={opt.weeklyRateCents} value={opt.weeklyRateCents}>
+                {opt.label} → Landlord net {formatCurrencyCents(opt.hostWeeklyNetCents)}/wk (
+                {formatCurrencyCents(opt.hostMonthlyNetCents)}/mo)
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span>
+            Fine-tune weekly rate (Hard Floor ${minWeeklyDollars}/wk to Ceiling ${maxWeeklyDollars}
+            /wk)
+          </span>
           <input
-            type="number"
-            min={50}
-            max={5000}
+            type="range"
+            min={minWeeklyDollars}
+            max={maxWeeklyDollars}
             step={5}
-            value={weeklyDollarsInput}
+            value={Math.round(weeklyRateCents / 100)}
             onChange={(event) => setWeeklyDollarsInput(event.target.value)}
           />
         </label>
