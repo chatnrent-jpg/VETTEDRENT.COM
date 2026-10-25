@@ -13,8 +13,11 @@ export function exactWeeklySplit(totalCents: number): WeeklySplitCents {
   if (!Number.isSafeInteger(totalCents) || totalCents <= 0) {
     throw new Error("weekly total must be a positive integer");
   }
-  const hostCents = Math.round((totalCents * HOST_BPS) / 10000);
-  const vaultCents = Math.round((totalCents * VAULT_BPS) / 10000);
+  const totalBig = BigInt(totalCents);
+  const halfBps = BigInt(5000);
+  const bpsDenom = BigInt(10000);
+  const hostCents = Number((totalBig * BigInt(HOST_BPS) + halfBps) / bpsDenom);
+  const vaultCents = Number((totalBig * BigInt(VAULT_BPS) + halfBps) / bpsDenom);
   const platformCents = totalCents - hostCents - vaultCents;
   if (platformCents < 0 || !Number.isSafeInteger(platformCents)) {
     throw new Error("weekly split failed");

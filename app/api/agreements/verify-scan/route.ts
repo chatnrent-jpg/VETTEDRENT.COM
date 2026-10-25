@@ -56,6 +56,30 @@ export async function POST(request: Request) {
       );
     }
     if (!data) {
+      const { data: commData } = await supabase
+        .from("active_commercial_licenses")
+        .select("id, tenant_id, status, stay_cohort, crypto_token")
+        .or(`id.eq.${parsed.agreement_id},crypto_token.eq.${parsed.agreement_id}`)
+        .maybeSingle();
+
+      if (commData && typeof commData === "object") {
+        const commRow = commData as {
+          status?: unknown;
+          stay_cohort?: unknown;
+        };
+        const commStatus =
+          commRow.status === "ACTIVE"
+            ? "active"
+            : commRow.status === "SUSPENDED" || commRow.status === "UNVETTED_FLAGGED"
+              ? "warning"
+              : "terminated";
+        const cohortName =
+          typeof commRow.stay_cohort === "string"
+            ? `Vettilo™ ${commRow.stay_cohort} Licensee`
+            : "Vettilo™ Verified Licensee";
+        return NextResponse.json({ status: commStatus, tenantName: cohortName });
+      }
+
       return NextResponse.json({ error: "No agreement matches this code" }, { status: 404 });
     }
 

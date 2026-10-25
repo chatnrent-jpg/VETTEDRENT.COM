@@ -18,7 +18,9 @@ import {
   type DailyRateTierId,
 } from "@/lib/daily-rate-comparison";
 import {
-  CALCULATOR_HOST_BPS,
+  allocateIntegerSplitCents,
+  calculateMonthlyHostNetCents,
+  divideIntegerCentsHalfUp,
   formatCurrencyCents,
 } from "@/lib/marketing-calculator";
 import {
@@ -103,12 +105,9 @@ export function AvailabilityCalendar({
     weeklyRateCents ?? localWeeklyCents,
   );
   const rateComparison = calculateDailyRateComparison(effectiveWeeklyCents, stayDays);
-  const hostWeeklyNetCents = Math.round(
-    (effectiveWeeklyCents * CALCULATOR_HOST_BPS) / 10000,
-  );
-  const hostMonthlyNetCents = Math.round(
-    (((effectiveWeeklyCents * 52) / 12) * CALCULATOR_HOST_BPS) / 10000,
-  );
+  const weeklySplit = allocateIntegerSplitCents(effectiveWeeklyCents);
+  const hostWeeklyNetCents = weeklySplit.hostShareCents;
+  const hostMonthlyNetCents = calculateMonthlyHostNetCents(effectiveWeeklyCents);
 
   useEffect(() => {
     setLocalWeeklyCents(clampTierWeeklyRateCents(tierId, weeklyRateCents));
@@ -182,6 +181,7 @@ export function AvailabilityCalendar({
       tierId,
       overrideWeeklyCents ?? effectiveWeeklyCents,
     );
+    const targetDailyCents = divideIntegerCentsHalfUp(targetWeeklyCents, 7);
     setSaving(true);
     setSaveMessage(confirmationNote);
     try {
@@ -191,6 +191,7 @@ export function AvailabilityCalendar({
         body: JSON.stringify({
           tierId,
           weeklyRateCents: targetWeeklyCents,
+          configuredDailyRateCents: targetDailyCents,
           availableFromIso: todayIsoUtc(),
           blockedDates: nextBlocked,
           hostEmail: hostEmail?.trim() || undefined,
@@ -221,11 +222,10 @@ export function AvailabilityCalendar({
     if (onChangeWeeklyRateCents) {
       onChangeWeeklyRateCents(clamped);
     }
-    const nextDailyCents = Math.round(clamped / 7);
-    const nextHostWeekly = Math.round((clamped * CALCULATOR_HOST_BPS) / 10000);
-    const nextHostMonthly = Math.round(
-      (((clamped * 52) / 12) * CALCULATOR_HOST_BPS) / 10000,
-    );
+    const nextDailyCents = divideIntegerCentsHalfUp(clamped, 7);
+    const nextSplit = allocateIntegerSplitCents(clamped);
+    const nextHostWeekly = nextSplit.hostShareCents;
+    const nextHostMonthly = calculateMonthlyHostNetCents(clamped);
     if (mode === "landlord") {
       void persistHostBlockedDates(
         localBlocked,

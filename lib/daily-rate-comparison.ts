@@ -1,6 +1,9 @@
 import {
   CALCULATOR_VAULT_BPS,
   DEFAULT_CALCULATOR_WEEKLY_CENTS,
+  allocateIntegerSplitCents,
+  calculateMonthlyHostNetCents,
+  divideIntegerCentsHalfUp,
   formatCurrencyCents,
 } from "@/lib/marketing-calculator";
 import { INTENDED_STAY_DAYS } from "@/lib/geo-compliance";
@@ -210,13 +213,13 @@ export function getTierRateOptions(tierId: DailyRateTierId): TierRateOption[] {
         : [74500, 80500, 87500, 94500, 105000, 115500, 126000];
 
   return weeklySteps.map((weeklyRateCents) => {
-    const grossDailyRateCents = Math.round(weeklyRateCents / 7);
-    const dailyGmfVaultCreditCents = Math.round(
-      (grossDailyRateCents * CALCULATOR_VAULT_BPS) / 10000,
-    );
+    const grossDailyRateCents = divideIntegerCentsHalfUp(weeklyRateCents, 7);
+    const dailySplit = allocateIntegerSplitCents(grossDailyRateCents);
+    const dailyGmfVaultCreditCents = dailySplit.gmfShareCents;
     const netEffectiveDailyRateCents = grossDailyRateCents - dailyGmfVaultCreditCents;
-    const hostWeeklyNetCents = Math.round((weeklyRateCents * 7550) / 10000);
-    const hostMonthlyNetCents = Math.round((((weeklyRateCents * 52) / 12) * 7550) / 10000);
+    const weeklySplit = allocateIntegerSplitCents(weeklyRateCents);
+    const hostWeeklyNetCents = weeklySplit.hostShareCents;
+    const hostMonthlyNetCents = calculateMonthlyHostNetCents(weeklyRateCents);
     const isFloor = weeklyRateCents === preset.minWeeklyRateCents;
     const isCeiling = weeklyRateCents === preset.maxWeeklyRateCents;
     const suffix = isFloor ? " (Floor)" : isCeiling ? " (Ceiling)" : "";
@@ -297,10 +300,9 @@ export function calculateDailyRateComparison(
       ? Math.round(externalUpfrontDepositCents)
       : 0;
 
-  const grossDailyRateCents = Math.round(safeWeeklyCents / 7);
-  const dailyGmfVaultCreditCents = Math.round(
-    (grossDailyRateCents * CALCULATOR_VAULT_BPS) / 10000,
-  );
+  const grossDailyRateCents = divideIntegerCentsHalfUp(safeWeeklyCents, 7);
+  const dailySplit = allocateIntegerSplitCents(grossDailyRateCents);
+  const dailyGmfVaultCreditCents = dailySplit.gmfShareCents;
   const netEffectiveDailyRateCents = grossDailyRateCents - dailyGmfVaultCreditCents;
 
   const aggregatorTotalCents = safeComparisonNightlyCents * clampedStayDays;

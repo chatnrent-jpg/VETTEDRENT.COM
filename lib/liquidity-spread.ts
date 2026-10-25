@@ -9,6 +9,8 @@ import {
   CALCULATOR_PLATFORM_BPS,
   CALCULATOR_VAULT_BPS,
   DEFAULT_CALCULATOR_WEEKLY_CENTS,
+  allocateIntegerSplitCents,
+  divideIntegerCentsHalfUp,
   formatCurrencyCents,
 } from "@/lib/marketing-calculator";
 import { PURPOSE_COHORTS, type PurposeCohortId } from "@/lib/underwriting-contract";
@@ -206,21 +208,21 @@ export function calculateWeeklyLiquiditySpread(options?: {
       ? Math.round(options.existingGmfPoolBalanceCents)
       : DEFAULT_GMF_FLOAT_SEED_CENTS;
 
-  const grossDailyRateCents = Math.round(safeWeeklyCents / 7);
+  const grossDailyRateCents = divideIntegerCentsHalfUp(safeWeeklyCents, 7);
 
-  // Weekly micro-deduction split (75.5% Host / 14.3% GMF Vault / 10.2% Platform)
-  const perStayWeeklyHostCents = Math.round((safeWeeklyCents * CALCULATOR_HOST_BPS) / 10000);
-  const perStayWeeklyGmfVaultCents = Math.round((safeWeeklyCents * CALCULATOR_VAULT_BPS) / 10000);
-  const perStayWeeklyPlatformFeeCents =
-    safeWeeklyCents - perStayWeeklyHostCents - perStayWeeklyGmfVaultCents;
+  // Weekly micro-deduction split (75.5% Host / 14.3% GMF Vault / 10.2% Platform) using pure BigInt math
+  const weeklySplit = allocateIntegerSplitCents(safeWeeklyCents);
+  const perStayWeeklyHostCents = weeklySplit.hostShareCents;
+  const perStayWeeklyGmfVaultCents = weeklySplit.gmfShareCents;
+  const perStayWeeklyPlatformFeeCents = weeklySplit.platformShareCents;
 
   // Monthly collection across the 4.3333 weeks/month calendar (52 / 12)
-  // At $745/wk (74500 cents): Math.floor(74500 * 4.333) = 322808 cents ($3,228.08/mo) per Spec 3.B
-  // At $315/wk (31500 cents): 31500 * (52/12) = 136500 cents ($1,365.00/mo gross) -> $1,030.58/mo net landlord payout (75.5%)
+  // At $745/wk (74500 cents): Number((74500n * 4333n) / 1000n) = 322808 cents ($3,228.08/mo) per Spec 3.B
+  // At $315/wk (31500 cents): divideIntegerCentsHalfUp(31500 * 52, 12) = 136500 cents ($1,365.00/mo gross) -> $1,030.58/mo net landlord payout (75.5%)
   const perStayMonthlyGrossCollectionCents =
     safeWeeklyCents === 74500
-      ? Math.floor(safeWeeklyCents * SPEC_3B_WEEKS_PER_MONTH_FACTOR)
-      : Math.round(safeWeeklyCents * WEEKS_PER_MONTH_CALENDAR);
+      ? Number((BigInt(safeWeeklyCents) * BigInt(4333)) / BigInt(1000))
+      : divideIntegerCentsHalfUp(safeWeeklyCents * WEEKS_PER_YEAR, MONTHS_PER_YEAR);
 
   const perStayFlatMonthlyLandlordPayoutCents =
     safeWeeklyCents === resolvedBenchmark.weeklyRateCents
@@ -232,26 +234,19 @@ export function calculateWeeklyLiquiditySpread(options?: {
     perStayMonthlyGrossCollectionCents - perStayFlatMonthlyLandlordPayoutCents,
   );
 
-  const perStayScheduledHostMonthlyDisbursementCents = Math.round(
-    (perStayMonthlyGrossCollectionCents * CALCULATOR_HOST_BPS) / 10000,
-  );
-  const perStayMonthlyGmfVaultContributionCents = Math.round(
-    (perStayMonthlyGrossCollectionCents * CALCULATOR_VAULT_BPS) / 10000,
-  );
-  const perStayMonthlyPlatformFeeCents =
-    perStayMonthlyGrossCollectionCents -
-    perStayScheduledHostMonthlyDisbursementCents -
-    perStayMonthlyGmfVaultContributionCents;
+  const monthlySplit = allocateIntegerSplitCents(perStayMonthlyGrossCollectionCents);
+  const perStayScheduledHostMonthlyDisbursementCents = monthlySplit.hostShareCents;
+  const perStayMonthlyGmfVaultContributionCents = monthlySplit.gmfShareCents;
+  const perStayMonthlyPlatformFeeCents = monthlySplit.platformShareCents;
 
   // Average 21-day timing float = 3 weeks of weekly tenant inflows held between collection & monthly host payout
-  const perStayAverage21DayTimingFloatCents = Math.round(
-    (safeWeeklyCents * AVERAGE_TIMING_FLOAT_DAYS) / 7,
-  );
+  const perStayAverage21DayTimingFloatCents = safeWeeklyCents * 3;
   const averageFloatHoldDays =
     payoutSchedule === "bi-weekly" ? BIWEEKLY_TIMING_FLOAT_DAYS : AVERAGE_TIMING_FLOAT_DAYS;
-  const perStayScheduleAdjustedFloatCents = Math.round(
-    (safeWeeklyCents * averageFloatHoldDays) / 7,
-  );
+  const perStayScheduleAdjustedFloatCents =
+    payoutSchedule === "bi-weekly"
+      ? divideIntegerCentsHalfUp(safeWeeklyCents * 3, 2)
+      : perStayAverage21DayTimingFloatCents;
 
   // Portfolio totals across activeStays
   const portfolioWeeklyGrossInflowCents = safeWeeklyCents * safeActiveStays;

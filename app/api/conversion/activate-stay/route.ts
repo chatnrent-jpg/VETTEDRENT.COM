@@ -51,6 +51,18 @@ export async function POST(request: Request): Promise<NextResponse> {
           : typeof body.customerEmail === "string"
             ? body.customerEmail
             : undefined,
+      tenantId:
+        typeof body.tenantId === "string"
+          ? body.tenantId
+          : typeof body.tenant_id === "string"
+            ? body.tenant_id
+            : undefined,
+      propertyId:
+        typeof body.propertyId === "string"
+          ? body.propertyId
+          : typeof body.property_id === "string"
+            ? body.property_id
+            : undefined,
       cohort: typeof body.cohort === "string" ? body.cohort : undefined,
       jurisdiction:
         typeof body.jurisdiction === "string"
@@ -60,13 +72,15 @@ export async function POST(request: Request): Promise<NextResponse> {
             : undefined,
       tier: typeof body.tier === "string" ? body.tier : undefined,
       weeklyRateCents:
-        typeof body.weeklyRateCents === "number"
-          ? body.weeklyRateCents
-          : typeof body.totalCents === "number"
-            ? body.totalCents
+        typeof body.weeklyRateCents === "number" && Number.isFinite(body.weeklyRateCents)
+          ? Math.trunc(body.weeklyRateCents)
+          : typeof body.totalCents === "number" && Number.isFinite(body.totalCents)
+            ? Math.trunc(body.totalCents)
             : undefined,
       stayDays:
-        typeof body.stayDays === "number" ? body.stayDays : undefined,
+        typeof body.stayDays === "number" && Number.isFinite(body.stayDays)
+          ? Math.trunc(body.stayDays)
+          : undefined,
       checkInDate:
         typeof body.checkInDate === "string" ? body.checkInDate : undefined,
       credentialIdentifier:
@@ -89,6 +103,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       universalFloorPricing: result.milestone.universalFloorPricing,
       license: result.license,
       ledgerEntry: result.ledgerEntry,
+      ledgerInstallments: result.ledgerInstallments,
       reservedDates: result.reservedDates,
       persistence: result.persistence,
       milestone: result.milestone,

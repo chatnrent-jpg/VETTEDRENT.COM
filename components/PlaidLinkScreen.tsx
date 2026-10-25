@@ -31,7 +31,9 @@ import {
 } from "@/lib/daily-rate-comparison";
 import { intendedStayLengthDays } from "@/lib/geo-compliance";
 import {
-  CALCULATOR_HOST_BPS,
+  allocateIntegerSplitCents,
+  calculateMonthlyHostNetCents,
+  divideIntegerCentsHalfUp,
   formatCurrencyCents,
 } from "@/lib/marketing-calculator";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
@@ -155,12 +157,9 @@ export function PlaidLinkScreen() {
     selectedTierId,
     weeklyStayCents,
   );
-  const hostWeeklyNetCents = Math.round(
-    (clampedWeeklyStayCents * CALCULATOR_HOST_BPS) / 10000,
-  );
-  const hostMonthlyNetCents = Math.round(
-    (((clampedWeeklyStayCents * 52) / 12) * CALCULATOR_HOST_BPS) / 10000,
-  );
+  const weeklySplit = allocateIntegerSplitCents(clampedWeeklyStayCents);
+  const hostWeeklyNetCents = weeklySplit.hostShareCents;
+  const hostMonthlyNetCents = calculateMonthlyHostNetCents(clampedWeeklyStayCents);
 
   const { phase, error, decision, ready, open, canSimulate, simulate } = usePlaidLinkFlow(
     clampedWeeklyStayCents,
@@ -378,7 +377,7 @@ export function PlaidLinkScreen() {
         jurisdiction: jurisdictionCode,
         tier: selectedTierId,
         weeklyRateCents: clampedWeeklyStayCents,
-        dailyRateCents: Math.round(clampedWeeklyStayCents / 7),
+        dailyRateCents: divideIntegerCentsHalfUp(clampedWeeklyStayCents, 7),
         stayDays: selectedStayDays,
         checkInDate: checkInIso,
         validUntil,

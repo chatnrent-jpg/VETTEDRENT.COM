@@ -30,8 +30,10 @@ export function splitWeeklyCapture(totalCents: number): WeeklySplitCents {
   if (!Number.isSafeInteger(totalCents) || totalCents < 0 || totalCents > MAX_TOTAL_CENTS) {
     throw new Error("totalCents must be a non-negative integer");
   }
-  const hostCents = Math.floor((totalCents * HOST_BPS) / 10000);
-  const vaultCents = Math.floor((totalCents * VAULT_BPS) / 10000);
+  const totalBig = BigInt(totalCents);
+  const bpsDenom = BigInt(10000);
+  const hostCents = Number((totalBig * BigInt(HOST_BPS)) / bpsDenom);
+  const vaultCents = Number((totalBig * BigInt(VAULT_BPS)) / bpsDenom);
   const platformCents = totalCents - hostCents - vaultCents;
   const split: WeeklySplitCents = {
     totalCents,

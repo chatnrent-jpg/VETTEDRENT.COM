@@ -16,6 +16,71 @@ export const CALCULATOR_PLATFORM_BPS = 1020;
 export const DEFAULT_CALCULATOR_WEEKLY_CENTS = 31500;
 export const DEFAULT_CALCULATOR_STAY_DAYS = INTENDED_STAY_DAYS;
 
+export type IntegerSplitAllocation = {
+  grossCents: number;
+  hostShareCents: number;
+  gmfShareCents: number;
+  platformShareCents: number;
+};
+
+/**
+ * Pure BigInt integer-cents split (75.5% Host / 14.3% GMF / 10.2% Platform).
+ * Eliminates all IEEE-754 floating-point math before database persistence.
+ * Uses integer half-up basis-point rounding: (gross * bps + 5000) / 10000,
+ * and assigns the exact remainder to platformShareCents so
+ * hostShareCents + gmfShareCents + platformShareCents === grossCents.
+ */
+export function allocateIntegerSplitCents(grossCents: number): IntegerSplitAllocation {
+  const safeGross =
+    typeof grossCents === "number" && Number.isFinite(grossCents) && grossCents > 0
+      ? Math.trunc(grossCents)
+      : 0;
+  const grossBig = BigInt(safeGross);
+  const halfBps = BigInt(5000);
+  const bpsDenom = BigInt(10000);
+  const hostBig = (grossBig * BigInt(CALCULATOR_HOST_BPS) + halfBps) / bpsDenom;
+  const gmfBig = (grossBig * BigInt(CALCULATOR_VAULT_BPS) + halfBps) / bpsDenom;
+  const platformBig = grossBig - hostBig - gmfBig;
+  return {
+    grossCents: safeGross,
+    hostShareCents: Number(hostBig),
+    gmfShareCents: Number(gmfBig),
+    platformShareCents: Number(platformBig),
+  };
+}
+
+/**
+ * Pure BigInt integer-cents division with half-up rounding:
+ * (numerator * 2 + denominator) / (2 * denominator).
+ */
+export function divideIntegerCentsHalfUp(
+  numeratorCents: number,
+  denominator: number,
+): number {
+  if (!Number.isFinite(numeratorCents) || !Number.isFinite(denominator) || denominator <= 0) {
+    return 0;
+  }
+  const num = BigInt(Math.max(0, Math.trunc(numeratorCents)));
+  const den = BigInt(Math.max(1, Math.trunc(denominator)));
+  const two = BigInt(2);
+  return Number((num * two + den) / (two * den));
+}
+
+/**
+ * Pure BigInt monthly host net payout across 52/12 calendar weeks at 75.5% (7550 bps):
+ * ((weeklyCents * 52 * 7550) * 2 + 120000) / 240000.
+ */
+export function calculateMonthlyHostNetCents(weeklyGrossCents: number): number {
+  if (!Number.isFinite(weeklyGrossCents) || weeklyGrossCents <= 0) {
+    return 0;
+  }
+  const weeklyBig = BigInt(Math.trunc(weeklyGrossCents));
+  const num = weeklyBig * BigInt(52) * BigInt(CALCULATOR_HOST_BPS);
+  const den = BigInt(12) * BigInt(10000);
+  const two = BigInt(2);
+  return Number((num * two + den) / (two * den));
+}
+
 export type YieldBreakdown = {
   jurisdiction: JurisdictionRule;
   weeklyRateCents: number;
@@ -57,13 +122,12 @@ export function calculateJurisdictionYield(
       ? intendedStayDays
       : DEFAULT_CALCULATOR_STAY_DAYS;
 
-  const hostWeeklyCents = Math.round((safeWeeklyCents * CALCULATOR_HOST_BPS) / 10000);
-  const hostMonthlyCents = Math.round(
-    (((safeWeeklyCents * 52) / 12) * CALCULATOR_HOST_BPS) / 10000,
-  );
-  const vaultWeeklyCents = Math.round((safeWeeklyCents * CALCULATOR_VAULT_BPS) / 10000);
-  const platformWeeklyCents = safeWeeklyCents - hostWeeklyCents - vaultWeeklyCents;
-  const estimatedWeeks = Math.max(1, Math.round(safeStayDays / 7));
+  const split = allocateIntegerSplitCents(safeWeeklyCents);
+  const hostWeeklyCents = split.hostShareCents;
+  const hostMonthlyCents = calculateMonthlyHostNetCents(safeWeeklyCents);
+  const vaultWeeklyCents = split.gmfShareCents;
+  const platformWeeklyCents = split.platformShareCents;
+  const estimatedWeeks = Math.max(1, divideIntegerCentsHalfUp(safeStayDays, 7));
 
   const compliance = evaluateGeoCompliance(
     {
