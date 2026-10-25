@@ -4,9 +4,11 @@ import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState, type FormEvent } from "react";
 import { ActiveStayCard } from "@/components/active-stay-card";
+import { AvailabilityCalendar } from "@/components/availability-calendar";
 import { JurisdictionSelect } from "@/components/jurisdiction-select";
 import { Progress } from "@/components/ui/progress";
 import { WeeklyLiquiditySpreadPanel } from "@/components/weekly-liquidity-spread-panel";
+import { todayIsoUtc } from "@/lib/availability-calendar";
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/compliance/jurisdictions";
 import { defaultGeoStatusLabel } from "@/lib/geo-compliance";
 import { resolveCallerRole } from "@/lib/host-access";
@@ -329,6 +331,13 @@ function HostPanel() {
         {billingNote ? <p className="note">{billingNote}</p> : null}
       </article>
       <ActiveStayCard key={locationVersion} />
+      <AvailabilityCalendar
+        mode="landlord"
+        tierId="RoomSanctuary"
+        stayDays={90}
+        checkInIso={todayIsoUtc()}
+        onSelectCheckIn={() => {}}
+      />
       <div className="actions" style={{ flexWrap: "wrap" }}>
         {listing.kind === "ready" ? (
           <a

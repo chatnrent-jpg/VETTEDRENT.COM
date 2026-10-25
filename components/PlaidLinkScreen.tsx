@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AvailabilityCalendar } from "@/components/availability-calendar";
 import { usePlaidLinkFlow } from "@/hooks/usePlaidLinkFlow";
+import {
+  STAY_DURATION_OPTIONS,
+  addDaysIsoUtc,
+  formatReadableDate,
+  todayIsoUtc,
+} from "@/lib/availability-calendar";
 import {
   DEFAULT_JURISDICTION_CODE,
   JURISDICTION_RULES,
@@ -21,6 +28,7 @@ import { formatCurrencyCents } from "@/lib/marketing-calculator";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import {
   PURPOSE_COHORTS,
+  SEASONAL_REMOTE_MIN_DAYS,
   addUtcDays,
   defaultContractTerm,
   resolvePurposeCohort,
@@ -39,6 +47,8 @@ export function PlaidLinkScreen() {
   const [jurisdictionCode, setJurisdictionCode] = useState(DEFAULT_JURISDICTION_CODE);
   const [prefilledLeadEmail, setPrefilledLeadEmail] = useState<string | null>(null);
   const [prefilledStayDays, setPrefilledStayDays] = useState<number | null>(null);
+  const [checkInIso, setCheckInIso] = useState<string>(() => todayIsoUtc());
+  const [showCalendar, setShowCalendar] = useState<boolean>(false);
   const [comparisonNightlyDollars, setComparisonNightlyDollars] = useState("144");
   const [activatingPass, setActivatingPass] = useState(false);
   const [activationMessage, setActivationMessage] = useState<string | null>(null);
@@ -53,6 +63,7 @@ export function PlaidLinkScreen() {
     const tierParam = params.get("tier");
     const cohortParam = params.get("cohort");
     const daysParam = params.get("days");
+    const checkInParam = params.get("checkIn");
     const jurisdictionParam = params.get("jurisdiction");
     const emailParam = params.get("email");
 
@@ -61,6 +72,7 @@ export function PlaidLinkScreen() {
       !tierParam &&
       !cohortParam &&
       !daysParam &&
+      !checkInParam &&
       !jurisdictionParam &&
       !emailParam
     ) {
@@ -80,13 +92,19 @@ export function PlaidLinkScreen() {
       setWeeklyStayCents(DAILY_RATE_PRESET_TIERS[tierParam as DailyRateTierId].weeklyRateCents);
     }
 
+    const startIso =
+      checkInParam && /^\d{4}-\d{2}-\d{2}$/.test(checkInParam)
+        ? checkInParam
+        : todayIsoUtc();
+    setCheckInIso(startIso);
+
     const matchedCohort = resolvePurposeCohort(cohortParam);
     const parsedDays = daysParam ? Number(daysParam) : NaN;
     const stayDays =
-      Number.isFinite(parsedDays) && parsedDays >= 14 && parsedDays <= 365
-        ? Math.round(parsedDays)
+      Number.isFinite(parsedDays) && parsedDays >= 7 && parsedDays <= 365
+        ? Math.max(matchedCohort.minStayDays, Math.round(parsedDays))
         : matchedCohort.defaultStayDays;
-    const targetEndDate = addUtcDays(new Date(), stayDays);
+    const targetEndDate = addDaysIsoUtc(startIso, stayDays);
 
     setContract({
       credentialType: matchedCohort.id,
@@ -116,7 +134,7 @@ export function PlaidLinkScreen() {
   const checking = phase === "checking";
   const activeCohort = resolvePurposeCohort(contract.credentialType);
   const selectedStayDays = Math.max(
-    14,
+    activeCohort.minStayDays,
     prefilledStayDays ?? intendedStayLengthDays(contract.intendedStayEndDate),
   );
   const comparisonNightlyCents = Math.max(
@@ -129,10 +147,17 @@ export function PlaidLinkScreen() {
     comparisonNightlyCents,
   );
 
+  const selectedTierId: DailyRateTierId =
+    weeklyStayCents === 74500
+      ? "ExecutiveTownhome"
+      : weeklyStayCents === 49000
+        ? "PrivateSuite"
+        : "RoomSanctuary";
+
   function selectCohort(cohortId: PurposeCohortId) {
     const nextCohort = resolvePurposeCohort(cohortId);
     const nextDays = Math.max(nextCohort.minStayDays, selectedStayDays);
-    const targetEndDate = addUtcDays(new Date(), nextDays);
+    const targetEndDate = addDaysIsoUtc(checkInIso, nextDays);
     setContract({
       credentialType: nextCohort.id,
       credentialIdentifier: nextCohort.defaultIdentifier,
@@ -143,9 +168,19 @@ export function PlaidLinkScreen() {
   }
 
   function updateStayDurationDays(days: number) {
-    const clamped = Math.max(14, Math.min(365, Math.round(days)));
-    const targetEndDate = addUtcDays(new Date(), clamped);
+    const clamped = Math.max(activeCohort.minStayDays, Math.min(365, Math.round(days)));
+    const targetEndDate = addDaysIsoUtc(checkInIso, clamped);
     setPrefilledStayDays(clamped);
+    setContract((prev) => ({
+      ...prev,
+      contractEndDate: targetEndDate,
+      intendedStayEndDate: targetEndDate,
+    }));
+  }
+
+  function updateCheckInDate(nextCheckInIso: string) {
+    setCheckInIso(nextCheckInIso);
+    const targetEndDate = addDaysIsoUtc(nextCheckInIso, selectedStayDays);
     setContract((prev) => ({
       ...prev,
       contractEndDate: targetEndDate,
@@ -303,16 +338,37 @@ export function PlaidLinkScreen() {
           </label>
 
           <label className="google-search-cell">
-            <span>Stay Length</span>
+            <span>Stay Length (7 to 90 Days)</span>
             <select
               value={selectedStayDays}
               onChange={(e) => updateStayDurationDays(Number(e.target.value) || 90)}
             >
-              <option value={14}>14 Days</option>
-              <option value={30}>30 Days</option>
-              <option value={60}>60 Days</option>
-              <option value={90}>90 Days</option>
+              {STAY_DURATION_OPTIONS.map((opt) => (
+                <option
+                  key={opt.days}
+                  value={opt.days}
+                  disabled={
+                    activeCohort.id === "Seasonal-Remote" &&
+                    opt.days < SEASONAL_REMOTE_MIN_DAYS
+                  }
+                >
+                  {opt.label}
+                </option>
+              ))}
             </select>
+          </label>
+
+          <label className="google-search-cell">
+            <span>Check-In Date</span>
+            <input
+              type="date"
+              value={checkInIso}
+              onChange={(e) => {
+                if (e.target.value) {
+                  updateCheckInDate(e.target.value);
+                }
+              }}
+            />
           </label>
 
           <label className="google-search-cell">
@@ -390,7 +446,31 @@ export function PlaidLinkScreen() {
             <strong>$0.00 Deposit</strong>
             <span>No credit score impact</span>
           </div>
+          <button
+            type="button"
+            className="google-info-pill google-calendar-trigger"
+            onClick={() => setShowCalendar((prev) => !prev)}
+          >
+            <strong>{showCalendar ? "Hide Calendar ▲" : "View Available Dates ▼"}</strong>
+            <span>Check-in {checkInIso}</span>
+          </button>
         </div>
+
+        {showCalendar ? (
+          <AvailabilityCalendar
+            mode="tenant"
+            tierId={
+              weeklyStayCents === 74500
+                ? "ExecutiveTownhome"
+                : weeklyStayCents === 49000
+                  ? "PrivateSuite"
+                  : "RoomSanctuary"
+            }
+            stayDays={selectedStayDays}
+            checkInIso={checkInIso}
+            onSelectCheckIn={(iso) => updateCheckInDate(iso)}
+          />
+        ) : null}
 
         <details className="google-compare-drawer">
           <summary>

@@ -8,7 +8,7 @@ import { INTENDED_STAY_DAYS } from "@/lib/geo-compliance";
 /** Default reference rate ($144.00/night) when no custom external offer is entered. */
 export const AGGREGATOR_NIGHTLY_BENCHMARK_CENTS = 14400;
 
-export const MIN_COMPARISON_STAY_DAYS = 14;
+export const MIN_COMPARISON_STAY_DAYS = 7;
 export const MAX_COMPARISON_STAY_DAYS = 365;
 
 export type DailyRateTierId = "RoomSanctuary" | "PrivateSuite" | "ExecutiveTownhome";

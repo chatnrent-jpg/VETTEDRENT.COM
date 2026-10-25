@@ -2,6 +2,13 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
+import { AvailabilityCalendar } from "@/components/availability-calendar";
+import {
+  STAY_DURATION_OPTIONS,
+  addDaysIsoUtc,
+  formatReadableDate,
+  todayIsoUtc,
+} from "@/lib/availability-calendar";
 import {
   DEFAULT_JURISDICTION_CODE,
   JURISDICTION_RULES,
@@ -42,6 +49,8 @@ export function DualBrandHome({
     DEFAULT_JURISDICTION_CODE,
   );
   const [stayDays, setStayDays] = useState<number>(90);
+  const [checkInIso, setCheckInIso] = useState<string>(() => todayIsoUtc());
+  const [showCalendar, setShowCalendar] = useState<boolean>(false);
   const [externalNightlyDollars, setExternalNightlyDollars] = useState<string>("144");
 
   const [hostEmail, setHostEmail] = useState("");
@@ -73,6 +82,8 @@ export function DualBrandHome({
     AGGREGATOR_NIGHTLY_BENCHMARK_CENTS,
   );
 
+  const checkOutIso = addDaysIsoUtc(checkInIso, comparison.stayDays);
+
   async function handleQuickHostStart(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!hostEmail.trim()) {
@@ -94,8 +105,10 @@ export function DualBrandHome({
         }),
       });
       if (res.ok) {
-        setHostNotice("Saved! Check your email or click Sign In above to open your Host Dashboard.");
-        setHostEmail("");
+        setHostNotice(
+          "Saved! Open the Availability Calendar below to set your open dates, or click Sign In above.",
+        );
+        setShowCalendar(true);
       } else {
         setHostNotice("Could not save right now. Please try again.");
       }
@@ -106,7 +119,7 @@ export function DualBrandHome({
     }
   }
 
-  const underwritingHref = `/underwriting?weeklyCents=${comparison.weeklyRateCents}&days=${comparison.stayDays}&cohort=${encodeURIComponent(selectedCohortId)}&jurisdiction=${encodeURIComponent(selectedJurisdictionCode)}`;
+  const underwritingHref = `/underwriting?weeklyCents=${comparison.weeklyRateCents}&days=${comparison.stayDays}&checkIn=${encodeURIComponent(checkInIso)}&cohort=${encodeURIComponent(selectedCohortId)}&jurisdiction=${encodeURIComponent(selectedJurisdictionCode)}`;
 
   return (
     <main className="google-home" data-perspective={perspective}>
@@ -143,6 +156,13 @@ export function DualBrandHome({
             onClick={() => setPerspective("landlord")}
           >
             Landlords
+          </button>
+          <button
+            type="button"
+            className="text-button"
+            onClick={() => setShowCalendar((prev) => !prev)}
+          >
+            {showCalendar ? "Hide Calendar" : "Availability Calendar"}
           </button>
           <Link className="button" href="/dashboard">
             Sign In
@@ -181,7 +201,7 @@ export function DualBrandHome({
               {formatCurrencyCents(comparison.grossDailyRateCents)} / day. $0 deposit.
             </h1>
             <p>
-              Furnished weekly stays for workers, students &amp; families —{" "}
+              Furnished weekly stays (7 to 90 days) for workers, students &amp; families —{" "}
               <strong>{comparison.savingsPercentage}% less</strong> than a{" "}
               <strong>{formatCurrencyCents(comparison.aggregatorNightlyCents)}/night</strong> hotel.
             </p>
@@ -214,16 +234,47 @@ export function DualBrandHome({
             </label>
 
             <label className="google-search-cell">
-              <span>Stay Length</span>
+              <span>Stay Length (7 to 90 Days)</span>
               <select
                 value={stayDays}
-                onChange={(e) => setStayDays(Number(e.target.value) || 90)}
+                onChange={(e) => {
+                  const nextDays = Number(e.target.value) || 90;
+                  if (
+                    selectedCohortId === "Seasonal-Remote" &&
+                    nextDays < SEASONAL_REMOTE_MIN_DAYS
+                  ) {
+                    setStayDays(SEASONAL_REMOTE_MIN_DAYS);
+                  } else {
+                    setStayDays(nextDays);
+                  }
+                }}
               >
-                <option value={14}>14 Days (2 Weeks)</option>
-                <option value={30}>30 Days (1 Month)</option>
-                <option value={60}>60 Days (2 Months)</option>
-                <option value={90}>90 Days (3 Months)</option>
+                {STAY_DURATION_OPTIONS.map((opt) => (
+                  <option
+                    key={opt.days}
+                    value={opt.days}
+                    disabled={
+                      selectedCohortId === "Seasonal-Remote" &&
+                      opt.days < SEASONAL_REMOTE_MIN_DAYS
+                    }
+                  >
+                    {opt.label}
+                  </option>
+                ))}
               </select>
+            </label>
+
+            <label className="google-search-cell">
+              <span>Check-In Date</span>
+              <input
+                type="date"
+                value={checkInIso}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setCheckInIso(e.target.value);
+                  }
+                }}
+              />
             </label>
 
             <label className="google-search-cell">
@@ -234,14 +285,14 @@ export function DualBrandHome({
                   const next = e.target.value as PurposeCohortId;
                   setSelectedCohortId(next);
                   if (next === "Seasonal-Remote" && stayDays < SEASONAL_REMOTE_MIN_DAYS) {
-                    setStayDays(30);
+                    setStayDays(SEASONAL_REMOTE_MIN_DAYS);
                   }
                 }}
               >
-                <option value="Contract-Assignment">Work Assignment</option>
-                <option value="Academic-Enrollment">Student / Intern</option>
-                <option value="Seasonal-Remote">Remote / Seasonal</option>
-                <option value="Insurance-Relocation">Insurance / Relocation</option>
+                <option value="Contract-Assignment">Work Assignment (7d+)</option>
+                <option value="Academic-Enrollment">Student / Intern (7d+)</option>
+                <option value="Seasonal-Remote">Remote / Seasonal (14d+)</option>
+                <option value="Insurance-Relocation">Insurance / Relocation (7d+)</option>
               </select>
             </label>
 
@@ -310,6 +361,14 @@ export function DualBrandHome({
             </label>
 
             <button
+              type="button"
+              className="button button-secondary google-search-cta"
+              onClick={() => setShowCalendar((prev) => !prev)}
+            >
+              {showCalendar ? "Hide Calendar" : "Set Available Days"}
+            </button>
+
+            <button
               type="submit"
               className="button google-search-cta"
               disabled={hostSubmitting}
@@ -321,7 +380,7 @@ export function DualBrandHome({
 
         {hostNotice ? <p className="payload">{hostNotice}</p> : null}
 
-        {/* 3 SIMPLE PILLS BELOW THE BAR */}
+        {/* 3 SIMPLE PILLS + 1-CLICK AVAILABILITY CALENDAR TOGGLE */}
         {!isLandlord ? (
           <div className="google-pill-row" aria-label="Key benefits">
             <div className="google-info-pill">
@@ -342,6 +401,16 @@ export function DualBrandHome({
                 {comparison.stayDays} days
               </span>
             </div>
+            <button
+              type="button"
+              className="google-info-pill google-calendar-trigger"
+              onClick={() => setShowCalendar((prev) => !prev)}
+            >
+              <strong>{showCalendar ? "Hide Calendar ▲" : "View Available Dates ▼"}</strong>
+              <span>
+                {formatReadableDate(checkInIso)} → {formatReadableDate(checkOutIso)}
+              </span>
+            </button>
           </div>
         ) : (
           <div className="google-pill-row" aria-label="Landlord benefits">
@@ -360,10 +429,32 @@ export function DualBrandHome({
               <strong>$0 Eviction Holdovers</strong>
               <span>Revocable License + {formatCurrencyCents(hostYield.vaultTotalCents)} reserve</span>
             </div>
+            <button
+              type="button"
+              className="google-info-pill google-calendar-trigger"
+              onClick={() => setShowCalendar((prev) => !prev)}
+            >
+              <strong>
+                {showCalendar ? "Hide Availability Calendar ▲" : "Setup Available Days ▼"}
+              </strong>
+              <span>Click dates to open or block</span>
+            </button>
           </div>
         )}
 
-        {/* SUBTLE EXPANDABLE COMPARE LINK (HIDDEN BY DEFAULT SO SCREEN IS CLEAN) */}
+        {/* INTERACTIVE AVAILABILITY CALENDAR (TENANT CHECK-IN OR LANDLORD SETUP) */}
+        {showCalendar ? (
+          <AvailabilityCalendar
+            mode={isLandlord ? "landlord" : "tenant"}
+            tierId={selectedTierId}
+            stayDays={comparison.stayDays}
+            checkInIso={checkInIso}
+            onSelectCheckIn={(iso) => setCheckInIso(iso)}
+            hostEmail={hostEmail}
+          />
+        ) : null}
+
+        {/* SUBTLE EXPANDABLE COMPARE LINK */}
         <details className="google-compare-drawer">
           <summary>
             Compare {formatCurrencyCents(featuredComparison.grossDailyRateCents)} / day ({weeklyRate}{" "}
