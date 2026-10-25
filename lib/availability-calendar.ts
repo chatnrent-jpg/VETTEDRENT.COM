@@ -117,8 +117,8 @@ export function buildCalendarWindow(options: {
     }
 
     const isSelectedStart = isoDate === checkInIso;
-    const isSelectedEnd = isoDate === addDaysIsoUtc(checkInIso, stayDays - 1);
-    const isInSelectedStay = isoDate >= checkInIso && isoDate < checkOutIso;
+    const isSelectedEnd = isoDate === checkOutIso;
+    const isInSelectedStay = isoDate >= checkInIso && isoDate <= checkOutIso;
 
     cells.push({
       isoDate,

@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AvailabilityCalendar } from "@/components/availability-calendar";
+import {
+  AvailabilityCalendar,
+  type InstantBookingConfirmation,
+} from "@/components/availability-calendar";
+import { ValuationCounter } from "@/components/ValuationCounter";
 import { usePlaidLinkFlow } from "@/hooks/usePlaidLinkFlow";
 import {
   STAY_DURATION_OPTIONS,
@@ -48,11 +52,13 @@ export function PlaidLinkScreen() {
   const [prefilledLeadEmail, setPrefilledLeadEmail] = useState<string | null>(null);
   const [prefilledStayDays, setPrefilledStayDays] = useState<number | null>(null);
   const [checkInIso, setCheckInIso] = useState<string>(() => todayIsoUtc());
-  const [showCalendar, setShowCalendar] = useState<boolean>(false);
+  const [showCalendar, setShowCalendar] = useState<boolean>(true);
   const [comparisonNightlyDollars, setComparisonNightlyDollars] = useState("277");
   const [activatingPass, setActivatingPass] = useState(false);
   const [activationMessage, setActivationMessage] = useState<string | null>(null);
   const [activationError, setActivationError] = useState<string | null>(null);
+  const [confirmedBooking, setConfirmedBooking] =
+    useState<InstantBookingConfirmation | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -180,6 +186,7 @@ export function PlaidLinkScreen() {
 
   function updateCheckInDate(nextCheckInIso: string) {
     setCheckInIso(nextCheckInIso);
+    setShowCalendar(true);
     const targetEndDate = addDaysIsoUtc(nextCheckInIso, selectedStayDays);
     setContract((prev) => ({
       ...prev,
@@ -276,19 +283,102 @@ export function PlaidLinkScreen() {
         typeof convRecord.activeStaysCount === "number"
           ? convRecord.activeStaysCount
           : 5;
+      const targetStaysCount =
+        typeof convRecord.targetStaysCount === "number"
+          ? convRecord.targetStaysCount
+          : 45;
+      const progressPercentage =
+        typeof convRecord.progressPercentage === "number"
+          ? convRecord.progressPercentage
+          : Math.round((activeStaysCount / targetStaysCount) * 100);
       const licObj =
         convRecord.license && typeof convRecord.license === "object"
-          ? (convRecord.license as { license_token?: string })
+          ? (convRecord.license as Record<string, unknown>)
           : {};
       const tokenPreview =
         typeof licObj.license_token === "string"
           ? licObj.license_token
           : "vrtl_active";
+      const agreementId =
+        typeof licObj.agreement_id === "string"
+          ? licObj.agreement_id
+          : "00000000-0000-4000-8000-000000000001";
+      const licenseId =
+        typeof licObj.license_id === "string"
+          ? licObj.license_id
+          : `VR-LIC-${activeCohort.id.slice(0, 3).toUpperCase()}-${jurisdictionCode}`;
+      const validUntil =
+        typeof licObj.valid_until === "string"
+          ? licObj.valid_until
+          : addDaysIsoUtc(checkInIso, selectedStayDays);
+
+      const passportQuery = new URLSearchParams({
+        cohort: activeCohort.id,
+        jurisdiction: jurisdictionCode,
+        days: String(selectedStayDays),
+        weeklyCents: String(weeklyStayCents),
+        credentialId: contract.credentialIdentifier,
+        ratio: String(decision?.ratio ?? 3.25),
+        contractEnd: validUntil,
+        stayEnd: validUntil,
+        applicant: applicantEmail,
+      });
+      const passportPdfHref = `/api/underwriting/trust-passport?${passportQuery.toString()}`;
+
+      const licenseQuery = new URLSearchParams({
+        format: "pdf",
+        agreementId,
+        cohort: activeCohort.id,
+        jurisdiction: jurisdictionCode,
+        days: String(selectedStayDays),
+        credentialId: contract.credentialIdentifier,
+        ratio: String(decision?.ratio ?? 3.25),
+        weeklyFeeCents: String(weeklyStayCents),
+        purposeEnd: validUntil,
+        stayEnd: validUntil,
+        licensee: applicantEmail,
+      });
+      const commercialLicensePdfHref = `/api/agreements/license?${licenseQuery.toString()}`;
+
+      setConfirmedBooking({
+        licenseId,
+        licenseToken: tokenPreview,
+        agreementId,
+        applicant: applicantEmail,
+        cohort: activeCohort.id,
+        credentialIdentifier: contract.credentialIdentifier,
+        jurisdiction: jurisdictionCode,
+        tier: selectedTierId,
+        weeklyRateCents: weeklyStayCents,
+        dailyRateCents: Math.round(weeklyStayCents / 7),
+        stayDays: selectedStayDays,
+        checkInDate: checkInIso,
+        validUntil,
+        activeStaysCount,
+        targetStaysCount,
+        progressPercentage,
+        reservedDatesCount: selectedStayDays,
+        passportPdfHref,
+        commercialLicensePdfHref,
+      });
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("vettedrent:stay-activated", {
+            detail: {
+              milestone: convRecord.milestone,
+              license: convRecord.license,
+            },
+          }),
+        );
+      }
 
       setActivationMessage(
-        `Stay activated (${selectedStayDays} days from ${checkInIso})! License Token: ${tokenPreview} · Active Stays: ${activeStaysCount}/45. Redirecting to Dashboard...`,
+        `Stay activated (${selectedStayDays} days: ${checkInIso} → ${validUntil})! License Token: ${tokenPreview} · Agreement ID: ${agreementId} · Active Stays: ${activeStaysCount}/45.`,
       );
-      router.push("/dashboard");
+      if (decision?.approved) {
+        router.push("/dashboard");
+      }
     } catch {
       setActivationError("Network error while activating stay.");
     } finally {
@@ -298,8 +388,15 @@ export function PlaidLinkScreen() {
 
   return (
     <main className="google-home" data-perspective="tenant">
-      <div className="google-hero-backdrop" aria-hidden="true" />
-      <header className="google-topbar">
+      <div
+        className="google-hero-backdrop pointer-events-none"
+        style={{ pointerEvents: "none" }}
+        aria-hidden="true"
+      />
+      <header
+        className="google-topbar relative z-10"
+        style={{ position: "relative", zIndex: 10 }}
+      >
         <Link href="/" className="google-logo">
           <img
             src="/vettedrent-logo-mark.jpg"
@@ -325,7 +422,11 @@ export function PlaidLinkScreen() {
         </nav>
       </header>
 
-      <section className="google-stage" aria-label="Bank connection">
+      <section
+        className="google-stage relative z-10"
+        style={{ position: "relative", zIndex: 10 }}
+        aria-label="Bank connection"
+      >
         <div
           className="vettilo-fintech-badge"
           aria-label="VettedRent.com · Powered by Vettilo™ UMI Engine"
@@ -355,7 +456,10 @@ export function PlaidLinkScreen() {
         </div>
 
         {/* ONE HORIZONTAL BAR FOR RENTER APPLICATION */}
-        <div className="google-search-bar">
+        <div
+          className="google-search-bar relative z-10"
+          style={{ position: "relative", zIndex: 10 }}
+        >
           <label className="google-search-cell">
             <span>Space</span>
             <select
@@ -410,6 +514,7 @@ export function PlaidLinkScreen() {
             <input
               type="date"
               value={checkInIso}
+              onFocus={() => setShowCalendar(true)}
               onChange={(e) => {
                 if (e.target.value) {
                   updateCheckInDate(e.target.value);
@@ -451,6 +556,17 @@ export function PlaidLinkScreen() {
               Connect Bank &amp; Verify →
             </button>
           )}
+
+          <button
+            type="button"
+            className="button button-secondary google-search-cta"
+            disabled={activatingPass}
+            onClick={() => void handleActivateWeeklyBillingAndPass()}
+          >
+            {activatingPass
+              ? "Issuing Vettilo™ Pass..."
+              : "Confirm Dates & Issue Vettilo™ Pass Now"}
+          </button>
         </div>
 
         {error ? (
@@ -508,6 +624,77 @@ export function PlaidLinkScreen() {
           </button>
         </div>
 
+        {confirmedBooking ? (
+          <div
+            className="vr-booking-confirmation relative z-10"
+            style={{ position: "relative", zIndex: 10, width: "100%" }}
+            role="region"
+            aria-label="Instant Booking Confirmation"
+          >
+            <div className="stay-card-head" style={{ flexWrap: "wrap" }}>
+              <div>
+                <p className="pass-kicker">
+                  Vettilo™ UMI Engine · Sandbox / Demo Stay Confirmed
+                </p>
+                <h2>
+                  Pass Issued: {formatReadableDate(confirmedBooking.checkInDate)} →{" "}
+                  {formatReadableDate(confirmedBooking.validUntil)} (
+                  {confirmedBooking.stayDays} Days)
+                </h2>
+              </div>
+              <span className="stay-badge" data-status="active">
+                Active Stays: {confirmedBooking.activeStaysCount} /{" "}
+                {confirmedBooking.targetStaysCount} ({confirmedBooking.progressPercentage}%)
+              </span>
+            </div>
+
+            <div className="vr-booking-confirmation__grid">
+              <div>
+                <span>Cryptographic License Token</span>
+                <code>{confirmedBooking.licenseToken}</code>
+              </div>
+              <div>
+                <span>Agreement ID</span>
+                <code>{confirmedBooking.agreementId}</code>
+              </div>
+              <div>
+                <span>Tier &amp; Weekly Rate</span>
+                <strong>
+                  {confirmedBooking.tier} ·{" "}
+                  {formatCurrencyCents(confirmedBooking.dailyRateCents)}/day (
+                  {formatCurrencyCents(confirmedBooking.weeklyRateCents)}/wk)
+                </strong>
+              </div>
+              <div>
+                <span>Cohort &amp; Jurisdiction</span>
+                <strong>
+                  {confirmedBooking.cohort} · {confirmedBooking.jurisdiction}
+                </strong>
+              </div>
+            </div>
+
+            <div className="actions" style={{ marginTop: "0.5rem", flexWrap: "wrap" }}>
+              <a
+                className="button"
+                href={confirmedBooking.passportPdfHref}
+                download={`VettedRent-Trust-Passport-${confirmedBooking.cohort}.pdf`}
+              >
+                Download Trust Passport (PDF) ↓
+              </a>
+              <a
+                className="button button-secondary"
+                href={confirmedBooking.commercialLicensePdfHref}
+                download={`VettedRent-Commercial-License-${confirmedBooking.cohort}-${confirmedBooking.jurisdiction}.pdf`}
+              >
+                Download Commercial License (PDF) ↓
+              </a>
+              <Link className="button button-secondary" href="/dashboard">
+                Open Stay Pass Dashboard →
+              </Link>
+            </div>
+          </div>
+        ) : null}
+
         {showCalendar ? (
           <AvailabilityCalendar
             mode="tenant"
@@ -515,8 +702,16 @@ export function PlaidLinkScreen() {
             stayDays={selectedStayDays}
             checkInIso={checkInIso}
             onSelectCheckIn={(iso) => updateCheckInDate(iso)}
+            cohortId={activeCohort.id}
+            jurisdictionCode={jurisdictionCode}
+            applicantEmail={prefilledLeadEmail}
+            credentialIdentifier={contract.credentialIdentifier}
+            context="underwriting"
+            onBookingConfirmed={(conf) => setConfirmedBooking(conf)}
           />
         ) : null}
+
+        <ValuationCounter variant="compact" />
 
         <details className="google-compare-drawer">
           <summary>

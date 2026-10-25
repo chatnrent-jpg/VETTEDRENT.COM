@@ -51,7 +51,7 @@ export function DualBrandHome({
   );
   const [stayDays, setStayDays] = useState<number>(90);
   const [checkInIso, setCheckInIso] = useState<string>(() => todayIsoUtc());
-  const [showCalendar, setShowCalendar] = useState<boolean>(false);
+  const [showCalendar, setShowCalendar] = useState<boolean>(true);
   const [externalNightlyDollars, setExternalNightlyDollars] = useState<string>("277");
 
   const [hostEmail, setHostEmail] = useState("");
@@ -121,13 +121,20 @@ export function DualBrandHome({
     }
   }
 
-  const underwritingHref = `/underwriting?weeklyCents=${comparison.weeklyRateCents}&days=${comparison.stayDays}&checkIn=${encodeURIComponent(checkInIso)}&cohort=${encodeURIComponent(selectedCohortId)}&jurisdiction=${encodeURIComponent(selectedJurisdictionCode)}`;
+  const underwritingHref = `/underwriting?tier=${encodeURIComponent(selectedTierId)}&weeklyCents=${comparison.weeklyRateCents}&days=${comparison.stayDays}&checkIn=${encodeURIComponent(checkInIso)}&cohort=${encodeURIComponent(selectedCohortId)}&jurisdiction=${encodeURIComponent(selectedJurisdictionCode)}`;
 
   return (
     <main className="google-home" data-perspective={perspective}>
-      <div className="google-hero-backdrop" aria-hidden="true" />
+      <div
+        className="google-hero-backdrop pointer-events-none"
+        style={{ pointerEvents: "none" }}
+        aria-hidden="true"
+      />
       {/* MINIMAL TOP BAR */}
-      <header className="google-topbar">
+      <header
+        className="google-topbar relative z-10"
+        style={{ position: "relative", zIndex: 10 }}
+      >
         <Link href="/" className="google-logo">
           <img
             src="/vettedrent-logo-mark.jpg"
@@ -173,7 +180,11 @@ export function DualBrandHome({
       </header>
 
       {/* CENTERED GOOGLE-STYLE STAGE */}
-      <section className="google-stage" id="daily-rate-calculator">
+      <section
+        className="google-stage relative z-10"
+        style={{ position: "relative", zIndex: 10 }}
+        id="daily-rate-calculator"
+      >
         {/* INSTITUTIONAL CO-BRANDING FINTECH BADGE */}
         <div
           className="vettilo-fintech-badge"
@@ -241,7 +252,12 @@ export function DualBrandHome({
 
         {/* THE SINGLE HORIZONTAL SEARCH / ACTION BAR */}
         {!isLandlord ? (
-          <div className="google-search-bar" role="region" aria-label="Find your stay">
+          <div
+            className="google-search-bar relative z-10"
+            style={{ position: "relative", zIndex: 10 }}
+            role="region"
+            aria-label="Find your stay"
+          >
             <label className="google-search-cell">
               <span>Space</span>
               <select
@@ -292,9 +308,11 @@ export function DualBrandHome({
               <input
                 type="date"
                 value={checkInIso}
+                onFocus={() => setShowCalendar(true)}
                 onChange={(e) => {
                   if (e.target.value) {
                     setCheckInIso(e.target.value);
+                    setShowCalendar(true);
                   }
                 }}
               />
@@ -340,7 +358,8 @@ export function DualBrandHome({
           </div>
         ) : (
           <form
-            className="google-search-bar"
+            className="google-search-bar relative z-10"
+            style={{ position: "relative", zIndex: 10 }}
             onSubmit={(e) => void handleQuickHostStart(e)}
             aria-label="List your property"
           >
@@ -480,8 +499,14 @@ export function DualBrandHome({
             tierId={selectedTierId}
             stayDays={comparison.stayDays}
             checkInIso={checkInIso}
-            onSelectCheckIn={(iso) => setCheckInIso(iso)}
+            onSelectCheckIn={(iso) => {
+              setCheckInIso(iso);
+              setShowCalendar(true);
+            }}
             hostEmail={hostEmail}
+            cohortId={selectedCohortId}
+            jurisdictionCode={selectedJurisdictionCode}
+            context="home"
           />
         ) : null}
 
@@ -529,7 +554,10 @@ export function DualBrandHome({
       </section>
 
       {/* MINIMAL BOTTOM FOOTER */}
-      <footer className="google-footer">
+      <footer
+        className="google-footer relative z-10"
+        style={{ position: "relative", zIndex: 10 }}
+      >
         <span>
           VettedRent.com · Powered by Vettilo™ (vettilo.com UMI Engine) · MD-PG, MD, FL, TX, CA
           &amp; NY

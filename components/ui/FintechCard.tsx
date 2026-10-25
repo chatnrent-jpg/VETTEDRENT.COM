@@ -64,11 +64,24 @@ export function FintechCard({
 
   return (
     <Tag id={id} className={composedClassName} style={style}>
-      <div className="fintech-card__specular" aria-hidden="true" />
-      {glow ? <div className="fintech-card__ambient" aria-hidden="true" /> : null}
+      <div
+        className="fintech-card__specular pointer-events-none"
+        style={{ pointerEvents: "none" }}
+        aria-hidden="true"
+      />
+      {glow ? (
+        <div
+          className="fintech-card__ambient pointer-events-none"
+          style={{ pointerEvents: "none" }}
+          aria-hidden="true"
+        />
+      ) : null}
 
       {hasHeader ? (
-        <header className="stay-card-head fintech-card__header">
+        <header
+          className="stay-card-head fintech-card__header relative z-10"
+          style={{ position: "relative", zIndex: 10 }}
+        >
           <div className="fintech-card__heading">
             {kicker ? <p className="pass-kicker fintech-kicker">{kicker}</p> : null}
             {title ? <h2 className="fintech-card__title">{title}</h2> : null}
@@ -92,9 +105,21 @@ export function FintechCard({
         </header>
       ) : null}
 
-      <div className="fintech-card__body">{children}</div>
+      <div
+        className="fintech-card__body relative z-10"
+        style={{ position: "relative", zIndex: 10 }}
+      >
+        {children}
+      </div>
 
-      {footer ? <footer className="fintech-card__footer">{footer}</footer> : null}
+      {footer ? (
+        <footer
+          className="fintech-card__footer relative z-10"
+          style={{ position: "relative", zIndex: 10 }}
+        >
+          {footer}
+        </footer>
+      ) : null}
     </Tag>
   );
 }

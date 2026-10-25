@@ -86,6 +86,26 @@ export function ValuationCounter({
 
   useEffect(() => {
     void loadSnapshot();
+    function handleStayActivated(event: Event) {
+      const custom = event as CustomEvent<{
+        milestone?: ValuationMilestoneSnapshot;
+      }>;
+      if (
+        custom.detail?.milestone &&
+        typeof custom.detail.milestone.activeStaysCount === "number"
+      ) {
+        setSnapshot(custom.detail.milestone);
+      } else {
+        void loadSnapshot();
+      }
+    }
+    window.addEventListener("vettedrent:stay-activated", handleStayActivated);
+    return () => {
+      window.removeEventListener(
+        "vettedrent:stay-activated",
+        handleStayActivated,
+      );
+    };
   }, [loadSnapshot]);
 
   if (variant === "compact") {
