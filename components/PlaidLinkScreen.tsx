@@ -194,75 +194,103 @@ export function PlaidLinkScreen() {
     setActivationError(null);
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      const user = session.data.session?.user;
-      if (session.error || !token || !user) {
-        setActivationError("Sign in on the dashboard first to activate weekly micro-billing.");
-        return;
+      let signedInEmail: string | null = null;
+      let signedInUserId: string | null = null;
+      let token: string | null = null;
+
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const session = await supabase.auth.getSession();
+        token = session.data.session?.access_token ?? null;
+        signedInEmail = session.data.session?.user?.email ?? null;
+        signedInUserId = session.data.session?.user?.id ?? null;
+      } catch {
+        // Proceed with automated conversion engine even if not signed in yet
       }
 
-      const cycleRes = await fetch("/api/billing/weekly-cycle", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const cycleBody: unknown = await cycleRes.json();
-      const cycleRecord =
-        cycleBody && typeof cycleBody === "object"
-          ? (cycleBody as Record<string, unknown>)
-          : {};
+      const applicantEmail =
+        signedInEmail ?? prefilledLeadEmail ?? "verified.lodger@vettedrent.com";
 
-      if (cycleRes.ok && cycleRecord.ok === true) {
-        const vaultBalanceCents =
-          typeof cycleRecord.vaultBalanceCents === "number"
-            ? cycleRecord.vaultBalanceCents
-            : 41004;
-        setActivationMessage(
-          `Weekly micro-billing activated! GMF Move-Out Vault balance: ${formatCents(vaultBalanceCents)}. Redirecting to your active QR Lodger Pass...`,
-        );
-        router.push("/dashboard");
-        return;
-      }
-
-      const subRes = await fetch("/api/billing/create-subscription", {
+      // 1. Trigger Phase 8 Automated Lead-to-Stay Conversion Engine
+      const convRes = await fetch("/api/conversion/activate-stay", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerEmail: user.email ?? prefilledLeadEmail ?? "lodger@vettedrent.com",
-          hostAccountId: "acct_simulated_host",
-          totalCents: weeklyStayCents,
-          tenantId: user.id,
-          hostId: user.id,
-          listingId: "vr-weekly-room",
-          seamDeviceId: "seam_device_mock",
+          applicant: applicantEmail,
+          cohort: contract.credentialType,
+          jurisdiction: jurisdictionCode,
+          tier: selectedTierId,
+          weeklyRateCents: weeklyStayCents,
+          stayDays: selectedStayDays,
+          checkInDate: checkInIso,
+          credentialIdentifier: contract.credentialIdentifier,
+          coverageRatio: decision?.ratio ?? 3.0,
         }),
       });
-      const subBody: unknown = await subRes.json();
-      const subRecord =
-        subBody && typeof subBody === "object" ? (subBody as Record<string, unknown>) : {};
+      const convBody: unknown = await convRes.json();
+      const convRecord =
+        convBody && typeof convBody === "object"
+          ? (convBody as Record<string, unknown>)
+          : {};
 
-      if (!subRes.ok || subRecord.ok !== true) {
+      if (!convRes.ok || convRecord.ok !== true) {
         const errText =
-          typeof cycleRecord.error === "string"
-            ? cycleRecord.error
-            : typeof subRecord.error === "string"
-              ? subRecord.error
-              : "Could not activate weekly micro-billing";
+          typeof convRecord.error === "string"
+            ? convRecord.error
+            : "Could not activate stay via conversion engine";
         setActivationError(errText);
         return;
       }
 
-      const vaultBalanceCents =
-        typeof subRecord.vaultBalanceCents === "number" ? subRecord.vaultBalanceCents : 41004;
+      // 2. If signed in, also run weekly billing cycle / subscription sync
+      if (token && signedInUserId) {
+        try {
+          const cycleRes = await fetch("/api/billing/weekly-cycle", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!cycleRes.ok) {
+            await fetch("/api/billing/create-subscription", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                customerEmail: applicantEmail,
+                hostAccountId: "acct_simulated_host",
+                totalCents: weeklyStayCents,
+                tenantId: signedInUserId,
+                hostId: signedInUserId,
+                listingId: "vr-weekly-room",
+                seamDeviceId: "seam_device_mock",
+              }),
+            });
+          }
+        } catch {
+          // Conversion engine already recorded the license & ledger
+        }
+      }
+
+      const activeStaysCount =
+        typeof convRecord.activeStaysCount === "number"
+          ? convRecord.activeStaysCount
+          : 5;
+      const licObj =
+        convRecord.license && typeof convRecord.license === "object"
+          ? (convRecord.license as { license_token?: string })
+          : {};
+      const tokenPreview =
+        typeof licObj.license_token === "string"
+          ? licObj.license_token
+          : "vrtl_active";
+
       setActivationMessage(
-        `Weekly micro-billing activated! GMF Move-Out Vault balance: ${formatCents(vaultBalanceCents)}. Redirecting to your active QR Lodger Pass...`,
+        `Stay activated (${selectedStayDays} days from ${checkInIso})! License Token: ${tokenPreview} · Active Stays: ${activeStaysCount}/45. Redirecting to Dashboard...`,
       );
       router.push("/dashboard");
     } catch {
-      setActivationError("Network error while activating weekly micro-billing.");
+      setActivationError("Network error while activating stay.");
     } finally {
       setActivatingPass(false);
     }

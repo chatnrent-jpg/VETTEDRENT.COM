@@ -6,6 +6,7 @@ import { LandlordYieldCalculator } from "@/components/landlord-yield-calculator"
 import { LeadCaptureForm } from "@/components/lead-capture-form";
 import { SupplyOutreachConsole } from "@/components/supply-outreach-console";
 import { Progress } from "@/components/ui/progress";
+import { ValuationCounter } from "@/components/ValuationCounter";
 import type { LeadCohort, PipelineLeadItem } from "@/app/api/marketing/lead/route";
 import {
   DEFAULT_JURISDICTION_CODE,
@@ -249,6 +250,8 @@ export default function MarketingCommandCenterPage() {
       </header>
 
       <section className="stack">
+        <ValuationCounter variant="full" />
+
         <article className="panel stay-card">
           <div className="stay-card-head">
             <div>

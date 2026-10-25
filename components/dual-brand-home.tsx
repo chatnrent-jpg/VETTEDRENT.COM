@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { AvailabilityCalendar } from "@/components/availability-calendar";
+import { ValuationCounter } from "@/components/ValuationCounter";
 import {
   STAY_DURATION_OPTIONS,
   addDaysIsoUtc,
@@ -453,6 +454,8 @@ export function DualBrandHome({
             hostEmail={hostEmail}
           />
         ) : null}
+
+        <ValuationCounter variant="compact" />
 
         {/* SUBTLE EXPANDABLE COMPARE LINK */}
         <details className="google-compare-drawer">

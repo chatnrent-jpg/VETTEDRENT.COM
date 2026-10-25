@@ -540,6 +540,60 @@ a {
   margin-left: auto;
 }
 
+/* ==========================================================================
+   45-STAY ($1M VALUATION) LIVE TRACKER WIDGET
+   ========================================================================== */
+
+.vr-valuation-compact {
+  width: 100%;
+  max-width: 48rem;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.7rem 1.05rem;
+  border-radius: 16px;
+  background: rgba(13, 18, 28, 0.72);
+  border: 1px solid rgba(229, 184, 105, 0.28);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 14px 36px -14px rgba(0, 0, 0, 0.6);
+  font-size: 0.84rem;
+}
+
+.vr-valuation-compact__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.vr-valuation-compact__title {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.vr-valuation-compact__title strong {
+  color: #ffffff;
+}
+
+.vr-valuation-compact__title span {
+  color: rgba(248, 250, 252, 0.78);
+}
+
+.vr-valuation-compact__metrics {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  color: rgba(248, 250, 252, 0.85);
+}
+
+.vr-valuation-compact__metrics strong {
+  color: var(--accent-bright);
+}
+
 .google-compare-drawer {
   width: 100%;
   max-width: 44rem;

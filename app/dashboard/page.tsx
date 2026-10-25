@@ -7,6 +7,7 @@ import { ActiveStayCard } from "@/components/active-stay-card";
 import { AvailabilityCalendar } from "@/components/availability-calendar";
 import { JurisdictionSelect } from "@/components/jurisdiction-select";
 import { Progress } from "@/components/ui/progress";
+import { ValuationCounter } from "@/components/ValuationCounter";
 import { WeeklyLiquiditySpreadPanel } from "@/components/weekly-liquidity-spread-panel";
 import { todayIsoUtc } from "@/lib/availability-calendar";
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/compliance/jurisdictions";
@@ -114,6 +115,10 @@ export default function DashboardPage() {
             <LodgerPanel />
           </div>
         ) : null}
+
+        <div style={{ width: "100%", textAlign: "left" }}>
+          <ValuationCounter variant="compact" />
+        </div>
       </section>
 
       <footer className="google-footer">
