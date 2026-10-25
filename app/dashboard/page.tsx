@@ -99,6 +99,12 @@ export default function DashboardPage() {
         {gate === "host" ? (
           <div style={{ width: "100%", textAlign: "left" }}>
             <HostPanel />
+            <details className="google-compare-drawer" style={{ maxWidth: "100%", marginTop: "1.25rem" }}>
+              <summary>Private Treasury Record · Weekly Liquidity Spread (Host / Admin Only)</summary>
+              <div style={{ marginTop: "1rem", textAlign: "left" }}>
+                <WeeklyLiquiditySpreadPanel />
+              </div>
+            </details>
           </div>
         ) : null}
         {gate === "lodger" ? (
@@ -106,13 +112,6 @@ export default function DashboardPage() {
             <LodgerPanel />
           </div>
         ) : null}
-
-        <details className="google-compare-drawer" style={{ maxWidth: "100%" }}>
-          <summary>Platform Treasury &amp; Weekly Liquidity Spread (System Spec 3.B)</summary>
-          <div style={{ marginTop: "1rem", textAlign: "left" }}>
-            <WeeklyLiquiditySpreadPanel />
-          </div>
-        </details>
       </section>
 
       <footer className="google-footer">

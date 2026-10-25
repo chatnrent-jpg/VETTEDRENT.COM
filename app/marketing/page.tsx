@@ -6,7 +6,6 @@ import { LandlordYieldCalculator } from "@/components/landlord-yield-calculator"
 import { LeadCaptureForm } from "@/components/lead-capture-form";
 import { SupplyOutreachConsole } from "@/components/supply-outreach-console";
 import { Progress } from "@/components/ui/progress";
-import { WeeklyLiquiditySpreadPanel } from "@/components/weekly-liquidity-spread-panel";
 import type { LeadCohort, PipelineLeadItem } from "@/app/api/marketing/lead/route";
 import {
   DEFAULT_JURISDICTION_CODE,
@@ -365,8 +364,6 @@ export default function MarketingCommandCenterPage() {
             </div>
           </div>
         </article>
-
-        <WeeklyLiquiditySpreadPanel />
 
         <SupplyOutreachConsole onOutreachDispatched={() => void loadPipeline()} />
 

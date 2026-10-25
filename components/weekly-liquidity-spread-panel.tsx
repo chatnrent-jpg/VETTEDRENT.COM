@@ -13,6 +13,7 @@ import {
   type PayoutSchedule,
 } from "@/lib/liquidity-spread";
 import { formatCurrencyCents } from "@/lib/marketing-calculator";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { resolvePurposeCohort } from "@/lib/underwriting-contract";
 
 export function WeeklyLiquiditySpreadPanel({
@@ -34,9 +35,21 @@ export function WeeklyLiquiditySpreadPanel({
     let cancelled = false;
     async function fetchPoolSnapshot() {
       try {
+        const supabase = getSupabaseBrowserClient();
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) {
+          return;
+        }
         const res = await fetch(
           `/api/billing/liquidity-spread?tier=${encodeURIComponent(tierId)}&stays=${activeStays}&schedule=${payoutSchedule}`,
-          { cache: "no-store" },
+          {
+            cache: "no-store",
+            headers: {
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          },
         );
         if (!res.ok) {
           return;

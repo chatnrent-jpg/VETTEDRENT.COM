@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { DailyRateTierId } from "@/lib/daily-rate-comparison";
+import { isHostRole, resolveCallerRole } from "@/lib/host-access";
 import {
   BENCHMARK_45_STAYS,
   DEFAULT_GMF_FLOAT_SEED_CENTS,
@@ -40,6 +41,14 @@ function parsePayoutSchedule(value: string | null): PayoutSchedule {
   return "monthly";
 }
 
+function bearerToken(header: string | null): string | null {
+  if (!header) {
+    return null;
+  }
+  const match = /^Bearer\s+(\S+)$/i.exec(header.trim());
+  return match?.[1] ?? null;
+}
+
 function wantsHtmlView(request: Request, url: URL): boolean {
   const format = url.searchParams.get("format");
   if (format === "json") {
@@ -51,6 +60,30 @@ function wantsHtmlView(request: Request, url: URL): boolean {
   const accept = (request.headers.get("accept") ?? "").toLowerCase();
   const secFetchDest = (request.headers.get("sec-fetch-dest") ?? "").toLowerCase();
   return accept.includes("text/html") || secFetchDest === "document";
+}
+
+async function isAuthorizedInternalCaller(request: Request): Promise<boolean> {
+  const token = bearerToken(request.headers.get("authorization"));
+  if (!token) {
+    return false;
+  }
+
+  const portalKey = process.env.ENTERPRISE_PORTAL_KEY;
+  if (portalKey && portalKey.trim() !== "" && token === portalKey.trim()) {
+    return true;
+  }
+
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data.user) {
+      return false;
+    }
+    const role = await resolveCallerRole(supabase, data.user);
+    return isHostRole(role);
+  } catch {
+    return false;
+  }
 }
 
 async function readGmfFloatPoolSnapshot(): Promise<GmfPoolSnapshot> {
@@ -111,6 +144,196 @@ async function readGmfFloatPoolSnapshot(): Promise<GmfPoolSnapshot> {
   };
 }
 
+function renderPrivateGateHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VettedRent.Com · Private Treasury Record</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --text: #f8fafc;
+      --muted: #cbd5e1;
+      --accent: #e5b869;
+      --accent-bright: #f3cc85;
+      --accent-ink: #111827;
+      --line: rgba(255, 255, 255, 0.2);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100dvh;
+      font-family: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+    .backdrop {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 0;
+      background-color: #0b0f17;
+      background-image:
+        linear-gradient(180deg, rgba(10, 14, 22, 0.56) 0%, rgba(12, 16, 24, 0.44) 45%, rgba(10, 14, 22, 0.78) 100%),
+        url("/vettedrent-hero-landlord.jpg");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+    .shell {
+      position: relative;
+      z-index: 1;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      width: min(64rem, 100%);
+      margin: 0 auto;
+      padding: 1.35rem 1.5rem 1.5rem;
+    }
+    .topbar, .footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.65rem 1.15rem;
+      border-radius: 999px;
+      background: rgba(15, 20, 30, 0.62);
+      border: 1px solid var(--line);
+      backdrop-filter: blur(18px);
+    }
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.7rem;
+      text-decoration: none;
+      color: #fff;
+    }
+    .logo img {
+      width: 2.65rem;
+      height: 2.65rem;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 1px solid rgba(229, 184, 105, 0.55);
+    }
+    .logo strong {
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+    .logo em {
+      font-style: normal;
+      color: var(--accent-bright);
+    }
+    .logo span {
+      display: block;
+      font-size: 0.76rem;
+      color: rgba(248, 250, 252, 0.85);
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 2.75rem;
+      padding: 0.55rem 1.25rem;
+      border-radius: 999px;
+      font-size: 0.94rem;
+      font-weight: 700;
+      text-decoration: none;
+      border: 1px solid var(--line);
+      color: #fff;
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .btn-gold {
+      background: var(--accent);
+      color: var(--accent-ink);
+      border-color: transparent;
+    }
+    .stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 1.25rem;
+      margin: auto 0;
+      padding: 2rem;
+      max-width: 40rem;
+      align-self: center;
+      border-radius: 22px;
+      background: rgba(15, 21, 32, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      backdrop-filter: blur(24px);
+      box-shadow: 0 28px 68px -16px rgba(0, 0, 0, 0.75);
+    }
+    .badge {
+      padding: 0.35rem 0.9rem;
+      border-radius: 999px;
+      background: rgba(229, 184, 105, 0.16);
+      border: 1px solid rgba(229, 184, 105, 0.4);
+      color: var(--accent-bright);
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    h1 {
+      font-size: clamp(1.85rem, 3.8vw, 2.5rem);
+      font-weight: 800;
+      letter-spacing: -0.035em;
+      margin: 0;
+    }
+    p {
+      margin: 0;
+      font-size: 1.02rem;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+  </style>
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+  <main class="shell">
+    <header class="topbar">
+      <a href="/" class="logo">
+        <img src="/vettedrent-logo-mark.jpg" alt="VettedRent.Com Crest" />
+        <div>
+          <strong>VettedRent<em>.Com</em></strong>
+          <span>Be Great to Yourself.</span>
+        </div>
+      </a>
+      <a class="btn btn-gold" href="/dashboard">Host / Admin Sign In →</a>
+    </header>
+
+    <section class="stage">
+      <span class="badge">Private Internal Treasury Record</span>
+      <h1>Authorized Host &amp; Admin Access Only</h1>
+      <p>
+        Platform treasury reserves, timing float balances, and weekly liquidity spread records are
+        confidential to VettedRent.Com. Sign in with an authorized Host / Admin account on the
+        Dashboard to view live treasury telemetry.
+      </p>
+      <div style="display:flex; gap:0.75rem; flex-wrap:wrap; justify-content:center; margin-top:0.4rem;">
+        <a class="btn btn-gold" href="/dashboard">Sign In to View Treasury →</a>
+        <a class="btn" href="/">← Back to Front Page</a>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>VettedRent.Com · Confidential Financial Telemetry</span>
+      <a class="btn" href="/">Home</a>
+    </footer>
+  </main>
+</body>
+</html>`;
+}
+
 function renderLiquiditySpreadHtml(
   pool: GmfPoolSnapshot,
   requested: WeeklyLiquiditySpreadResult,
@@ -123,7 +346,7 @@ function renderLiquiditySpreadHtml(
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>VettedRent.Com · Treasury &amp; Liquidity Spread</title>
+  <title>VettedRent.Com · Private Treasury &amp; Liquidity Spread</title>
   <style>
     :root {
       --bg: #0b0f17;
@@ -354,9 +577,7 @@ function renderLiquiditySpreadHtml(
         </div>
       </a>
       <nav class="nav">
-        <a class="btn" href="/">← Home</a>
-        <a class="btn" href="/api/billing/liquidity-spread?format=json">Raw JSON</a>
-        <a class="btn btn-gold" href="/dashboard">Open Dashboard</a>
+        <a class="btn" href="/dashboard">← Back to Dashboard</a>
       </nav>
     </header>
 
@@ -414,11 +635,8 @@ function renderLiquiditySpreadHtml(
     </section>
 
     <footer class="footer">
-      <span>System Spec 3.B · Weekly Liquidity Spread Engine · Unvetted renting is over.</span>
-      <div class="nav">
-        <a class="btn" href="/underwriting">Renter Approval ($0 Deposit)</a>
-        <a class="btn" href="/marketing">Partner Tools</a>
-      </div>
+      <span>Private Internal Record · System Spec 3.B</span>
+      <a class="btn" href="/dashboard">Dashboard</a>
     </footer>
   </main>
 </body>
@@ -428,6 +646,28 @@ function renderLiquiditySpreadHtml(
 export async function GET(request: Request): Promise<NextResponse> {
   try {
     const url = new URL(request.url);
+    const authorized = await isAuthorizedInternalCaller(request);
+
+    if (!authorized) {
+      if (wantsHtmlView(request, url)) {
+        return new NextResponse(renderPrivateGateHtml(), {
+          status: 401,
+          headers: {
+            "Content-Type": "text/html; charset=utf-8",
+            "Cache-Control": "no-store",
+          },
+        });
+      }
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Private internal record. Sign in with an authorized Host/Admin session or supply a valid bearer token.",
+        },
+        { status: 401 },
+      );
+    }
+
     const tierId = parseTierId(url.searchParams.get("tier"));
     const rawWeeklyCents = Number(url.searchParams.get("weeklyCents"));
     const weeklyRateCents =
