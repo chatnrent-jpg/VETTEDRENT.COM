@@ -18,19 +18,36 @@ import {
   type DailyRateTierId,
   type SpaceTierCardOption,
 } from "@/lib/daily-rate-comparison";
-import type { PurposeCohortId } from "@/lib/underwriting-contract";
+import {
+  SEASONAL_REMOTE_MIN_DAYS,
+  type PurposeCohortId,
+} from "@/lib/underwriting-contract";
 
 export type BrandPerspective = "landlord" | "tenant";
 export { SPACE_TIER_CARDS, type SpaceTierCardOption };
 
-const QUICK_ZIP_FILTERS = [
-  { zip: "20785", label: "20785 · Hyattsville" },
-  { zip: "21287", label: "21287 · Baltimore (Hopkins)" },
-  { zip: "20910", label: "20910 · Silver Spring" },
-  { zip: "20814", label: "20814 · Bethesda" },
-  { zip: "21401", label: "21401 · Annapolis" },
-  { zip: "20715", label: "20715 · Bowie" },
-] as const;
+const AUDIENCE_PURPOSE_FILTERS: readonly {
+  id: PurposeCohortId | "ALL";
+  label: string;
+}[] = [
+  { id: "ALL", label: "All Verified Stays" },
+  {
+    id: "Contract-Assignment",
+    label: "Temporary Professionals & Contractors",
+  },
+  {
+    id: "Academic-Enrollment",
+    label: "University Students & Interns",
+  },
+  {
+    id: "Insurance-Relocation",
+    label: "Families in Transition & Insurance (ALE)",
+  },
+  {
+    id: "Seasonal-Remote",
+    label: "Remote & Seasonal Stays",
+  },
+];
 
 function diffDaysUtc(startIso: string, endIso: string): number {
   const startMs = Date.parse(`${startIso}T00:00:00Z`);
@@ -53,9 +70,11 @@ export function DualBrandHome({
 
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [activeTierFilter, setActiveTierFilter] = useState<string>("ALL");
+  const [activeCohortFilter, setActiveCohortFilter] = useState<PurposeCohortId | "ALL">("ALL");
   const [selectedTierId, setSelectedTierId] = useState<DailyRateTierId>("RoomSanctuary");
   const [selectedWeeklyCents, setSelectedWeeklyCents] = useState<number>(31500);
-  const [selectedCohortId] = useState<PurposeCohortId>("Contract-Assignment");
+  const [selectedCohortId, setSelectedCohortId] =
+    useState<PurposeCohortId>("Contract-Assignment");
   const [selectedJurisdictionCode, setSelectedJurisdictionCode] = useState<string>(
     DEFAULT_JURISDICTION_CODE,
   );
@@ -77,6 +96,20 @@ export function DualBrandHome({
   function selectTier(nextTierId: DailyRateTierId) {
     setSelectedTierId(nextTierId);
     setSelectedWeeklyCents(DAILY_RATE_PRESET_TIERS[nextTierId].weeklyRateCents);
+  }
+
+  function handleSelectAudienceFilter(nextCohort: PurposeCohortId | "ALL") {
+    setActiveCohortFilter(nextCohort);
+    if (nextCohort !== "ALL") {
+      setSelectedCohortId(nextCohort);
+      if (nextCohort === "Insurance-Relocation") {
+        selectTier("ExecutiveTownhome");
+      } else if (nextCohort === "Academic-Enrollment") {
+        selectTier("RoomSanctuary");
+      } else if (nextCohort === "Seasonal-Remote" && stayDays < SEASONAL_REMOTE_MIN_DAYS) {
+        setStayDays(SEASONAL_REMOTE_MIN_DAYS);
+      }
+    }
   }
 
   function handleCheckInChange(nextCheckInIso: string) {
@@ -182,10 +215,10 @@ export function DualBrandHome({
         className="vr-unified-marketplace relative z-10"
         aria-label="Live Searchable Marketplace"
       >
-        {/* UNIFIED MARKETPLACE HEADER */}
+        {/* UNIFIED MARKETPLACE HEADER FOR ALL 4 AUDIENCES */}
         <div className="vr-unified-marketplace__head">
           <div className="text-xs uppercase tracking-widest text-emerald-400 font-bold">
-            Live Searchable Marketplace · Maryland Clinical Corridors
+            Temporary Professionals · University Students · Families in Transition &amp; Insurance
           </div>
           {!isLandlord ? (
             <>
@@ -193,7 +226,7 @@ export function DualBrandHome({
                 Explore Verified Mid-Term Spaces
               </h1>
               <p className="vr-unified-marketplace__sub">
-                Move-in ready accommodations with <strong>$0 Security Deposit</strong>,{" "}
+                Move-in ready furnished stays with <strong>$0 Security Deposit</strong>,{" "}
                 <strong>No Credit Check</strong>, and <strong>Instant Bank Link Setup</strong>.
               </p>
             </>
@@ -203,7 +236,7 @@ export function DualBrandHome({
                 Host Verified Mid-Term Guests with Confidence
               </h1>
               <p className="vr-unified-marketplace__sub">
-                Welcome pre-verified traveling professionals with{" "}
+                Welcome pre-verified professionals, students, and relocating families with{" "}
                 <strong>$0 Security Deposit</strong> friction, <strong>No Credit Check</strong>{" "}
                 delays, and <strong>Instant Bank Link Setup</strong>.
               </p>
@@ -211,18 +244,22 @@ export function DualBrandHome({
           )}
         </div>
 
-        {/* PROMINENT SEARCHABLE SPACE & ZIP CODE BAR */}
+        {/* OPEN DYNAMIC ZIP CODE & AUDIENCE SEARCH CONSOLE */}
         {!isLandlord ? (
-          <div className="vr-search-console relative z-10" role="search" aria-label="Search spaces by ZIP code, city, hospital, and dates">
-            {/* PRIMARY FULL-WIDTH ZIP CODE & SPACE SEARCH INPUT */}
+          <div
+            className="vr-search-console relative z-10"
+            role="search"
+            aria-label="Search spaces by any ZIP code, city, university, employer, or stay purpose"
+          >
+            {/* OPEN DYNAMIC ZIP CODE / CITY / CAMPUS / EMPLOYER SEARCH INPUT */}
             <div className="vr-zip-search-row">
               <div className="vr-zip-search-box">
                 <span className="vr-zip-search-badge">ZIP / LOCATION SEARCH</span>
                 <input
                   type="search"
-                  list="vr-destination-suggestions"
-                  aria-label="Search spaces by ZIP code, city, or hospital"
-                  placeholder="Enter ZIP Code (20785, 21287, 20910, 20814, 21401, 20715), City, or Hospital..."
+                  inputMode="search"
+                  aria-label="Enter any 5-digit ZIP code, city, university, or employer"
+                  placeholder="Enter any 5-digit ZIP code, city, university campus, or employer..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="vr-zip-search-input"
@@ -236,32 +273,22 @@ export function DualBrandHome({
                     Clear ✕
                   </button>
                 ) : null}
-                <datalist id="vr-destination-suggestions">
-                  <option value="20785 — Hyattsville, MD (UM Capital Region Medical Center)" />
-                  <option value="21287 — Baltimore, MD (Johns Hopkins Hospital)" />
-                  <option value="20910 — Silver Spring, MD (Holy Cross Hospital)" />
-                  <option value="20814 — Bethesda, MD (Suburban Hospital / Johns Hopkins)" />
-                  <option value="21401 — Annapolis, MD (Luminis Health Anne Arundel)" />
-                  <option value="20715 — Bowie, MD (Bowie Health Center)" />
-                </datalist>
               </div>
 
-              {/* 1-CLICK ZIP CODE QUICK CHIPS */}
-              <div className="vr-zip-quick-chips" role="group" aria-label="Filter by Maryland ZIP code">
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className={`vr-zip-chip${searchQuery === "" ? " vr-zip-chip--active" : ""}`}
-                >
-                  All ZIPs (6)
-                </button>
-                {QUICK_ZIP_FILTERS.map((item) => {
-                  const isActive = searchQuery.trim() === item.zip;
+              {/* 4 UNIVERSAL AUDIENCE PILLS (NO HARDCODED ZIP CHIPS) */}
+              <div
+                className="vr-zip-quick-chips"
+                role="group"
+                aria-label="Filter by stay purpose and audience"
+              >
+                {AUDIENCE_PURPOSE_FILTERS.map((item) => {
+                  const isActive = activeCohortFilter === item.id;
                   return (
                     <button
-                      key={item.zip}
+                      key={item.id}
                       type="button"
-                      onClick={() => setSearchQuery(isActive ? "" : item.zip)}
+                      aria-pressed={isActive}
+                      onClick={() => handleSelectAudienceFilter(item.id)}
                       className={`vr-zip-chip${isActive ? " vr-zip-chip--active" : ""}`}
                     >
                       {item.label}
@@ -271,7 +298,7 @@ export function DualBrandHome({
               </div>
             </div>
 
-            {/* BOOKING CONFIGURATION BAR: TIER + CHECK-IN + CHECK-OUT + BOOK CTA */}
+            {/* BOOKING CONFIGURATION BAR: TIER + STAY PURPOSE + CHECK-IN + CHECK-OUT + BOOK CTA */}
             <div className="google-search-bar vr-clean-booking-bar">
               <label className="google-search-cell">
                 <span>Space Tier</span>
@@ -288,6 +315,24 @@ export function DualBrandHome({
                       {card.codeLabel} ({card.dailyPriceLabel})
                     </option>
                   ))}
+                </select>
+              </label>
+
+              <label className="google-search-cell">
+                <span>Who Is Staying?</span>
+                <select
+                  aria-label="Who Is Staying?"
+                  value={selectedCohortId}
+                  onChange={(e) => {
+                    const nextCohort = e.target.value as PurposeCohortId;
+                    setSelectedCohortId(nextCohort);
+                    setActiveCohortFilter(nextCohort);
+                  }}
+                >
+                  <option value="Contract-Assignment">Temporary Professional / Contractor</option>
+                  <option value="Academic-Enrollment">University Student / Intern</option>
+                  <option value="Insurance-Relocation">Family in Transition / Insurance (ALE)</option>
+                  <option value="Seasonal-Remote">Remote / Seasonal Stay (14d+)</option>
                 </select>
               </label>
 
@@ -374,10 +419,11 @@ export function DualBrandHome({
 
         {hostNotice ? <p className="payload">{hostNotice}</p> : null}
 
-        {/* SWIPEABLE MARYLAND CLINICAL CORRIDOR LISTINGS */}
+        {/* SWIPEABLE MARKETPLACE FOR PROFESSIONALS, STUDENTS & FAMILIES IN TRANSITION */}
         <ListingDiscoveryGrid
           searchQuery={searchQuery}
           activeTierFilter={activeTierFilter}
+          activeCohortFilter={activeCohortFilter}
           selectedTierId={selectedTierId}
           checkInIso={checkInIso}
           stayDays={stayDays}
@@ -386,6 +432,7 @@ export function DualBrandHome({
           onResetFilters={() => {
             setSearchQuery("");
             setActiveTierFilter("ALL");
+            setActiveCohortFilter("ALL");
           }}
         />
       </section>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import React, { useEffect, useRef, useState } from "react";
+import type { PurposeCohortId } from "@/lib/underwriting-contract";
 
 export type SortMode = "convenience" | "price-asc" | "price-desc";
 export type ViewMode = "carousel" | "grid";
@@ -12,12 +13,13 @@ export interface PropertyCardProps {
   tier: "RoomSanctuary" | "PrivateSuite" | "ExecutiveTownhome";
   location: string;
   zipCode: string;
-  nearbyZips: string[];
   dailyRate: number;
   weeklyRate: number;
   commuteMinutes: number;
   convenienceBadge: string;
-  hospitalTag: string;
+  proximityTag: string;
+  idealForLabel: string;
+  cohorts: PurposeCohortId[];
   imagePlaceholder: string;
   defaultImageUrl: string;
   galleryPhotos: { url: string; caption: string }[];
@@ -26,23 +28,24 @@ export interface PropertyCardProps {
 
 export const SAMPLE_LISTINGS: PropertyCardProps[] = [
   {
-    id: "hyattsville-sanctuary",
-    title: "The Hyattsville RoomSanctuary",
+    id: "college-park-metro-sanctuary",
+    title: "The Metro & Campus RoomSanctuary",
     tier: "RoomSanctuary",
-    location: "Hyattsville, MD",
-    zipCode: "20785",
-    nearbyZips: ["20785", "20781", "20782", "20783", "20784", "20740", "20706"],
+    location: "College Park / Hyattsville, MD",
+    zipCode: "20740",
     dailyRate: 45,
     weeklyRate: 315,
-    commuteMinutes: 2,
-    convenienceBadge: "ZIP 20785 · Free Parking · Keyless",
-    hospitalTag: "2 mins to UM Capital Region Medical Center",
+    commuteMinutes: 3,
+    convenienceBadge: "Walk to Metro · Study Desk · Keyless",
+    proximityTag: "3 mins to University Campus & Metro Hub",
+    idealForLabel: "Students, Interns & Solo Traveling Professionals",
+    cohorts: ["Academic-Enrollment", "Contract-Assignment", "Seasonal-Remote"],
     imagePlaceholder: "bg-gradient-to-br from-slate-800 to-emerald-950",
     defaultImageUrl: "/vettedrent-hero-renter.jpg",
     galleryPhotos: [
       {
         url: "/vettedrent-hero-renter.jpg",
-        caption: "Furnished Bedroom Sanctuary with Smart-Lock Entry (ZIP 20785)",
+        caption: "Furnished Bedroom Sanctuary with Smart-Lock Entry",
       },
       {
         url: "/vettedrent-hero-landlord.jpg",
@@ -50,72 +53,10 @@ export const SAMPLE_LISTINGS: PropertyCardProps[] = [
       },
     ],
     features: [
-      "Private Keyless Smart-Lock",
-      "High-Speed Wi-Fi Included",
-      "Utilities & Parking Bundled",
+      "Ideal for Students, Interns & Solo Pros",
+      "Private Keyless Smart-Lock Entry",
+      "All Utilities & High-Speed Fiber Wi-Fi",
       "$0 Security Deposit · No Credit Check",
-    ],
-  },
-  {
-    id: "baltimore-hopkins-sanctuary",
-    title: "The Inner Harbor Hopkins Sanctuary",
-    tier: "RoomSanctuary",
-    location: "Baltimore, MD",
-    zipCode: "21287",
-    nearbyZips: ["21287", "21202", "21205", "21231", "21201", "21224", "21218"],
-    dailyRate: 49,
-    weeklyRate: 343,
-    commuteMinutes: 3,
-    convenienceBadge: "ZIP 21287 · Hospital Shuttle · Fast Wi-Fi",
-    hospitalTag: "3 mins to Johns Hopkins Hospital",
-    imagePlaceholder: "bg-gradient-to-br from-slate-800 to-slate-900",
-    defaultImageUrl: "/vettedrent-hero-landlord.jpg",
-    galleryPhotos: [
-      {
-        url: "/vettedrent-hero-landlord.jpg",
-        caption: "Quiet Blackout-Curtain Bedroom for Night-Shift Clinicians (ZIP 21287)",
-      },
-      {
-        url: "/vettedrent-hero-renter.jpg",
-        caption: "Modern Shared Lounge & Dedicated Study Desk",
-      },
-    ],
-    features: [
-      "Blackout Shades for Shift Workers",
-      "3-Min Hospital Shuttle Access",
-      "All Utilities & Fiber Wi-Fi",
-      "$0 Security Deposit · No Credit Check",
-    ],
-  },
-  {
-    id: "silver-spring-clinical-suite",
-    title: "The Silver Spring Clinical Suite",
-    tier: "PrivateSuite",
-    location: "Silver Spring, MD",
-    zipCode: "20910",
-    nearbyZips: ["20910", "20901", "20902", "20903", "20904", "20912"],
-    dailyRate: 79,
-    weeklyRate: 553,
-    commuteMinutes: 3,
-    convenienceBadge: "ZIP 20910 · Garage Parking · Private Bath",
-    hospitalTag: "3 mins to Holy Cross Hospital",
-    imagePlaceholder: "bg-gradient-to-br from-slate-800 to-emerald-950",
-    defaultImageUrl: "/vettedrent-hero-renter.jpg",
-    galleryPhotos: [
-      {
-        url: "/vettedrent-hero-renter.jpg",
-        caption: "Private Suite with En-Suite Bath & Walk-In Closet (ZIP 20910)",
-      },
-      {
-        url: "/vettedrent-hero-landlord.jpg",
-        caption: "In-Suite Kitchenette & Dining Nook",
-      },
-    ],
-    features: [
-      "Reserved Covered Garage Spot",
-      "Private Bath & Walk-In Closet",
-      "In-Suite Kitchenette & Laundry",
-      "Instant Bank Link Setup",
     ],
   },
   {
@@ -124,18 +65,19 @@ export const SAMPLE_LISTINGS: PropertyCardProps[] = [
     tier: "PrivateSuite",
     location: "Bethesda, MD",
     zipCode: "20814",
-    nearbyZips: ["20814", "20815", "20816", "20817", "20892", "20852"],
     dailyRate: 75,
     weeklyRate: 525,
     commuteMinutes: 4,
-    convenienceBadge: "ZIP 20814 · Private En-Suite · Metro Walkable",
-    hospitalTag: "4 mins to Suburban Hospital (Johns Hopkins)",
+    convenienceBadge: "Private En-Suite · Red Line Walkable",
+    proximityTag: "4 mins to Downtown Corporate, NIH & Medical Hubs",
+    idealForLabel: "Temporary Professionals, Consultants & Grad Fellows",
+    cohorts: ["Contract-Assignment", "Academic-Enrollment", "Seasonal-Remote"],
     imagePlaceholder: "bg-gradient-to-br from-slate-800 to-blue-950",
     defaultImageUrl: "/vettedrent-hero-landlord.jpg",
     galleryPhotos: [
       {
         url: "/vettedrent-hero-landlord.jpg",
-        caption: "Executive En-Suite Living & Ergonomic Desk Area (ZIP 20814)",
+        caption: "Executive En-Suite Living & Ergonomic Desk Area",
       },
       {
         url: "/vettedrent-hero-renter.jpg",
@@ -143,30 +85,127 @@ export const SAMPLE_LISTINGS: PropertyCardProps[] = [
       },
     ],
     features: [
-      "Private En-Suite Bathroom",
-      "Ergonomic Dual-Monitor Workspace",
-      "Kitchenette & Private Entrance",
+      "Built for Temporary Professionals & Fellows",
+      "Private En-Suite Bath & Dual-Monitor Desk",
+      "Kitchenette & Private Keyless Entrance",
       "$0 Security Deposit · No Credit Check",
     ],
   },
   {
-    id: "annapolis-medical-townhome",
-    title: "The Annapolis Medical Townhome",
+    id: "bowie-family-townhome",
+    title: "The Bowie Family & Relocation Townhome",
     tier: "ExecutiveTownhome",
-    location: "Annapolis, MD",
+    location: "Bowie, MD",
+    zipCode: "20715",
+    dailyRate: 106,
+    weeklyRate: 745,
+    commuteMinutes: 5,
+    convenienceBadge: "Entire 3BR Home · 2-Car Driveway · Yard",
+    proximityTag: "Quiet Residential Neighborhood · Schools & Parks",
+    idealForLabel: "Families in Transition, ALE Insurance & Relocations",
+    cohorts: ["Insurance-Relocation", "Contract-Assignment", "Seasonal-Remote"],
+    imagePlaceholder: "bg-gradient-to-br from-slate-800 to-slate-900",
+    defaultImageUrl: "/vettedrent-hero-renter.jpg",
+    galleryPhotos: [
+      {
+        url: "/vettedrent-hero-renter.jpg",
+        caption: "Multi-Bedroom Primary Suite & Family Living Room",
+      },
+      {
+        url: "/vettedrent-hero-landlord.jpg",
+        caption: "Full Chef's Kitchen, Dining Area & In-Unit Laundry",
+      },
+    ],
+    features: [
+      "Designed for Families in Transition & ALE Insurance",
+      "Entire Multi-Bedroom Home + Private Driveway",
+      "Full Chef's Kitchen & In-Unit Washer/Dryer",
+      "Instant Bank Link Setup · Direct ALE Billing",
+    ],
+  },
+  {
+    id: "baltimore-harbor-sanctuary",
+    title: "The Inner Harbor Professional & Student Sanctuary",
+    tier: "RoomSanctuary",
+    location: "Baltimore, MD",
+    zipCode: "21202",
+    dailyRate: 49,
+    weeklyRate: 343,
+    commuteMinutes: 3,
+    convenienceBadge: "Transit Stop · Fast Fiber Wi-Fi",
+    proximityTag: "3 mins to Universities, Downtown & Medical District",
+    idealForLabel: "Contractors, University Rotators & Remote Workers",
+    cohorts: ["Contract-Assignment", "Academic-Enrollment", "Seasonal-Remote"],
+    imagePlaceholder: "bg-gradient-to-br from-slate-800 to-slate-900",
+    defaultImageUrl: "/vettedrent-hero-landlord.jpg",
+    galleryPhotos: [
+      {
+        url: "/vettedrent-hero-landlord.jpg",
+        caption: "Quiet Furnished Bedroom with Blackout Shades",
+      },
+      {
+        url: "/vettedrent-hero-renter.jpg",
+        caption: "Modern Lounge & Dedicated Work Desk",
+      },
+    ],
+    features: [
+      "Flexible 7 to 90+ Day Professional & Student Stays",
+      "3-Min Access to Transit, Campus & Downtown",
+      "All Utilities & High-Speed Wi-Fi Included",
+      "$0 Security Deposit · No Credit Check",
+    ],
+  },
+  {
+    id: "silver-spring-metro-suite",
+    title: "The Silver Spring Transit & Remote Suite",
+    tier: "PrivateSuite",
+    location: "Silver Spring, MD",
+    zipCode: "20910",
+    dailyRate: 79,
+    weeklyRate: 553,
+    commuteMinutes: 3,
+    convenienceBadge: "Garage Parking · Private Bath & Kitchenette",
+    proximityTag: "3 mins to Metro Center, Corporate & Clinical Hubs",
+    idealForLabel: "Remote Professionals, Contractors & Visiting Faculty",
+    cohorts: ["Seasonal-Remote", "Contract-Assignment", "Academic-Enrollment"],
+    imagePlaceholder: "bg-gradient-to-br from-slate-800 to-emerald-950",
+    defaultImageUrl: "/vettedrent-hero-renter.jpg",
+    galleryPhotos: [
+      {
+        url: "/vettedrent-hero-renter.jpg",
+        caption: "Private Suite with En-Suite Bath & Walk-In Closet",
+      },
+      {
+        url: "/vettedrent-hero-landlord.jpg",
+        caption: "In-Suite Kitchenette & Dedicated Workspace",
+      },
+    ],
+    features: [
+      "Reserved Covered Garage Parking Included",
+      "Private Bath, Walk-In Closet & Kitchenette",
+      "High-Speed Fiber for Remote Work & Calls",
+      "Instant Bank Link Setup",
+    ],
+  },
+  {
+    id: "annapolis-family-townhome",
+    title: "The Annapolis Family & Executive Townhome",
+    tier: "ExecutiveTownhome",
+    location: "Annapolis / Anne Arundel, MD",
     zipCode: "21401",
-    nearbyZips: ["21401", "21402", "21403", "21405", "21409", "21032"],
     dailyRate: 115,
     weeklyRate: 805,
     commuteMinutes: 5,
-    convenienceBadge: "ZIP 21401 · Entire Townhome · Patio",
-    hospitalTag: "5 mins to Luminis Health Anne Arundel Medical",
+    convenienceBadge: "Entire 3BR Townhome · Private Fenced Patio",
+    proximityTag: "5 mins to Schools, Shopping & Regional Corridors",
+    idealForLabel: "Families in Transition, Home Renovations & Relocations",
+    cohorts: ["Insurance-Relocation", "Contract-Assignment", "Seasonal-Remote"],
     imagePlaceholder: "bg-gradient-to-br from-slate-800 to-blue-950",
     defaultImageUrl: "/vettedrent-hero-landlord.jpg",
     galleryPhotos: [
       {
         url: "/vettedrent-hero-landlord.jpg",
-        caption: "Spacious Executive Townhome Living Room & Patio (ZIP 21401)",
+        caption: "Spacious Executive Townhome Living Room & Patio",
       },
       {
         url: "/vettedrent-hero-renter.jpg",
@@ -174,41 +213,10 @@ export const SAMPLE_LISTINGS: PropertyCardProps[] = [
       },
     ],
     features: [
-      "3 Bedrooms · Ideal for Clinical Teams",
-      "Private Driveway & Fenced Patio",
-      "Full Kitchen + In-Unit Laundry",
+      "3 Bedrooms · Turnkey for Families in Transition",
+      "Private Driveway & Fenced Backyard Patio",
+      "Full Kitchen + In-Unit Washer & Dryer",
       "$0 Security Deposit · No Credit Check",
-    ],
-  },
-  {
-    id: "bowie-clinical-townhome",
-    title: "The Bowie Clinical Townhome",
-    tier: "ExecutiveTownhome",
-    location: "Bowie, MD",
-    zipCode: "20715",
-    nearbyZips: ["20715", "20716", "20720", "20721", "20706", "20774"],
-    dailyRate: 106,
-    weeklyRate: 745,
-    commuteMinutes: 6,
-    convenienceBadge: "ZIP 20715 · Entire 3BR Home · Driveway",
-    hospitalTag: "6 mins to Bowie Health Center & Transit Loop",
-    imagePlaceholder: "bg-gradient-to-br from-slate-800 to-slate-900",
-    defaultImageUrl: "/vettedrent-hero-renter.jpg",
-    galleryPhotos: [
-      {
-        url: "/vettedrent-hero-renter.jpg",
-        caption: "Multi-Bedroom Primary Suite & Lounge (ZIP 20715)",
-      },
-      {
-        url: "/vettedrent-hero-landlord.jpg",
-        caption: "Full Chef's Kitchen, Living Area & In-Unit Laundry",
-      },
-    ],
-    features: [
-      "Entire Multi-Bedroom Home",
-      "Full Chef's Kitchen & Dining",
-      "In-Unit Washer & Dryer",
-      "Instant Bank Link Setup",
     ],
   },
 ];
@@ -216,6 +224,7 @@ export const SAMPLE_LISTINGS: PropertyCardProps[] = [
 export interface ListingDiscoveryGridProps {
   searchQuery?: string;
   activeTierFilter?: string;
+  activeCohortFilter?: PurposeCohortId | "ALL";
   selectedTierId?: string;
   checkInIso?: string;
   stayDays?: number;
@@ -227,6 +236,7 @@ export interface ListingDiscoveryGridProps {
 export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
   searchQuery = "",
   activeTierFilter = "ALL",
+  activeCohortFilter = "ALL",
   selectedTierId = "RoomSanctuary",
   checkInIso = "",
   stayDays = 30,
@@ -237,7 +247,7 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
   const carouselRef = useRef<HTMLDivElement | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("convenience");
   const [viewMode, setViewMode] = useState<ViewMode>("carousel");
-  const [under5MinOnly, setUnder5MinOnly] = useState<boolean>(false);
+  const [familyReadyOnly, setFamilyReadyOnly] = useState<boolean>(false);
   const [cardPhotoIndex, setCardPhotoIndex] = useState<Record<string, number>>({});
   const [hostPhotosByTier, setHostPhotosByTier] = useState<Record<string, string>>({});
   const [lightboxProperty, setLightboxProperty] = useState<PropertyCardProps | null>(null);
@@ -273,16 +283,29 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
     };
   }, []);
 
-  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const trimmedQuery = searchQuery.trim();
+  const normalizedQuery = trimmedQuery.toLowerCase();
+  const isCustomZipQuery = /^\d{5}$/.test(trimmedQuery);
 
-  const filteredListings = SAMPLE_LISTINGS.filter((property) => {
+  // Filter by tier, audience cohort, family toggle, and open text/ZIP search
+  const baseListings = SAMPLE_LISTINGS.filter((property) => {
     if (activeTierFilter !== "ALL" && property.tier !== activeTierFilter) {
       return false;
     }
-    if (under5MinOnly && property.commuteMinutes > 4) {
+    if (
+      activeCohortFilter !== "ALL" &&
+      !property.cohorts.includes(activeCohortFilter)
+    ) {
+      return false;
+    }
+    if (familyReadyOnly && property.tier !== "ExecutiveTownhome") {
       return false;
     }
     if (!normalizedQuery) {
+      return true;
+    }
+    // If user typed any 5-digit ZIP code, match exact ZIP or prefix, or dynamically localize all tiers to that ZIP
+    if (isCustomZipQuery) {
       return true;
     }
     const haystack = [
@@ -290,9 +313,9 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
       property.tier,
       property.location,
       property.zipCode,
-      ...property.nearbyZips,
-      property.hospitalTag,
+      property.proximityTag,
       property.convenienceBadge,
+      property.idealForLabel,
       `$${property.dailyRate}`,
       ...property.features,
     ]
@@ -300,6 +323,15 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
       .toLowerCase();
     return haystack.includes(normalizedQuery);
   }).sort((a, b) => {
+    // If user searched a specific ZIP, prioritize exact or closest numeric ZIP match first
+    if (isCustomZipQuery) {
+      const targetZipNum = Number(trimmedQuery);
+      const diffA = Math.abs(Number(a.zipCode) - targetZipNum);
+      const diffB = Math.abs(Number(b.zipCode) - targetZipNum);
+      if (diffA !== diffB) {
+        return diffA - diffB;
+      }
+    }
     if (sortMode === "price-asc") {
       return a.dailyRate - b.dailyRate;
     }
@@ -329,26 +361,29 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
     });
   }
 
-  if (filteredListings.length === 0) {
+  if (baseListings.length === 0) {
     return (
       <div className="p-8 rounded-2xl border border-slate-800 bg-slate-900/60 text-center w-full">
         <p className="text-slate-200 font-semibold">
-          No spaces matched &ldquo;{searchQuery}&rdquo;. Try ZIP codes 20785, 21287, 20910,
-          20814, 21401, or 20715.
+          No spaces matched &ldquo;{searchQuery}&rdquo;. You can search by any ZIP code, city,
+          university, employer, or space tier.
         </p>
         <button
           type="button"
           onClick={() => {
-            setUnder5MinOnly(false);
+            setFamilyReadyOnly(false);
             onResetFilters?.();
           }}
           className="button mt-4"
         >
-          Show All {SAMPLE_LISTINGS.length} Verified Spaces
+          Show All Available Spaces
         </button>
       </div>
     );
   }
+
+  const effectiveCohort: PurposeCohortId =
+    activeCohortFilter === "ALL" ? "Contract-Assignment" : activeCohortFilter;
 
   return (
     <div className="vr-swipe-marketplace w-full">
@@ -366,7 +401,7 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
             onClick={() => setSortMode("convenience")}
             className={`vr-swipe-pill${sortMode === "convenience" ? " vr-swipe-pill--active" : ""}`}
           >
-            ★ Closest to Hospital (2–6 mins)
+            ★ Best Convenience (Work, Campus &amp; Transit)
           </button>
           <button
             type="button"
@@ -378,11 +413,11 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
           </button>
           <button
             type="button"
-            aria-pressed={under5MinOnly}
-            onClick={() => setUnder5MinOnly((prev) => !prev)}
-            className={`vr-swipe-pill${under5MinOnly ? " vr-swipe-pill--active" : ""}`}
+            aria-pressed={familyReadyOnly}
+            onClick={() => setFamilyReadyOnly((prev) => !prev)}
+            className={`vr-swipe-pill${familyReadyOnly ? " vr-swipe-pill--active" : ""}`}
           >
-            ✦ Under 5 Mins Only
+            ✦ Multi-Bedroom Family &amp; Relocation Homes
           </button>
         </div>
 
@@ -400,8 +435,11 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
           ) : null}
 
           <span className="vr-swipe-toolbar__count">
-            <strong>{filteredListings.length} Verified Spaces</strong> · Swipe by Price &amp;
-            Convenience
+            <strong>
+              {baseListings.length} Verified Spaces
+              {isCustomZipQuery ? ` near ZIP ${trimmedQuery}` : ""}
+            </strong>{" "}
+            · Swipe by Price &amp; Convenience
           </span>
 
           {viewMode === "carousel" ? (
@@ -436,7 +474,7 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
         role="region"
         aria-label="Swipeable property cards"
       >
-        {filteredListings.map((property) => {
+        {baseListings.map((property) => {
           const isSelected = selectedTierId === property.tier;
           const activePhotoIdx = cardPhotoIndex[property.id] ?? 0;
           const activePhotoUrl =
@@ -444,12 +482,13 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
               ? hostPhotosByTier[property.tier]
               : (property.galleryPhotos[activePhotoIdx]?.url ?? property.defaultImageUrl);
 
+          const displayedZip = isCustomZipQuery ? trimmedQuery : property.zipCode;
           const bookingParams = new URLSearchParams({
             tier: property.tier,
             weeklyCents: String(property.weeklyRate * 100),
             days: String(stayDays),
             ...(checkInIso ? { checkIn: checkInIso } : {}),
-            cohort: "Contract-Assignment",
+            cohort: effectiveCohort,
             jurisdiction: jurisdictionCode,
           });
           const bookingHref = `/underwriting?${bookingParams.toString()}`;
@@ -490,7 +529,7 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
 
                 {/* Top Convenience Tag */}
                 <div className="absolute top-4 left-4 bg-slate-950/80 backdrop-blur-md text-emerald-400 text-xs font-bold px-2.5 py-1 rounded-md border border-emerald-500/10 relative z-10">
-                  ★ {property.hospitalTag}
+                  ★ {property.proximityTag}
                 </div>
 
                 {/* In-Card Photo Swipe Controls */}
@@ -532,7 +571,7 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
                   }}
                 >
                   <span className="text-slate-200 text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-950/80 border border-slate-800">
-                    {property.convenienceBadge}
+                    ZIP {displayedZip} · {property.convenienceBadge}
                   </span>
                   <button
                     type="button"
@@ -556,8 +595,8 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
                       {property.title}
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      {property.location} <strong>{property.zipCode}</strong> ·{" "}
-                      <strong>{property.commuteMinutes} min commute</strong>
+                      {property.location} (ZIP <strong>{displayedZip}</strong>) ·{" "}
+                      <strong>{property. idealForLabel}</strong>
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
@@ -611,8 +650,8 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
             <div className="stay-card-head">
               <div>
                 <p className="pass-kicker">
-                  {lightboxProperty.location} {lightboxProperty.zipCode} ·{" "}
-                  {lightboxProperty.hospitalTag}
+                  {lightboxProperty.location} ({lightboxProperty.zipCode}) ·{" "}
+                  {lightboxProperty.idealForLabel}
                 </p>
                 <h3>
                   {lightboxProperty.title} (${lightboxProperty.dailyRate}/day)
