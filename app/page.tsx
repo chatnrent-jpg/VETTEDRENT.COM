@@ -1,4 +1,5 @@
 import { DualBrandHome } from "@/components/dual-brand-home";
+import { ListingDiscoveryGrid } from "@/src/components/ListingGrid";
 import { defaultGeoStatusLabel } from "@/lib/geo-compliance";
 import { getFeaturedStay } from "@/lib/host-listing";
 import { getSupabaseServerClient } from "@/lib/supabase";
@@ -11,21 +12,16 @@ const FALLBACK_STAY = {
   geoCompliance: defaultGeoStatusLabel(),
 };
 
-/**
- * Clean Airbnb/Hotwire-style consumer booking viewport:
- * - Minimalist destination selector: "Where are you traveling?"
- * - Straightforward Check-In / Check-Out date range picker
- * - Single premium tier selector with visual cards:
- *   - RoomSanctuary ($45/day)
- *   - PrivateSuite ($75/day)
- *   - ExecutiveTownhome ($106/day)
- * - Consumer value copy: "$0 Security Deposit", "No Credit Check", "Instant Bank Link Setup"
- */
 export default async function HomePage() {
   const stay = await loadFeaturedStay();
   const weeklyRate = formatCents(stay.weeklyPriceCents);
 
-  return <DualBrandHome stay={stay} weeklyRate={weeklyRate} />;
+  return (
+    <div className="bg-slate-950 min-h-screen text-slate-100">
+      <DualBrandHome stay={stay} weeklyRate={weeklyRate} />
+      <ListingDiscoveryGrid />
+    </div>
+  );
 }
 
 async function loadFeaturedStay(): Promise<{
