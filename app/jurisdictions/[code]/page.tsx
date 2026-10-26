@@ -280,9 +280,9 @@ export default async function JurisdictionLandingPage({
         />
 
         <article className="panel">
-          <h2>Compare All Covered Jurisdictions</h2>
+          <h2>Compare All Covered Jurisdictions &amp; Maryland Clinical Corridors</h2>
           <p className="note">
-            Switch between statutory rulesets for Purpose-Verified weekly stays:
+            Switch between statutory rulesets and Maryland county hospital staffing corridors:
           </p>
           <div className="actions" style={{ flexWrap: "wrap" }}>
             {JURISDICTION_RULES.map((item) => (
@@ -296,6 +296,15 @@ export default async function JurisdictionLandingPage({
                 {item.code} ({item.maxTransientDays}d)
               </Link>
             ))}
+            <Link className="button button-secondary" href="/jurisdictions/md/prince-georges">
+              Prince George&apos;s County, MD
+            </Link>
+            <Link className="button button-secondary" href="/jurisdictions/md/montgomery">
+              Montgomery County, MD
+            </Link>
+            <Link className="button button-secondary" href="/jurisdictions/md/baltimore-city">
+              Baltimore City, MD
+            </Link>
           </div>
         </article>
       </section>
