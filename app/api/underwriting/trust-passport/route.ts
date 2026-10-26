@@ -47,8 +47,22 @@ export async function GET(request: Request) {
 
     const credentialIdentifier =
       cleanText(url.searchParams.get("credentialId"), 80) ?? cohortRule.defaultIdentifier;
+    const applicantFullName =
+      cleanText(
+        url.searchParams.get("fullName") ??
+          url.searchParams.get("applicantName") ??
+          url.searchParams.get("name"),
+        120,
+      ) ?? undefined;
+    const applicantEmail =
+      cleanText(
+        url.searchParams.get("email") ?? url.searchParams.get("applicant"),
+        120,
+      ) ?? undefined;
     const applicantIdentifier =
-      cleanText(url.searchParams.get("applicant"), 120) ?? "Verified VettedRent Professional";
+      applicantFullName && applicantEmail
+        ? `${applicantFullName} (${applicantEmail})`
+        : (applicantFullName ?? applicantEmail ?? "Verified VettedRent Guest");
     const rawWeeklyCents = Number(url.searchParams.get("weeklyCents"));
     const weeklyRateCents =
       Number.isFinite(rawWeeklyCents) &&
@@ -65,6 +79,8 @@ export async function GET(request: Request) {
         : undefined;
 
     const pdfBytes = buildTrustPassportPdf({
+      applicantFullName,
+      applicantEmail,
       applicantIdentifier,
       cohort: cohortRule.id,
       credentialIdentifier,
@@ -148,11 +164,32 @@ export async function POST(request: Request) {
         typeof body.credentialIdentifier === "string" ? body.credentialIdentifier : null,
         80,
       ) ?? cohortRule.defaultIdentifier;
+    const applicantFullName =
+      cleanText(
+        typeof body.applicantFullName === "string"
+          ? body.applicantFullName
+          : typeof body.fullName === "string"
+            ? body.fullName
+            : null,
+        120,
+      ) ?? undefined;
+    const applicantEmail =
+      cleanText(
+        typeof body.applicantEmail === "string"
+          ? body.applicantEmail
+          : typeof body.email === "string"
+            ? body.email
+            : null,
+        120,
+      ) ?? undefined;
     const applicantIdentifier =
       cleanText(
         typeof body.applicantIdentifier === "string" ? body.applicantIdentifier : null,
         120,
-      ) ?? "Verified VettedRent Professional";
+      ) ??
+      (applicantFullName && applicantEmail
+        ? `${applicantFullName} (${applicantEmail})`
+        : (applicantFullName ?? applicantEmail ?? "Verified VettedRent Guest"));
     const rawWeeklyCents = Number(body.weeklyRateCents ?? body.weeklyCents);
     const weeklyRateCents =
       Number.isFinite(rawWeeklyCents) &&
@@ -169,6 +206,8 @@ export async function POST(request: Request) {
         : undefined;
 
     const pdfBytes = buildTrustPassportPdf({
+      applicantFullName,
+      applicantEmail,
       applicantIdentifier,
       cohort: cohortRule.id,
       credentialIdentifier,

@@ -11,6 +11,8 @@ import {
 } from "@/lib/underwriting-contract";
 
 export type TrustPassportInput = {
+  applicantFullName?: string;
+  applicantEmail?: string;
   applicantIdentifier: string;
   cohort: PurposeCohortId;
   credentialIdentifier: string;
@@ -81,6 +83,11 @@ export function buildTrustPassportPdf(input: TrustPassportInput): Uint8Array {
   const hostWeeklyCents = Math.round((effectiveWeeklyCents * 7550) / 10000);
   const hostMonthlyCents = Math.round(((effectiveWeeklyCents * 52) / 12 * 7550) / 10000);
 
+  const resolvedFullName =
+    input.applicantFullName?.trim() || input.applicantIdentifier.trim();
+  const resolvedEmail =
+    input.applicantEmail?.trim() || input.applicantIdentifier.trim();
+
   const lines: PdfLine[] = [
     // Header Banner
     {
@@ -98,11 +105,11 @@ export function buildTrustPassportPdf(input: TrustPassportInput): Uint8Array {
       bold: true,
     },
     {
-      text: "Tenant Creed: 'Be Great to Yourself.'  |  Certificate ID: " + certId,
+      text: `Issued To Licensee: ${sanitizePdfText(resolvedFullName)} (${sanitizePdfText(resolvedEmail)})  |  Cert ID: ${certId}`,
       x: 48,
       y: 696,
-      size: 10,
-      bold: false,
+      size: 9.5,
+      bold: true,
     },
     {
       text: `Issued: ${issuedDate} UTC  |  Underwriting Decision: APPROVED (${safeRatio.toFixed(2)}x Cash Velocity)`,
@@ -114,17 +121,18 @@ export function buildTrustPassportPdf(input: TrustPassportInput): Uint8Array {
 
     // Section 1: Verification Summary
     {
-      text: "1. PURPOSE-VERIFIED STAY & CREDENTIAL SUMMARY",
+      text: "1. VERIFIED LICENSEE IDENTITY & PURPOSE-VERIFIED STAY SUMMARY",
       x: 48,
       y: 644,
       size: 11,
       bold: true,
     },
     {
-      text: `Applicant Email / ID: ${sanitizePdfText(input.applicantIdentifier)}`,
+      text: `Licensee Legal Full Name: ${sanitizePdfText(resolvedFullName)}  |  Verified Email: ${sanitizePdfText(resolvedEmail)}`,
       x: 56,
       y: 626,
       size: 10,
+      bold: true,
     },
     {
       text: `Purpose-Verified Cohort: ${cohortRule.id} (${cohortRule.audience})`,
@@ -134,10 +142,10 @@ export function buildTrustPassportPdf(input: TrustPassportInput): Uint8Array {
       bold: true,
     },
     {
-      text: `Verified Credential / Reference ID: ${sanitizePdfText(input.credentialIdentifier)}`,
+      text: `Verified Credential / Reference ID: ${sanitizePdfText(input.credentialIdentifier)}  |  Digitally Signed: /s/ ${sanitizePdfText(resolvedFullName)}`,
       x: 56,
       y: 594,
-      size: 10,
+      size: 9.5,
     },
     {
       text: `Documented Purpose Horizon: ${sanitizePdfText(input.contractEndDate)} (Covers Stay Through ${sanitizePdfText(input.intendedStayEndDate)})`,

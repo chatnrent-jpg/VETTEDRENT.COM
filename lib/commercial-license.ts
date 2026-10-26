@@ -27,6 +27,8 @@ export type CommercialLicenseInput = {
   listingId?: string;
   propertyTitle?: string;
   licensorName?: string;
+  licenseeFullName?: string;
+  licenseeEmail?: string;
   licenseeIdentifier?: string;
   cohort?: PurposeCohortId | string;
   credentialIdentifier?: string;
@@ -58,7 +60,10 @@ export type CommercialLicenseDocument = {
   issuedAtUtc: string;
   parties: {
     licensorName: string;
+    licenseeFullName: string;
+    licenseeEmail: string;
     licenseeIdentifier: string;
+    electronicSignature: string;
     agreementId: string;
     listingId: string;
     propertyTitle: string;
@@ -174,8 +179,18 @@ export function generateCommercialLicense(
   const licensorName =
     cleanText(input.licensorName, 120) ??
     `Verified VettedRent Host (${jurisdictionRule.code} Host Shield)`;
+  const licenseeFullName =
+    cleanText(input.licenseeFullName, 120) ??
+    cleanText(input.licenseeIdentifier, 120) ??
+    "Verified VettedRent Guest";
+  const licenseeEmail =
+    cleanText(input.licenseeEmail, 120) ??
+    cleanText(input.licenseeIdentifier, 120) ??
+    "verified.lodger@vettedrent.com";
   const licenseeIdentifier =
-    cleanText(input.licenseeIdentifier, 120) ?? "Verified VettedRent Professional";
+    cleanText(input.licenseeIdentifier, 140) ??
+    `${licenseeFullName} (${licenseeEmail})`;
+  const electronicSignature = `/s/ ${licenseeFullName} (Signed ${issuedAtUtc})`;
   const credentialIdentifier =
     cleanText(input.credentialIdentifier, 80) ?? cohortRule.defaultIdentifier;
   const verifiedCoverageRatio =
@@ -254,7 +269,10 @@ export function generateCommercialLicense(
     issuedAtUtc,
     parties: {
       licensorName,
+      licenseeFullName,
+      licenseeEmail,
       licenseeIdentifier,
+      electronicSignature,
       agreementId,
       listingId,
       propertyTitle,
@@ -360,10 +378,11 @@ export function buildCommercialLicensePdf(input: CommercialLicenseInput = {}): U
       size: 9,
     },
     {
-      text: `Licensee (Verified Lodger): ${doc.parties.licenseeIdentifier}  |  Agreement ID: ${doc.parties.agreementId}`,
+      text: `Licensee Legal Full Name: ${doc.parties.licenseeFullName}  |  Verified Email: ${doc.parties.licenseeEmail}`,
       x: 52,
       y: 625,
-      size: 9,
+      size: 9.2,
+      bold: true,
     },
     {
       text: "Express Non-Tenancy Covenant: This agreement is strictly a Revocable Commercial License to Occupy.",
@@ -502,24 +521,25 @@ export function buildCommercialLicensePdf(input: CommercialLicenseInput = {}): U
 
     // Section 5: Digital Execution & Verification Block
     {
-      text: "DIGITAL EXECUTION & CRYPTOGRAPHIC VERIFICATION",
+      text: "DIGITAL EXECUTION, ELECTRONIC SIGNATURE & CRYPTOGRAPHIC VERIFICATION",
       x: 48,
       y: 222,
-      size: 11,
+      size: 10.5,
       bold: true,
     },
     {
-      text: `UNVETTED RENTING IS OVER. Bound to Token ${doc.licenseToken} under VettedRent UMI Section 3.C.`,
+      text: `Executed By Licensee: ${doc.parties.electronicSignature}  |  Token: ${doc.licenseToken}`,
       x: 48,
       y: 204,
-      size: 9.5,
+      size: 9.2,
       bold: true,
     },
     {
-      text: `Verify live license status or onboard properties at https://vettedrent.com/marketing#host-shield`,
+      text: `Licensee: ${doc.parties.licenseeFullName} (${doc.parties.licenseeEmail})  |  Agreement ID: ${doc.parties.agreementId}`,
       x: 48,
       y: 188,
-      size: 9.5,
+      size: 9,
+      bold: true,
     },
     {
       text: `Host Shield Portal: https://vettedrent.com/jurisdictions/${guardrail.jurisdictionCode}  |  Lodger Creed: "Be Great to Yourself."`,

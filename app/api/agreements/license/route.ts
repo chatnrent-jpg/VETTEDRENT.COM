@@ -54,13 +54,28 @@ export async function GET(request: Request) {
     const licenseStatus: CommercialLicenseStatus =
       rawStatus === "License_Revoked" ? "License_Revoked" : "License_Active";
 
+    const licenseeFullName =
+      url.searchParams.get("fullName") ??
+      url.searchParams.get("licenseeName") ??
+      url.searchParams.get("name") ??
+      undefined;
+    const licenseeEmail =
+      url.searchParams.get("email") ??
+      url.searchParams.get("licensee") ??
+      url.searchParams.get("applicant") ??
+      undefined;
+
     const licenseInput: CommercialLicenseInput = {
       agreementId: url.searchParams.get("agreementId") ?? undefined,
       listingId: url.searchParams.get("listingId") ?? undefined,
       propertyTitle: url.searchParams.get("propertyTitle") ?? undefined,
       licensorName: url.searchParams.get("licensor") ?? undefined,
+      licenseeFullName,
+      licenseeEmail,
       licenseeIdentifier:
-        url.searchParams.get("licensee") ?? url.searchParams.get("applicant") ?? undefined,
+        licenseeFullName && licenseeEmail
+          ? `${licenseeFullName} (${licenseeEmail})`
+          : (licenseeFullName ?? licenseeEmail ?? undefined),
       cohort: cohortRule.id,
       credentialIdentifier:
         url.searchParams.get("credentialId") ??

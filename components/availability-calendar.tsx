@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   STAY_DURATION_OPTIONS,
   addDaysIsoUtc,
@@ -32,6 +32,8 @@ export type InstantBookingConfirmation = {
   licenseId: string;
   licenseToken: string;
   agreementId: string;
+  applicantFullName?: string;
+  applicantEmail?: string;
   applicant: string;
   cohort: PurposeCohortId;
   credentialIdentifier: string;
@@ -62,7 +64,8 @@ export function AvailabilityCalendar({
   hostEmail,
   cohortId = "Contract-Assignment",
   jurisdictionCode = DEFAULT_JURISDICTION_CODE,
-  applicantEmail,
+  applicantFullName: initialApplicantFullName,
+  applicantEmail: initialApplicantEmail,
   credentialIdentifier,
   context = "home",
   onBookingConfirmed,
@@ -78,11 +81,13 @@ export function AvailabilityCalendar({
   hostEmail?: string;
   cohortId?: PurposeCohortId;
   jurisdictionCode?: string;
+  applicantFullName?: string | null;
   applicantEmail?: string | null;
   credentialIdentifier?: string;
   context?: "home" | "underwriting" | "dashboard";
   onBookingConfirmed?: (confirmation: InstantBookingConfirmation) => void;
 }) {
+  const fullNameInputRef = useRef<HTMLInputElement | null>(null);
   const [schedules, setSchedules] = useState<
     Record<DailyRateTierId, TierAvailabilitySchedule> | null
   >(null);
@@ -93,6 +98,13 @@ export function AvailabilityCalendar({
   const [localStayDays, setLocalStayDays] = useState<number>(() =>
     Math.max(7, Math.min(90, stayDays || 7)),
   );
+  const [guestFullName, setGuestFullName] = useState<string>(
+    () => initialApplicantFullName?.trim() ?? "",
+  );
+  const [guestEmail, setGuestEmail] = useState<string>(
+    () => initialApplicantEmail?.trim() ?? "",
+  );
+  const [licenseSigned, setLicenseSigned] = useState<boolean>(false);
   const [newlyBookedDates, setNewlyBookedDates] = useState<string[]>([]);
   const [windowOffsetDays, setWindowOffsetDays] = useState<number>(0);
   const [saving, setSaving] = useState(false);
@@ -122,6 +134,18 @@ export function AvailabilityCalendar({
   useEffect(() => {
     setLocalStayDays(Math.max(7, Math.min(90, stayDays || 7)));
   }, [stayDays]);
+
+  useEffect(() => {
+    if (initialApplicantFullName) {
+      setGuestFullName(initialApplicantFullName.trim());
+    }
+  }, [initialApplicantFullName]);
+
+  useEffect(() => {
+    if (initialApplicantEmail) {
+      setGuestEmail(initialApplicantEmail.trim());
+    }
+  }, [initialApplicantEmail]);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,7 +198,7 @@ export function AvailabilityCalendar({
     blockedDates: localBlocked,
   });
 
-  const underwritingBookingHref = `/underwriting?tier=${encodeURIComponent(tierId)}&weeklyCents=${effectiveWeeklyCents}&days=${effectiveStayDays}&checkIn=${encodeURIComponent(calendar.checkInIso)}&cohort=${encodeURIComponent(cohortRule.id)}&jurisdiction=${encodeURIComponent(jurisdictionCode)}`;
+  const underwritingBookingHref = `/underwriting?tier=${encodeURIComponent(tierId)}&weeklyCents=${effectiveWeeklyCents}&days=${effectiveStayDays}&checkIn=${encodeURIComponent(calendar.checkInIso)}&cohort=${encodeURIComponent(cohortRule.id)}&jurisdiction=${encodeURIComponent(jurisdictionCode)}${guestFullName.trim() ? `&fullName=${encodeURIComponent(guestFullName.trim())}` : ""}${guestEmail.trim() ? `&email=${encodeURIComponent(guestEmail.trim())}` : ""}`;
 
   function handleDurationChange(nextDaysRaw: number) {
     const minDays =
@@ -184,7 +208,7 @@ export function AvailabilityCalendar({
     onChangeStayDays?.(clamped);
     const nextCheckOut = addDaysIsoUtc(calendar.checkInIso, clamped);
     setSaveMessage(
-      `✓ Stay length set to ${clamped} days (${Math.round((clamped / 7) * 10) / 10} weeks): ${formatReadableDate(calendar.checkInIso)} → ${formatReadableDate(nextCheckOut)}. Click any start date below to automatically book ${clamped} days.`,
+      `✓ Stay length set to ${clamped} days (${Math.round((clamped / 7) * 10) / 10} weeks): ${formatReadableDate(calendar.checkInIso)} → ${formatReadableDate(nextCheckOut)}. Click any start date below to select your ${clamped}-day span.`,
     );
   }
 
@@ -257,22 +281,31 @@ export function AvailabilityCalendar({
     if (mode === "tenant") {
       if (isBlocked && !newlyBookedDates.includes(isoDate)) {
         setSaveMessage(
-          `${formatReadableDate(isoDate)} is already BOOKED. Click any Available date to automatically book the next ${effectiveStayDays} days.`,
+          `${formatReadableDate(isoDate)} is already BOOKED. Click any Available date to select the next ${effectiveStayDays} days.`,
         );
         return;
       }
       onSelectCheckIn(isoDate);
-      // Automatically book the next `effectiveStayDays` days (7 days if 7 days selected, 90 days if 90 days selected)
-      const autoSpanDates: string[] = [];
-      for (let i = 0; i < effectiveStayDays; i++) {
-        autoSpanDates.push(addDaysIsoUtc(isoDate, i));
+      const nextCheckOut = addDaysIsoUtc(isoDate, effectiveStayDays);
+
+      // If the guest has already entered their Legal Full Name, Email, and signed the clickwrap checkbox, auto-book immediately
+      if (guestFullName.trim().length >= 2 && guestEmail.includes("@") && licenseSigned) {
+        const autoSpanDates: string[] = [];
+        for (let i = 0; i < effectiveStayDays; i++) {
+          autoSpanDates.push(addDaysIsoUtc(isoDate, i));
+        }
+        setNewlyBookedDates(autoSpanDates);
+        setLocalBlocked((prev) => {
+          const withoutPrevNew = prev.filter((d) => !newlyBookedDates.includes(d));
+          return Array.from(new Set([...withoutPrevNew, ...autoSpanDates])).sort();
+        });
+        void handleInstantBookStay(isoDate, effectiveStayDays);
+      } else {
+        setSaveMessage(
+          `✓ Selected ${effectiveStayDays}-day span (${formatReadableDate(isoDate)} → ${formatReadableDate(nextCheckOut)}). Enter your Legal Full Name, Email, and check the Electronic Signature box below to issue your signed Revocable Commercial License & Stay Passport.`,
+        );
+        fullNameInputRef.current?.focus();
       }
-      setNewlyBookedDates(autoSpanDates);
-      setLocalBlocked((prev) => {
-        const withoutPrevNew = prev.filter((d) => !newlyBookedDates.includes(d));
-        return Array.from(new Set([...withoutPrevNew, ...autoSpanDates])).sort();
-      });
-      void handleInstantBookStay(isoDate, effectiveStayDays);
       return;
     }
 
@@ -335,6 +368,29 @@ export function AvailabilityCalendar({
     overrideCheckInIso?: string,
     overrideStayDays?: number,
   ) {
+    const trimmedName = guestFullName.trim();
+    const trimmedEmail = guestEmail.trim();
+
+    if (trimmedName.length < 2) {
+      setBookingError(
+        "Please enter your Legal Full Name below so your Revocable Commercial License and Stay Passport are issued in your name.",
+      );
+      fullNameInputRef.current?.focus();
+      return;
+    }
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      setBookingError(
+        "Please enter a valid Email Address to bind your identity to the Revocable Commercial License.",
+      );
+      return;
+    }
+    if (!licenseSigned) {
+      setBookingError(
+        "Please check the Electronic Signature box to sign and accept the Revocable Commercial License to Occupy.",
+      );
+      return;
+    }
+
     const targetCheckInIso = overrideCheckInIso ?? calendar.checkInIso;
     const targetStayDays = overrideStayDays ?? effectiveStayDays;
     const targetCheckOutIso = addDaysIsoUtc(targetCheckInIso, targetStayDays);
@@ -343,8 +399,7 @@ export function AvailabilityCalendar({
     setBookingError(null);
 
     try {
-      const effectiveApplicant =
-        applicantEmail?.trim() || "verified.lodger@vettedrent.com";
+      const effectiveApplicant = `${trimmedName} (${trimmedEmail})`;
       const effectiveCredential =
         credentialIdentifier?.trim() || cohortRule.defaultIdentifier;
 
@@ -439,6 +494,8 @@ export function AvailabilityCalendar({
         ratio: "3.25",
         contractEnd: validUntil,
         stayEnd: validUntil,
+        fullName: trimmedName,
+        email: trimmedEmail,
         applicant: effectiveApplicant,
       });
       const passportPdfHref = `/api/underwriting/trust-passport?${passportQuery.toString()}`;
@@ -454,6 +511,8 @@ export function AvailabilityCalendar({
         weeklyFeeCents: String(effectiveWeeklyCents),
         purposeEnd: validUntil,
         stayEnd: validUntil,
+        fullName: trimmedName,
+        email: trimmedEmail,
         licensee: effectiveApplicant,
       });
       const commercialLicensePdfHref = `/api/agreements/license?${licenseQuery.toString()}`;
@@ -462,6 +521,8 @@ export function AvailabilityCalendar({
         licenseId,
         licenseToken,
         agreementId,
+        applicantFullName: trimmedName,
+        applicantEmail: trimmedEmail,
         applicant: effectiveApplicant,
         cohort: cohortRule.id,
         credentialIdentifier: effectiveCredential,
@@ -482,7 +543,7 @@ export function AvailabilityCalendar({
 
       setBookingConfirmation(confirmation);
       setSaveMessage(
-        `✓ Automatically BOOKED ${targetStayDays} days: ${formatReadableDate(targetCheckInIso)} → ${formatReadableDate(validUntil)} (${targetStayDays} days marked BOOKED).`,
+        `✓ Executed & BOOKED (${targetStayDays} days) for ${trimmedName} (${trimmedEmail}): ${formatReadableDate(targetCheckInIso)} → ${formatReadableDate(validUntil)}.`,
       );
 
       if (typeof window !== "undefined") {
@@ -520,10 +581,10 @@ export function AvailabilityCalendar({
               : `Host 7-to-90-Day Availability Calendar · ${tier.shortLabel}`}
           </strong>
           <span>
-            Select your stay length (7 to 90 days), then{" "}
-            <strong>click any start day</strong> to automatically book the next{" "}
-            <strong>{effectiveStayDays} days</strong> ({formatReadableDate(calendar.checkInIso)} →{" "}
-            {formatReadableDate(calendar.checkOutIso)}).
+            Select your stay length (7 to 90 days), click any start day to highlight your{" "}
+            <strong>{effectiveStayDays}-day span</strong> ({formatReadableDate(calendar.checkInIso)} →{" "}
+            {formatReadableDate(calendar.checkOutIso)}), and sign below with your Legal Full Name to
+            issue your named Revocable Commercial License.
           </span>
         </div>
 
@@ -739,7 +800,7 @@ export function AvailabilityCalendar({
               title={
                 isBookedCell
                   ? `${cell.isoDate} — BOOKED`
-                  : `${cell.isoDate} — Click to automatically book ${effectiveStayDays} days`
+                  : `${cell.isoDate} — Click to select ${effectiveStayDays} days`
               }
             >
               <span className="vr-calendar-day__dow">{cell.weekdayShort}</span>
@@ -754,7 +815,7 @@ export function AvailabilityCalendar({
 
       <div className="vr-calendar-legend relative z-10">
         <span>
-          <i className="vr-dot vr-dot--open" /> Available (Click Any Day to Auto-Book{" "}
+          <i className="vr-dot vr-dot--open" /> Available (Click Any Day to Select{" "}
           {effectiveStayDays} Days)
         </span>
         {mode === "tenant" ? (
@@ -772,67 +833,106 @@ export function AvailabilityCalendar({
         </span>
       </div>
 
+      {/* MANDATORY GUEST SIGN-UP & ELECTRONIC SIGNATURE GATE BEFORE PASSPORT/LICENSE ISSUANCE */}
       {mode === "tenant" ? (
         <div
           className="vr-booking-bar relative z-10"
-          style={{ position: "relative", zIndex: 10 }}
+          style={{
+            position: "relative",
+            zIndex: 10,
+            display: "grid",
+            gap: "0.95rem",
+          }}
           role="region"
-          aria-label="Selected Stay Booking Bar"
+          aria-label="Guest Identity Sign-Up and Electronic Signature Bar"
         >
           <div className="vr-booking-bar__summary">
             <div className="vr-booking-bar__dates">
               <span className="vr-booking-bar__kicker">
-                <strong>$0 Security Deposit</strong> · <strong>No Credit Check</strong> ·{" "}
-                <strong>Instant Bank Link Setup</strong>
+                Step 1: Verify Your Identity &amp; Electronically Sign Your Revocable Commercial
+                License
               </span>
               <strong>
                 {formatReadableDate(calendar.checkInIso)} →{" "}
                 {formatReadableDate(calendar.checkOutIso)}{" "}
-                <span>({effectiveStayDays} days)</span>
+                <span>({effectiveStayDays} days)</span> · {tier.shortLabel} (
+                {formatCurrencyCents(rateComparison.grossDailyRateCents)}/day ·{" "}
+                {formatCurrencyCents(effectiveWeeklyCents)}/wk) · Total:{" "}
+                <span>
+                  {formatCurrencyCents(rateComparison.grossDailyRateCents * effectiveStayDays)}
+                </span>{" "}
+                ($0 Security Deposit)
               </strong>
-            </div>
-            <div className="vr-booking-bar__tier">
-              <strong>
-                {tier.shortLabel} ({formatCurrencyCents(rateComparison.grossDailyRateCents)}/day ·{" "}
-                {formatCurrencyCents(effectiveWeeklyCents)}/wk)
-              </strong>{" "}
-              · Total:{" "}
-              <strong>
-                {formatCurrencyCents(rateComparison.grossDailyRateCents * effectiveStayDays)}
-              </strong>{" "}
-              with <strong>$0 Security Deposit</strong>
             </div>
           </div>
 
+          {/* REQUIRED LEGAL FULL NAME + EMAIL + CLICKWRAP SIGNATURE */}
+          <div className="simple-grid-2">
+            <label className="field">
+              <span>Your Legal Full Name (Printed on Passport &amp; License) *</span>
+              <input
+                ref={fullNameInputRef}
+                type="text"
+                required
+                placeholder="Jordan Taylor"
+                value={guestFullName}
+                onChange={(e) => setGuestFullName(e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span>Your Verified Email Address (For Digital Key &amp; Pass) *</span>
+              <input
+                type="email"
+                required
+                placeholder="jordan.taylor@domain.com"
+                value={guestEmail}
+                onChange={(e) => setGuestEmail(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <label
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "0.6rem",
+              fontSize: "0.84rem",
+              color: "#f8fafc",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={licenseSigned}
+              onChange={(e) => setLicenseSigned(e.target.checked)}
+              style={{ marginTop: "0.22rem", accentColor: "#e5b869" }}
+            />
+            <span>
+              <strong>Electronic Signature Consent:</strong> I,{" "}
+              <strong>{guestFullName.trim() || "[Enter Your Legal Full Name Above]"}</strong>,
+              electronically sign and agree to the{" "}
+              <strong>Revocable Commercial License to Occupy</strong> ({effectiveStayDays}-day
+              non-tenancy stay agreement) and authorize VettedRent to issue my named Stay Passport
+              and cryptographic entry token.
+            </span>
+          </label>
+
           <div className="vr-booking-bar__actions">
+            <button
+              type="button"
+              className="button"
+              disabled={bookingBusy}
+              onClick={() => void handleInstantBookStay()}
+            >
+              {bookingBusy
+                ? "Executing Signed License..."
+                : `Sign & Book ${effectiveStayDays}-Day Stay as ${guestFullName.trim() || "Guest"} →`}
+            </button>
             {context === "home" ? (
-              <>
-                <Link className="button" href={underwritingBookingHref}>
-                  Book {effectiveStayDays}-Day Stay →
-                </Link>
-                <button
-                  type="button"
-                  className="button button-secondary vr-test-book-btn"
-                  disabled={bookingBusy}
-                  onClick={() => void handleInstantBookStay()}
-                >
-                  {bookingBusy
-                    ? "Booking..."
-                    : `Auto-Book ${effectiveStayDays} Days Now`}
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                className="button"
-                disabled={bookingBusy}
-                onClick={() => void handleInstantBookStay()}
-              >
-                {bookingBusy
-                  ? "Confirming..."
-                  : `Confirm ${effectiveStayDays}-Day Booking Now →`}
-              </button>
-            )}
+              <Link className="button button-secondary" href={underwritingBookingHref}>
+                Continue to 60s Bank Verification →
+              </Link>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -852,7 +952,10 @@ export function AvailabilityCalendar({
         >
           <div className="stay-card-head" style={{ flexWrap: "wrap" }}>
             <div>
-              <p className="pass-kicker">Reservation Confirmed · Marked BOOKED</p>
+              <p className="pass-kicker">
+                Signed &amp; Executed · Licensee:{" "}
+                {bookingConfirmation.applicantFullName || bookingConfirmation.applicant}
+              </p>
               <h3>
                 BOOKED: {formatReadableDate(bookingConfirmation.checkInDate)} →{" "}
                 {formatReadableDate(bookingConfirmation.validUntil)} (
@@ -860,13 +963,23 @@ export function AvailabilityCalendar({
               </h3>
             </div>
             <span className="stay-badge" data-status="active">
-              $0 Security Deposit
+              Signed: /s/ {bookingConfirmation.applicantFullName || "Verified Guest"}
             </span>
           </div>
 
           <div className="vr-booking-confirmation__grid">
             <div>
-              <span>Space Tier</span>
+              <span>Licensee Legal Full Name</span>
+              <strong>
+                {bookingConfirmation.applicantFullName || bookingConfirmation.applicant}
+              </strong>
+            </div>
+            <div>
+              <span>Verified Email</span>
+              <strong>{bookingConfirmation.applicantEmail || bookingConfirmation.applicant}</strong>
+            </div>
+            <div>
+              <span>Space Tier &amp; Rate</span>
               <strong>
                 {bookingConfirmation.tier} ·{" "}
                 {formatCurrencyCents(bookingConfirmation.dailyRateCents)}/day (
@@ -874,8 +987,10 @@ export function AvailabilityCalendar({
               </strong>
             </div>
             <div>
-              <span>Destination</span>
-              <strong>{bookingConfirmation.jurisdiction}</strong>
+              <span>Electronic Signature &amp; Token</span>
+              <code>
+                /s/ {bookingConfirmation.applicantFullName} · {bookingConfirmation.licenseToken}
+              </code>
             </div>
           </div>
 
@@ -883,16 +998,16 @@ export function AvailabilityCalendar({
             <a
               className="button"
               href={bookingConfirmation.passportPdfHref}
-              download={`VettedRent-Trust-Passport-${bookingConfirmation.cohort}.pdf`}
+              download={`VettedRent-Trust-Passport-${(bookingConfirmation.applicantFullName || "Guest").replace(/\s+/g, "-")}.pdf`}
             >
-              Download Stay Passport (PDF) ↓
+              Download Signed Stay Passport (PDF) ↓
             </a>
             <a
               className="button button-secondary"
               href={bookingConfirmation.commercialLicensePdfHref}
-              download={`VettedRent-Commercial-License-${bookingConfirmation.cohort}-${bookingConfirmation.jurisdiction}.pdf`}
+              download={`VettedRent-Commercial-License-${(bookingConfirmation.applicantFullName || "Guest").replace(/\s+/g, "-")}.pdf`}
             >
-              Download Stay Agreement (PDF) ↓
+              Download Signed Commercial License (PDF) ↓
             </a>
             <Link className="button button-secondary" href="/dashboard">
               Open Digital Key Dashboard →

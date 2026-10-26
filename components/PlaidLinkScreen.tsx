@@ -43,16 +43,6 @@ import {
 
 const DEFAULT_WEEKLY_STAY_CENTS = 31500;
 
-function diffDaysUtc(startIso: string, endIso: string): number {
-  const startMs = Date.parse(`${startIso}T00:00:00Z`);
-  const endMs = Date.parse(`${endIso}T00:00:00Z`);
-  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
-    return 30;
-  }
-  const diff = Math.round((endMs - startMs) / (24 * 60 * 60 * 1000));
-  return Math.max(7, Math.min(365, diff));
-}
-
 export function PlaidLinkScreen() {
   const router = useRouter();
   const initial = defaultContractTerm();
@@ -60,7 +50,9 @@ export function PlaidLinkScreen() {
   const [weeklyStayCents, setWeeklyStayCents] = useState<number>(DEFAULT_WEEKLY_STAY_CENTS);
   const [contract, setContract] = useState<ContractTerm>(initial);
   const [jurisdictionCode, setJurisdictionCode] = useState(DEFAULT_JURISDICTION_CODE);
-  const [prefilledLeadEmail, setPrefilledLeadEmail] = useState<string | null>(null);
+  const [guestFullName, setGuestFullName] = useState<string>("");
+  const [prefilledLeadEmail, setPrefilledLeadEmail] = useState<string>("");
+  const [licenseSigned, setLicenseSigned] = useState<boolean>(false);
   const [prefilledStayDays, setPrefilledStayDays] = useState<number | null>(null);
   const [checkInIso, setCheckInIso] = useState<string>(() => todayIsoUtc());
   const [showCalendar, setShowCalendar] = useState<boolean>(true);
@@ -81,6 +73,7 @@ export function PlaidLinkScreen() {
     const daysParam = params.get("days");
     const checkInParam = params.get("checkIn");
     const jurisdictionParam = params.get("jurisdiction");
+    const fullNameParam = params.get("fullName");
     const emailParam = params.get("email");
 
     if (
@@ -90,6 +83,7 @@ export function PlaidLinkScreen() {
       !daysParam &&
       !checkInParam &&
       !jurisdictionParam &&
+      !fullNameParam &&
       !emailParam
     ) {
       return;
@@ -148,6 +142,10 @@ export function PlaidLinkScreen() {
       }
     }
 
+    if (fullNameParam && fullNameParam.trim() !== "") {
+      setGuestFullName(fullNameParam.trim());
+    }
+
     if (emailParam && emailParam.trim() !== "") {
       setPrefilledLeadEmail(emailParam.trim());
     }
@@ -170,10 +168,6 @@ export function PlaidLinkScreen() {
     prefilledStayDays ?? intendedStayLengthDays(contract.intendedStayEndDate),
   );
   const checkOutIso = addDaysIsoUtc(checkInIso, selectedStayDays);
-  const dailyComparison = calculateDailyRateComparison(
-    clampedWeeklyStayCents,
-    selectedStayDays,
-  );
   const selectedCard =
     SPACE_TIER_CARDS.find((card) => card.id === selectedTierId) ?? SPACE_TIER_CARDS[0];
 
@@ -216,12 +210,29 @@ export function PlaidLinkScreen() {
     }));
   }
 
-  function updateCheckOutDate(nextCheckOutIso: string) {
-    const days = diffDaysUtc(checkInIso, nextCheckOutIso);
-    updateStayDurationDays(days);
-  }
-
   async function handleActivateWeeklyBillingAndPass() {
+    const trimmedName = guestFullName.trim();
+    const trimmedEmail = prefilledLeadEmail.trim();
+
+    if (trimmedName.length < 2) {
+      setActivationError(
+        "Please enter your Legal Full Name so your Revocable Commercial License and Stay Passport are issued in your name.",
+      );
+      return;
+    }
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      setActivationError(
+        "Please enter your Verified Email Address to bind your identity to the Revocable Commercial License.",
+      );
+      return;
+    }
+    if (!licenseSigned) {
+      setActivationError(
+        "Please check the Electronic Signature box to sign and accept the Revocable Commercial License to Occupy.",
+      );
+      return;
+    }
+
     setActivatingPass(true);
     setActivationMessage(null);
     setActivationError(null);
@@ -241,15 +252,15 @@ export function PlaidLinkScreen() {
         // Proceed with automated conversion engine even if not signed in yet
       }
 
-      const applicantEmail =
-        signedInEmail ?? prefilledLeadEmail ?? "verified.lodger@vettedrent.com";
+      const finalEmail = signedInEmail ?? trimmedEmail;
+      const effectiveApplicant = `${trimmedName} (${finalEmail})`;
 
       const convRes = await fetch("/api/conversion/activate-stay", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          applicant: applicantEmail,
+          applicant: effectiveApplicant,
           cohort: contract.credentialType,
           jurisdiction: jurisdictionCode,
           tier: selectedTierId,
@@ -288,7 +299,7 @@ export function PlaidLinkScreen() {
               credentials: "same-origin",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                customerEmail: applicantEmail,
+                customerEmail: finalEmail,
                 hostAccountId: "acct_simulated_host",
                 totalCents: weeklyStayCents,
                 tenantId: signedInUserId,
@@ -345,7 +356,9 @@ export function PlaidLinkScreen() {
         ratio: String(decision?.ratio ?? 3.25),
         contractEnd: validUntil,
         stayEnd: validUntil,
-        applicant: applicantEmail,
+        fullName: trimmedName,
+        email: finalEmail,
+        applicant: effectiveApplicant,
       });
       const passportPdfHref = `/api/underwriting/trust-passport?${passportQuery.toString()}`;
 
@@ -360,7 +373,9 @@ export function PlaidLinkScreen() {
         weeklyFeeCents: String(clampedWeeklyStayCents),
         purposeEnd: validUntil,
         stayEnd: validUntil,
-        licensee: applicantEmail,
+        fullName: trimmedName,
+        email: finalEmail,
+        licensee: effectiveApplicant,
       });
       const commercialLicensePdfHref = `/api/agreements/license?${licenseQuery.toString()}`;
 
@@ -368,7 +383,9 @@ export function PlaidLinkScreen() {
         licenseId,
         licenseToken: tokenPreview,
         agreementId,
-        applicant: applicantEmail,
+        applicantFullName: trimmedName,
+        applicantEmail: finalEmail,
+        applicant: effectiveApplicant,
         cohort: activeCohort.id,
         credentialIdentifier: contract.credentialIdentifier,
         jurisdiction: jurisdictionCode,
@@ -398,7 +415,7 @@ export function PlaidLinkScreen() {
       }
 
       setActivationMessage(
-        `Booking confirmed (${selectedStayDays} days: ${checkInIso} → ${validUntil}). Digital entry pass ready.`,
+        `Signed & Executed (${selectedStayDays} days: ${checkInIso} → ${validUntil}) for ${trimmedName} (${finalEmail}). Digital entry pass ready.`,
       );
       if (decision?.approved) {
         router.push("/dashboard");
@@ -452,46 +469,85 @@ export function PlaidLinkScreen() {
         aria-label="Instant booking and bank verification"
       >
         <div className="google-headline">
-          <h1>Complete your reservation in 60 seconds.</h1>
+          <h1>Sign &amp; Complete Your 7-to-90-Day Reservation</h1>
           <p>
-            <strong>{selectedCard.title}</strong> ({selectedCard.dailyPriceLabel}) ·{" "}
-            <strong>$0 Security Deposit</strong> · <strong>No Credit Check</strong> ·{" "}
-            <strong>Instant Bank Link Setup</strong>
+            <strong>{selectedCard.title}</strong> ({selectedCard.dailyPriceLabel} ·{" "}
+            {selectedCard.weeklyPriceLabel}) · <strong>$0 Security Deposit</strong> ·{" "}
+            <strong>No Credit Check</strong> · <strong>Instant Bank Link Setup</strong>
           </p>
         </div>
 
-        {/* CONSUMER VALUE BAR */}
-        <div className="vr-value-badges" aria-label="Reservation benefits">
-          <div className="vr-value-badge">
-            <span className="vr-value-badge__icon" aria-hidden="true">
-              ✓
-            </span>
-            <div>
-              <strong>$0 Security Deposit</strong>
-              <span>Move in without upfront deposit lockups</span>
-            </div>
+        {/* GUEST IDENTITY SIGN-UP & ELECTRONIC SIGNATURE PANEL */}
+        <div
+          className="panel stack relative z-10"
+          style={{ width: "100%", maxWidth: "62rem", textAlign: "left" }}
+          role="region"
+          aria-label="Guest Identity Sign-Up and Electronic Signature"
+        >
+          <div>
+            <p className="pass-kicker">
+              Mandatory Guest Identity &amp; Electronic Signature Binding
+            </p>
+            <h2>Enter Your Legal Full Name &amp; Sign Your Revocable Commercial License</h2>
+            <p className="note">
+              Your Legal Full Name and Verified Email are printed directly on your{" "}
+              <strong>Revocable Commercial License to Occupy</strong> and{" "}
+              <strong>Stay Passport PDF</strong> and cryptographically bound to your smart-lock
+              entry token.
+            </p>
           </div>
-          <div className="vr-value-badge">
-            <span className="vr-value-badge__icon" aria-hidden="true">
-              ✓
-            </span>
-            <div>
-              <strong>No Credit Check</strong>
-              <span>Protect your credit score</span>
-            </div>
+
+          <div className="simple-grid-2">
+            <label className="field">
+              <span>Your Legal Full Name (Printed on Document) *</span>
+              <input
+                type="text"
+                required
+                placeholder="Jordan Taylor"
+                value={guestFullName}
+                onChange={(e) => setGuestFullName(e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span>Your Verified Email Address *</span>
+              <input
+                type="email"
+                required
+                placeholder="jordan.taylor@domain.com"
+                value={prefilledLeadEmail}
+                onChange={(e) => setPrefilledLeadEmail(e.target.value)}
+              />
+            </label>
           </div>
-          <div className="vr-value-badge">
-            <span className="vr-value-badge__icon" aria-hidden="true">
-              ✓
+
+          <label
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "0.6rem",
+              fontSize: "0.86rem",
+              color: "#f8fafc",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={licenseSigned}
+              onChange={(e) => setLicenseSigned(e.target.checked)}
+              style={{ marginTop: "0.22rem", accentColor: "#e5b869" }}
+            />
+            <span>
+              <strong>Electronic Signature (/s/ {guestFullName.trim() || "Your Name"}):</strong> I,{" "}
+              <strong>{guestFullName.trim() || "[Enter Your Legal Full Name Above]"}</strong>,
+              electronically sign and agree to the{" "}
+              <strong>Revocable Commercial License to Occupy</strong> ({selectedStayDays}-day
+              non-tenancy stay agreement) and authorize 1:1 weekly billing and digital smart-lock
+              keyway issuance.
             </span>
-            <div>
-              <strong>Instant Bank Link Setup</strong>
-              <span>Fast Plaid verification &amp; digital key</span>
-            </div>
-          </div>
+          </label>
         </div>
 
-        {/* MINIMALIST DESTINATION + CHECK-IN / CHECK-OUT + INSTANT ACTION BAR */}
+        {/* MINIMALIST DESTINATION + STAY LENGTH + CHECK-IN + INSTANT ACTION BAR */}
         <div
           className="google-search-bar vr-clean-booking-bar relative z-10"
           style={{ position: "relative", zIndex: 10 }}
@@ -571,56 +627,17 @@ export function PlaidLinkScreen() {
             disabled={activatingPass}
             onClick={() => void handleActivateWeeklyBillingAndPass()}
           >
-            {activatingPass ? "Confirming..." : "Confirm & Issue Stay Pass"}
+            {activatingPass
+              ? "Executing..."
+              : `Sign & Issue ${selectedStayDays}-Day Pass`}
           </button>
         </div>
 
-        {/* SINGLE PREMIUM TIER SELECTOR: 3 VISUAL CARDS */}
-        <div
-          className="vr-tier-selector-section"
-          role="region"
-          aria-label="Select your space tier"
-        >
-          <div className="vr-tier-cards-grid" role="radiogroup" aria-label="Space tiers">
-            {SPACE_TIER_CARDS.map((card) => {
-              const isSelected = selectedTierId === card.id;
-              return (
-                <div
-                  key={card.id}
-                  role="radio"
-                  aria-checked={isSelected}
-                  tabIndex={0}
-                  className={`vr-tier-card${isSelected ? " vr-tier-card--selected" : ""}`}
-                  onClick={() => selectTier(card.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      selectTier(card.id);
-                    }
-                  }}
-                >
-                  <div className="vr-tier-card__top">
-                    <span className="vr-tier-card__badge">{card.badge}</span>
-                    <span className="vr-tier-card__code">{card.codeLabel}</span>
-                  </div>
-                  <div className="vr-tier-card__title-row">
-                    <h3>{card.title}</h3>
-                    <div className="vr-tier-card__price">
-                      <strong>{card.dailyPriceLabel}</strong>
-                      <span>{card.weeklyPriceLabel}</span>
-                    </div>
-                  </div>
-                  <p className="vr-tier-card__summary">{card.summary}</p>
-                  <div className="vr-tier-card__footer">
-                    <span className="vr-tier-card__select-indicator">
-                      {isSelected ? "✓ Selected Space" : "Select Space"}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        {activationError ? (
+          <p className="error" role="alert">
+            {activationError}
+          </p>
+        ) : null}
 
         {error ? (
           <p className="error" role="alert">
@@ -634,7 +651,8 @@ export function PlaidLinkScreen() {
             weeklyStayCents={clampedWeeklyStayCents}
             jurisdictionCode={jurisdictionCode}
             stayDays={prefilledStayDays ?? activeCohort.defaultStayDays}
-            applicantEmail={prefilledLeadEmail}
+            applicantFullName={guestFullName.trim() || null}
+            applicantEmail={prefilledLeadEmail.trim() || null}
             activatingPass={activatingPass}
             activationMessage={activationMessage}
             activationError={activationError}
@@ -651,29 +669,45 @@ export function PlaidLinkScreen() {
           >
             <div className="stay-card-head" style={{ flexWrap: "wrap" }}>
               <div>
-                <p className="pass-kicker">Reservation Confirmed</p>
+                <p className="pass-kicker">
+                  Signed &amp; Executed · Licensee:{" "}
+                  {confirmedBooking.applicantFullName || confirmedBooking.applicant}
+                </p>
                 <h2>
-                  {formatReadableDate(confirmedBooking.checkInDate)} →{" "}
+                  BOOKED: {formatReadableDate(confirmedBooking.checkInDate)} →{" "}
                   {formatReadableDate(confirmedBooking.validUntil)} (
-                  {confirmedBooking.stayDays} Nights)
+                  {confirmedBooking.stayDays} Days)
                 </h2>
               </div>
               <span className="stay-badge" data-status="active">
-                $0 Security Deposit
+                Signed: /s/ {confirmedBooking.applicantFullName || "Verified Guest"}
               </span>
             </div>
 
             <div className="vr-booking-confirmation__grid">
               <div>
-                <span>Space Tier</span>
+                <span>Licensee Legal Full Name</span>
                 <strong>
-                  {confirmedBooking.tier} ·{" "}
-                  {formatCurrencyCents(confirmedBooking.dailyRateCents)}/day
+                  {confirmedBooking.applicantFullName || confirmedBooking.applicant}
                 </strong>
               </div>
               <div>
-                <span>Destination</span>
-                <strong>{confirmedBooking.jurisdiction}</strong>
+                <span>Verified Email</span>
+                <strong>{confirmedBooking.applicantEmail || confirmedBooking.applicant}</strong>
+              </div>
+              <div>
+                <span>Space Tier &amp; Rate</span>
+                <strong>
+                  {confirmedBooking.tier} ·{" "}
+                  {formatCurrencyCents(confirmedBooking.dailyRateCents)}/day (
+                  {formatCurrencyCents(confirmedBooking.weeklyRateCents)}/wk)
+                </strong>
+              </div>
+              <div>
+                <span>Electronic Signature &amp; Token</span>
+                <code>
+                  /s/ {confirmedBooking.applicantFullName} · {confirmedBooking.licenseToken}
+                </code>
               </div>
             </div>
 
@@ -681,16 +715,16 @@ export function PlaidLinkScreen() {
               <a
                 className="button"
                 href={confirmedBooking.passportPdfHref}
-                download={`VettedRent-Trust-Passport-${confirmedBooking.cohort}.pdf`}
+                download={`VettedRent-Trust-Passport-${(confirmedBooking.applicantFullName || "Guest").replace(/\s+/g, "-")}.pdf`}
               >
-                Download Stay Passport (PDF) ↓
+                Download Signed Stay Passport (PDF) ↓
               </a>
               <a
                 className="button button-secondary"
                 href={confirmedBooking.commercialLicensePdfHref}
-                download={`VettedRent-Commercial-License-${confirmedBooking.cohort}-${confirmedBooking.jurisdiction}.pdf`}
+                download={`VettedRent-Commercial-License-${(confirmedBooking.applicantFullName || "Guest").replace(/\s+/g, "-")}.pdf`}
               >
-                Download Stay Agreement (PDF) ↓
+                Download Signed Commercial License (PDF) ↓
               </a>
               <Link className="button button-secondary" href="/dashboard">
                 Open Digital Key Dashboard →
@@ -698,19 +732,6 @@ export function PlaidLinkScreen() {
             </div>
           </div>
         ) : null}
-
-        <div className="google-pill-row">
-          <button
-            type="button"
-            className="google-info-pill google-calendar-trigger"
-            onClick={() => setShowCalendar((prev) => !prev)}
-          >
-            <strong>{showCalendar ? "Hide Date Calendar ▲" : "View Availability Calendar ▼"}</strong>
-            <span>
-              {formatReadableDate(checkInIso)} → {formatReadableDate(checkOutIso)}
-            </span>
-          </button>
-        </div>
 
         {showCalendar ? (
           <AvailabilityCalendar
@@ -724,6 +745,7 @@ export function PlaidLinkScreen() {
             onSelectCheckIn={(iso) => updateCheckInDate(iso)}
             cohortId={activeCohort.id}
             jurisdictionCode={jurisdictionCode}
+            applicantFullName={guestFullName}
             applicantEmail={prefilledLeadEmail}
             credentialIdentifier={contract.credentialIdentifier}
             context="underwriting"
@@ -784,6 +806,7 @@ function Decision({
   weeklyStayCents,
   jurisdictionCode,
   stayDays,
+  applicantFullName,
   applicantEmail,
   activatingPass,
   activationMessage,
@@ -805,6 +828,7 @@ function Decision({
   weeklyStayCents: number;
   jurisdictionCode: string;
   stayDays: number;
+  applicantFullName: string | null;
   applicantEmail: string | null;
   activatingPass: boolean;
   activationMessage: string | null;
@@ -821,7 +845,8 @@ function Decision({
     monthlyInflow: String(decision.monthlyInflowEstimated),
     contractEnd: decision.contractEndDate,
     stayEnd: decision.intendedStayEndDate,
-    ...(applicantEmail ? { applicant: applicantEmail } : {}),
+    ...(applicantFullName ? { fullName: applicantFullName } : {}),
+    ...(applicantEmail ? { email: applicantEmail, applicant: applicantEmail } : {}),
   });
   const passportHref = `/api/underwriting/trust-passport?${passportQuery.toString()}`;
 
@@ -835,7 +860,8 @@ function Decision({
     weeklyFeeCents: String(weeklyStayCents),
     purposeEnd: decision.contractEndDate,
     stayEnd: decision.intendedStayEndDate,
-    ...(applicantEmail ? { licensee: applicantEmail } : {}),
+    ...(applicantFullName ? { fullName: applicantFullName } : {}),
+    ...(applicantEmail ? { email: applicantEmail, licensee: applicantEmail } : {}),
   });
   const licenseHref = `/api/agreements/license?${licenseQuery.toString()}`;
 
@@ -857,7 +883,8 @@ function Decision({
       </div>
 
       <p className="note">
-        Rate: <strong>{formatCurrencyCents(decisionComparison.grossDailyRateCents)}/day</strong> ·{" "}
+        Licensee: <strong>{applicantFullName || "Enter Legal Full Name Above"}</strong> · Rate:{" "}
+        <strong>{formatCurrencyCents(decisionComparison.grossDailyRateCents)}/day</strong> ·{" "}
         <strong>$0 Security Deposit</strong> · <strong>No Credit Check</strong>
       </p>
 
@@ -877,22 +904,22 @@ function Decision({
           >
             {activatingPass
               ? "Activating..."
-              : "Activate Stay & Get Door Code →"}
+              : `Execute Signed Stay as ${applicantFullName || "Guest"} →`}
           </button>
 
           <a
             className="button button-secondary"
             href={passportHref}
-            download={`VettedRent-Trust-Passport-${decision.credentialType}.pdf`}
+            download={`VettedRent-Trust-Passport-${(applicantFullName || decision.credentialType).replace(/\s+/g, "-")}.pdf`}
           >
-            Stay Passport (PDF) ↓
+            Signed Stay Passport (PDF) ↓
           </a>
           <a
             className="button button-secondary"
             href={licenseHref}
-            download={`VettedRent-Commercial-License-${decision.credentialType}-${jurisdictionCode}.pdf`}
+            download={`VettedRent-Commercial-License-${(applicantFullName || decision.credentialType).replace(/\s+/g, "-")}-${jurisdictionCode}.pdf`}
           >
-            Stay Agreement (PDF) ↓
+            Signed Stay Agreement (PDF) ↓
           </a>
         </div>
       ) : null}
