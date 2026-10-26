@@ -2575,6 +2575,83 @@ h2 {
   font-weight: 700;
 }
 
+/* ==========================================================================
+   UNIFIED SINGLE-SECTION MARKETPLACE (HERO + SEARCH BAR + PILLS + 3 CARDS)
+   ========================================================================== */
+
+.google-home--unified {
+  width: min(76rem, 100%);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.25rem 1.5rem 1.75rem;
+}
+
+.vr-unified-marketplace {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.35rem;
+  padding: 2rem 1.75rem;
+  border-radius: 26px;
+  background: rgba(8, 12, 22, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  box-shadow: 0 32px 72px -20px rgba(0, 0, 0, 0.8);
+}
+
+@media (max-width: 720px) {
+  .vr-unified-marketplace {
+    padding: 1.35rem 1rem;
+  }
+}
+
+.vr-unified-marketplace__head {
+  text-align: center;
+  max-width: 48rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.vr-unified-marketplace__title {
+  font-size: clamp(2rem, 4.2vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+  color: #ffffff;
+  margin: 0;
+}
+
+.vr-unified-marketplace__sub {
+  font-size: 1.06rem;
+  color: rgba(248, 250, 252, 0.88);
+  margin: 0;
+}
+
+.vr-unified-marketplace__sub strong {
+  color: var(--accent-bright);
+}
+
+.vr-unified-marketplace .vr-clean-booking-bar {
+  max-width: 68rem;
+  width: 100%;
+}
+
+.border-emerald-400 {
+  border-color: #34d399;
+}
+
+.hover\:border-emerald-500\/30:hover {
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+
 
 
 

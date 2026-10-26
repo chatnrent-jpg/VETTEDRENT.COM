@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { AvailabilityCalendar } from "@/components/availability-calendar";
+import { ListingDiscoveryGrid } from "@/src/components/ListingGrid";
 import {
   addDaysIsoUtc,
   formatReadableDate,
@@ -44,6 +45,7 @@ export function DualBrandHome({
   const isLandlord = perspective === "landlord";
 
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [activeTierFilter, setActiveTierFilter] = useState<string>("ALL");
   const [selectedTierId, setSelectedTierId] = useState<DailyRateTierId>("RoomSanctuary");
   const [selectedWeeklyCents, setSelectedWeeklyCents] = useState<number>(31500);
   const [selectedCohortId] = useState<PurposeCohortId>("Contract-Assignment");
@@ -66,25 +68,9 @@ export function DualBrandHome({
   const selectedCard =
     SPACE_TIER_CARDS.find((card) => card.id === selectedTierId) ?? SPACE_TIER_CARDS[0];
 
-  function broadcastSearch(nextQuery: string, nextTier: string) {
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(
-        new CustomEvent("vettedrent:search-spaces", {
-          detail: { query: nextQuery, tier: nextTier },
-        }),
-      );
-    }
-  }
-
   function selectTier(nextTierId: DailyRateTierId) {
     setSelectedTierId(nextTierId);
     setSelectedWeeklyCents(DAILY_RATE_PRESET_TIERS[nextTierId].weeklyRateCents);
-    broadcastSearch(searchQuery, "ALL");
-  }
-
-  function handleSearchQueryChange(nextQuery: string) {
-    setSearchQuery(nextQuery);
-    broadcastSearch(nextQuery, "ALL");
   }
 
   function handleCheckInChange(nextCheckInIso: string) {
@@ -140,7 +126,7 @@ export function DualBrandHome({
   const underwritingHref = `/underwriting?tier=${encodeURIComponent(selectedTierId)}&weeklyCents=${clampedWeeklyCents}&days=${stayDays}&checkIn=${encodeURIComponent(checkInIso)}&cohort=${encodeURIComponent(selectedCohortId)}&jurisdiction=${encodeURIComponent(selectedJurisdictionCode)}`;
 
   return (
-    <div className="google-home google-home--compact" data-perspective={perspective}>
+    <main className="google-home google-home--unified" data-perspective={perspective}>
       <div
         className="google-hero-backdrop pointer-events-none"
         style={{ pointerEvents: "none" }}
@@ -185,70 +171,47 @@ export function DualBrandHome({
         </nav>
       </header>
 
-      {/* CENTERED AIRBNB / HOTWIRE STYLE HERO & SEARCHABLE BOOKING STAGE */}
+      {/* SINGLE UNIFIED MARKETPLACE & SEARCH CONTAINER */}
       <section
-        className="google-stage relative z-10"
-        style={{ position: "relative", zIndex: 10, paddingBottom: "0.75rem" }}
-        aria-label="Search and book furnished stays"
+        id="searchable-spaces"
+        className="vr-unified-marketplace relative z-10"
+        aria-label="Live Searchable Marketplace"
       >
-        {/* CONSUMER VALUE HEADLINE */}
-        {!isLandlord ? (
-          <div className="google-headline">
-            <h1>Move-in ready stays from {selectedCard.dailyPriceLabel}.</h1>
-            <p>
-              Book verified furnished spaces with <strong>$0 Security Deposit</strong>,{" "}
-              <strong>No Credit Check</strong>, and <strong>Instant Bank Link Setup</strong>.
-            </p>
+        {/* UNIFIED MARKETPLACE HEADER */}
+        <div className="vr-unified-marketplace__head">
+          <div className="text-xs uppercase tracking-widest text-emerald-400 font-bold">
+            Live Searchable Marketplace · Maryland Clinical Corridors
           </div>
-        ) : (
-          <div className="google-headline">
-            <h1>Host verified mid-term guests with confidence.</h1>
-            <p>
-              Welcome pre-verified traveling professionals with{" "}
-              <strong>$0 Security Deposit</strong> friction, <strong>No Credit Check</strong>{" "}
-              delays, and <strong>Instant Bank Link Setup</strong>.
-            </p>
-          </div>
-        )}
-
-        {/* CONSUMER VALUE TRUST BAR */}
-        <div className="vr-value-badges" aria-label="Consumer benefits">
-          <div className="vr-value-badge">
-            <span className="vr-value-badge__icon" aria-hidden="true">
-              ✓
-            </span>
-            <div>
-              <strong>$0 Security Deposit</strong>
-              <span>Keep your cash at move-in</span>
-            </div>
-          </div>
-          <div className="vr-value-badge">
-            <span className="vr-value-badge__icon" aria-hidden="true">
-              ✓
-            </span>
-            <div>
-              <strong>No Credit Check</strong>
-              <span>Zero impact on your credit score</span>
-            </div>
-          </div>
-          <div className="vr-value-badge">
-            <span className="vr-value-badge__icon" aria-hidden="true">
-              ✓
-            </span>
-            <div>
-              <strong>Instant Bank Link Setup</strong>
-              <span>60-second verification via Plaid</span>
-            </div>
-          </div>
+          {!isLandlord ? (
+            <>
+              <h1 className="vr-unified-marketplace__title">
+                Explore Verified Mid-Term Spaces
+              </h1>
+              <p className="vr-unified-marketplace__sub">
+                Move-in ready accommodations with <strong>$0 Security Deposit</strong>,{" "}
+                <strong>No Credit Check</strong>, and <strong>Instant Bank Link Setup</strong>.
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="vr-unified-marketplace__title">
+                Host Verified Mid-Term Guests with Confidence
+              </h1>
+              <p className="vr-unified-marketplace__sub">
+                Welcome pre-verified traveling professionals with{" "}
+                <strong>$0 Security Deposit</strong> friction, <strong>No Credit Check</strong>{" "}
+                delays, and <strong>Instant Bank Link Setup</strong>.
+              </p>
+            </>
+          )}
         </div>
 
-        {/* PROMINENT SEARCHABLE SPACE & DATE RANGE BAR */}
+        {/* UNIFIED SEARCH / BOOKING BAR INSIDE THE MARKETPLACE */}
         {!isLandlord ? (
           <div
             className="google-search-bar vr-clean-booking-bar relative z-10"
-            style={{ position: "relative", zIndex: 10 }}
             role="search"
-            aria-label="Search stays by destination, space, and dates"
+            aria-label="Search stays by destination, space tier, and dates"
           >
             <label className="google-search-cell vr-search-cell--destination">
               <span>Where are you traveling? (Search Space / City / Hospital)</span>
@@ -258,24 +221,29 @@ export function DualBrandHome({
                 aria-label="Where are you traveling?"
                 placeholder="Hyattsville, Bethesda, Bowie, Johns Hopkins..."
                 value={searchQuery}
-                onChange={(e) => handleSearchQueryChange(e.target.value)}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
               <datalist id="vr-destination-suggestions">
-                <option value="Hyattsville, MD — UM Capital Region Medical Center" />
-                <option value="Bethesda, MD — Suburban Hospital (Johns Hopkins)" />
-                <option value="Bowie, MD — Regional Medical Transit Corridor" />
-                <option value="RoomSanctuary ($45/day)" />
-                <option value="PrivateSuite ($75/day)" />
-                <option value="ExecutiveTownhome ($106/day)" />
+                <option value="Hyattsville" />
+                <option value="Bethesda" />
+                <option value="Bowie" />
+                <option value="Johns Hopkins" />
+                <option value="UM Capital Region Medical Center" />
+                <option value="RoomSanctuary" />
+                <option value="PrivateSuite" />
+                <option value="ExecutiveTownhome" />
               </datalist>
             </label>
 
             <label className="google-search-cell">
               <span>Space Tier</span>
               <select
-                aria-label="Select space tier"
+                aria-label="Space Tier"
                 value={selectedTierId}
-                onChange={(e) => selectTier(e.target.value as DailyRateTierId)}
+                onChange={(e) => {
+                  const nextTier = e.target.value as DailyRateTierId;
+                  selectTier(nextTier);
+                }}
               >
                 {SPACE_TIER_CARDS.map((card) => (
                   <option key={card.id} value={card.id}>
@@ -313,7 +281,6 @@ export function DualBrandHome({
         ) : (
           <form
             className="google-search-bar vr-clean-booking-bar relative z-10"
-            style={{ position: "relative", zIndex: 10 }}
             onSubmit={(e) => void handleQuickHostStart(e)}
             aria-label="List your property"
           >
@@ -368,8 +335,12 @@ export function DualBrandHome({
 
         {hostNotice ? <p className="payload">{hostNotice}</p> : null}
 
-        {/* COMPACT 3-TIER SELECTOR BAR + CALENDAR TOGGLE */}
-        <div className="google-pill-row" role="radiogroup" aria-label="Quick select space tier">
+        {/* SINGLE UNIFIED ROW OF TIER PILLS + CALENDAR TOGGLE */}
+        <div
+          className="google-pill-row"
+          role="radiogroup"
+          aria-label="Select or filter space tier"
+        >
           {SPACE_TIER_CARDS.map((card) => {
             const isSelected = selectedTierId === card.id;
             return (
@@ -378,8 +349,15 @@ export function DualBrandHome({
                 type="button"
                 role="radio"
                 aria-checked={isSelected}
-                className={`google-info-pill google-calendar-trigger${isSelected ? " vr-pill-selected" : ""}`}
-                onClick={() => selectTier(card.id)}
+                className={`google-info-pill google-calendar-trigger${
+                  isSelected ? " vr-pill-selected" : ""
+                }`}
+                onClick={() => {
+                  selectTier(card.id);
+                  setActiveTierFilter((prev) =>
+                    prev === card.id && isSelected ? "ALL" : "ALL",
+                  );
+                }}
               >
                 <strong>
                   {isSelected ? "✓ " : ""}
@@ -389,6 +367,21 @@ export function DualBrandHome({
               </button>
             );
           })}
+
+          {searchQuery || activeTierFilter !== "ALL" ? (
+            <button
+              type="button"
+              className="google-info-pill google-calendar-trigger"
+              onClick={() => {
+                setSearchQuery("");
+                setActiveTierFilter("ALL");
+              }}
+            >
+              <strong>Reset Filter</strong>
+              <span>Show all 3 spaces</span>
+            </button>
+          ) : null}
+
           <button
             type="button"
             className="google-info-pill google-calendar-trigger"
@@ -401,6 +394,7 @@ export function DualBrandHome({
           </button>
         </div>
 
+        {/* COLLAPSIBLE AVAILABILITY CALENDAR */}
         {showCalendar ? (
           <AvailabilityCalendar
             mode={isLandlord ? "landlord" : "tenant"}
@@ -419,7 +413,38 @@ export function DualBrandHome({
             context="home"
           />
         ) : null}
+
+        {/* THE 3 LOCALIZED MARYLAND PROPERTY CARDS INSIDE THE SAME SECTION */}
+        <ListingDiscoveryGrid
+          searchQuery={searchQuery}
+          activeTierFilter={activeTierFilter}
+          selectedTierId={selectedTierId}
+          checkInIso={checkInIso}
+          stayDays={stayDays}
+          jurisdictionCode={selectedJurisdictionCode}
+          onSelectTier={(tier) => selectTier(tier)}
+          onResetFilters={() => {
+            setSearchQuery("");
+            setActiveTierFilter("ALL");
+          }}
+        />
       </section>
-    </div>
+
+      {/* CLEAN FOOTER */}
+      <footer
+        className="google-footer relative z-10"
+        style={{ position: "relative", zIndex: 10 }}
+      >
+        <span>
+          VettedRent ({stay.name}) · <strong>$0 Security Deposit</strong> ·{" "}
+          <strong>No Credit Check</strong> · <strong>Instant Bank Link Setup</strong>
+        </span>
+        <div className="google-footer__links">
+          <Link href="/underwriting">Book a Stay</Link>
+          <Link href="/host/onboard">List Your Property</Link>
+          <Link href="/dashboard">Sign In</Link>
+        </div>
+      </footer>
+    </main>
   );
 }
