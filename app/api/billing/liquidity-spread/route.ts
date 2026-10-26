@@ -156,8 +156,8 @@ function renderPrivateGateHtml(): string {
       --bg: #0b0f17;
       --text: #f8fafc;
       --muted: #cbd5e1;
-      --accent: #e5b869;
-      --accent-bright: #f3cc85;
+      --accent: #10b981;
+      --accent-bright: #34d399;
       --accent-ink: #111827;
       --line: rgba(255, 255, 255, 0.2);
     }
@@ -221,7 +221,7 @@ function renderPrivateGateHtml(): string {
       height: 2.65rem;
       border-radius: 10px;
       object-fit: cover;
-      border: 1px solid rgba(229, 184, 105, 0.55);
+      border: 1px solid rgba(16, 185, 129, 0.55);
     }
     .logo strong {
       font-size: 1.35rem;
@@ -275,8 +275,8 @@ function renderPrivateGateHtml(): string {
     .badge {
       padding: 0.35rem 0.9rem;
       border-radius: 999px;
-      background: rgba(229, 184, 105, 0.16);
-      border: 1px solid rgba(229, 184, 105, 0.4);
+      background: rgba(16, 185, 129, 0.16);
+      border: 1px solid rgba(16, 185, 129, 0.4);
       color: var(--accent-bright);
       font-size: 0.76rem;
       font-weight: 700;
@@ -352,10 +352,10 @@ function renderLiquiditySpreadHtml(
       --bg: #0b0f17;
       --text: #f8fafc;
       --muted: #cbd5e1;
-      --accent: #e5b869;
-      --accent-bright: #f3cc85;
+      --accent: #10b981;
+      --accent-bright: #34d399;
       --accent-ink: #111827;
-      --ok: #f3cc85;
+      --ok: #34d399;
       --line: rgba(255, 255, 255, 0.18);
     }
     * { box-sizing: border-box; }
@@ -418,7 +418,7 @@ function renderLiquiditySpreadHtml(
       height: 2.65rem;
       border-radius: 10px;
       object-fit: cover;
-      border: 1px solid rgba(229, 184, 105, 0.55);
+      border: 1px solid rgba(16, 185, 129, 0.55);
     }
     .logo strong {
       font-size: 1.35rem;

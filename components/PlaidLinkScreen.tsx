@@ -534,7 +534,7 @@ export function PlaidLinkScreen() {
               type="checkbox"
               checked={licenseSigned}
               onChange={(e) => setLicenseSigned(e.target.checked)}
-              style={{ marginTop: "0.22rem", accentColor: "#e5b869" }}
+              style={{ marginTop: "0.22rem", accentColor: "#10b981" }}
             />
             <span>
               <strong>Electronic Signature (/s/ {guestFullName.trim() || "Your Name"}):</strong> I,{" "}

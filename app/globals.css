@@ -5,11 +5,11 @@
   --text: #f8fafc;
   --muted: #94a3b8;
   --line: rgba(255, 255, 255, 0.1);
-  --accent: #e5b869;
-  --accent-bright: #f3cc85;
+  --accent: #10b981;
+  --accent-bright: #34d399;
   --accent-ink: #111827;
-  --ok: #f3cc85;
-  --ok-bg: rgba(229, 184, 105, 0.14);
+  --ok: #34d399;
+  --ok-bg: rgba(16, 185, 129, 0.14);
   --danger: #f87171;
   color-scheme: dark;
 }
@@ -26,7 +26,7 @@ body {
   background-color: var(--bg);
   background-image: radial-gradient(
     ellipse 80% 50% at 50% -15%,
-    rgba(229, 184, 105, 0.12),
+    rgba(16, 185, 129, 0.12),
     transparent 70%
   );
   color: var(--text);
@@ -137,8 +137,8 @@ a {
   height: 2.65rem;
   border-radius: 10px;
   object-fit: cover;
-  border: 1px solid rgba(229, 184, 105, 0.55);
-  box-shadow: 0 4px 14px rgba(229, 184, 105, 0.35);
+  border: 1px solid rgba(16, 185, 129, 0.55);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
 }
 
 .google-logo-lockup {
@@ -282,7 +282,7 @@ a {
   border-radius: 13px;
   font-size: 0.98rem;
   white-space: nowrap;
-  box-shadow: 0 10px 28px -6px rgba(229, 184, 105, 0.55);
+  box-shadow: 0 10px 28px -6px rgba(16, 185, 129, 0.55);
 }
 
 @media (max-width: 780px) {
@@ -323,7 +323,7 @@ a {
 .google-calendar-trigger {
   font: inherit;
   cursor: pointer;
-  border-color: rgba(229, 184, 105, 0.45);
+  border-color: rgba(16, 185, 129, 0.45);
   transition: border-color 140ms ease, transform 140ms ease;
 }
 
@@ -393,8 +393,8 @@ a {
 }
 
 .vr-calendar-status[data-available="true"] {
-  background: rgba(229, 184, 105, 0.16);
-  border: 1px solid rgba(229, 184, 105, 0.45);
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.45);
   color: var(--accent-bright);
 }
 
@@ -453,7 +453,7 @@ a {
   padding: 0.45rem 0.3rem;
   border-radius: 11px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(229, 184, 105, 0.08);
+  background: rgba(16, 185, 129, 0.08);
   color: #ffffff;
   font: inherit;
   cursor: pointer;
@@ -466,14 +466,14 @@ a {
 }
 
 .vr-calendar-day[data-state="selected"] {
-  background: rgba(229, 184, 105, 0.28);
+  background: rgba(16, 185, 129, 0.28);
   border-color: var(--accent-bright);
-  box-shadow: inset 0 0 0 1px rgba(229, 184, 105, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.4);
 }
 
 .vr-calendar-day[data-window="true"] {
-  background: rgba(229, 184, 105, 0.22);
-  border-color: rgba(243, 204, 133, 0.65);
+  background: rgba(16, 185, 129, 0.22);
+  border-color: rgba(52, 211, 153, 0.65);
   color: #ffffff;
 }
 
@@ -541,7 +541,7 @@ a {
 }
 
 .vr-dot--window {
-  background: rgba(229, 184, 105, 0.55);
+  background: rgba(16, 185, 129, 0.55);
   border: 1px solid var(--accent-bright);
 }
 
@@ -557,8 +557,8 @@ a {
 .vr-calendar-confirmation-banner {
   padding: 0.55rem 0.95rem;
   border-radius: 12px;
-  background: rgba(229, 184, 105, 0.14);
-  border: 1px solid rgba(229, 184, 105, 0.45);
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.45);
   color: var(--accent-bright);
   font-size: 0.84rem;
 }
@@ -572,7 +572,7 @@ a {
   padding: 0.95rem 1.1rem;
   border-radius: 16px;
   background: rgba(19, 27, 42, 0.92);
-  border: 1px solid rgba(229, 184, 105, 0.45);
+  border: 1px solid rgba(16, 185, 129, 0.45);
   box-shadow: 0 16px 38px -14px rgba(0, 0, 0, 0.65);
 }
 
@@ -618,12 +618,12 @@ a {
 }
 
 .vr-test-book-btn {
-  border-color: rgba(229, 184, 105, 0.48) !important;
+  border-color: rgba(16, 185, 129, 0.48) !important;
   color: var(--accent-bright) !important;
 }
 
 .vr-test-book-btn:hover:not(:disabled) {
-  background: rgba(229, 184, 105, 0.16) !important;
+  background: rgba(16, 185, 129, 0.16) !important;
   border-color: var(--accent-bright) !important;
 }
 
@@ -633,7 +633,7 @@ a {
   padding: 1.1rem 1.2rem;
   border-radius: 16px;
   background: rgba(15, 21, 32, 0.92);
-  border: 1px solid rgba(229, 184, 105, 0.52);
+  border: 1px solid rgba(16, 185, 129, 0.52);
   box-shadow: 0 20px 44px -16px rgba(0, 0, 0, 0.75);
   text-align: left;
 }
@@ -700,7 +700,7 @@ a {
   padding: 0.48rem 1.05rem;
   border-radius: 999px;
   background: rgba(13, 18, 28, 0.76);
-  border: 1px solid rgba(229, 184, 105, 0.42);
+  border: 1px solid rgba(16, 185, 129, 0.42);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   box-shadow:
@@ -746,7 +746,7 @@ a {
   padding: 0.7rem 1.05rem;
   border-radius: 16px;
   background: rgba(13, 18, 28, 0.72);
-  border: 1px solid rgba(229, 184, 105, 0.28);
+  border: 1px solid rgba(16, 185, 129, 0.28);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   box-shadow: 0 14px 36px -14px rgba(0, 0, 0, 0.6);
@@ -815,7 +815,7 @@ a {
 
 .google-compare-drawer summary:hover {
   color: #ffffff;
-  border-color: rgba(229, 184, 105, 0.45);
+  border-color: rgba(16, 185, 129, 0.45);
 }
 
 .google-compare-drawer__body {
@@ -970,7 +970,7 @@ h2 {
 .audience-pill-switch button[aria-pressed="true"] {
   background: var(--accent);
   color: var(--accent-ink);
-  box-shadow: 0 4px 16px rgba(229, 184, 105, 0.45);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.45);
 }
 
 /* ==========================================================================
@@ -993,7 +993,7 @@ h2 {
 .fintech-card--hero,
 .fintech-card--emerald,
 .fintech-card--gold {
-  border-color: rgba(229, 184, 105, 0.28);
+  border-color: rgba(16, 185, 129, 0.28);
 }
 
 .fintech-card__header {
@@ -1087,7 +1087,7 @@ h2 {
   width: 1.75rem;
   height: 1.75rem;
   border-radius: 999px;
-  background: rgba(229, 184, 105, 0.16);
+  background: rgba(16, 185, 129, 0.16);
   color: var(--accent-bright);
   font-size: 0.82rem;
   font-weight: 700;
@@ -1148,8 +1148,8 @@ h2 {
   min-height: 1.9rem;
   padding: 0.15rem 0.75rem;
   border-radius: 999px;
-  background: rgba(229, 184, 105, 0.15);
-  border: 1px solid rgba(229, 184, 105, 0.32);
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.32);
   color: var(--accent-bright);
   font-weight: 650;
   font-size: 0.82rem;
@@ -1179,7 +1179,7 @@ h2 {
 .toggle button:hover,
 .button:hover,
 .actions button:hover {
-  border-color: rgba(229, 184, 105, 0.45);
+  border-color: rgba(16, 185, 129, 0.45);
 }
 
 .toggle button[aria-pressed="true"],
@@ -1314,12 +1314,12 @@ h2 {
 .stay-badge[data-status="active"] {
   color: var(--accent-bright);
   background: var(--ok-bg);
-  border-color: rgba(229, 184, 105, 0.42);
+  border-color: rgba(16, 185, 129, 0.42);
 }
 
 .stay-badge[data-status="warning"] {
   color: var(--accent-bright);
-  border-color: rgba(229, 184, 105, 0.4);
+  border-color: rgba(16, 185, 129, 0.4);
 }
 
 .stay-badge[data-status="terminated"] {
@@ -1347,7 +1347,7 @@ h2 {
   width: 100%;
   overflow: hidden;
   border-radius: 9999px;
-  background: rgba(229, 184, 105, 0.2);
+  background: rgba(16, 185, 129, 0.2);
 }
 
 .progress-indicator {
@@ -1606,11 +1606,11 @@ h2 {
 }
 
 .text-emerald-400 {
-  color: #f3cc85;
+  color: #34d399;
 }
 
 .bg-emerald-400 {
-  background-color: #e5b869;
+  background-color: #10b981;
 }
 
 .bg-slate-900\/40 {
@@ -1690,7 +1690,7 @@ h2 {
 }
 
 .border-emerald-500\/10 {
-  border-color: rgba(229, 184, 105, 0.32);
+  border-color: rgba(16, 185, 129, 0.32);
 }
 
 .last\:border-0:last-child {
@@ -1873,7 +1873,7 @@ h2 {
   width: 1.45rem;
   height: 1.45rem;
   border-radius: 999px;
-  background: rgba(229, 184, 105, 0.2);
+  background: rgba(16, 185, 129, 0.2);
   color: var(--accent-bright);
   font-size: 0.8rem;
   font-weight: 800;
@@ -1987,7 +1987,7 @@ h2 {
 
 .vr-tier-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(229, 184, 105, 0.55);
+  border-color: rgba(16, 185, 129, 0.55);
 }
 
 .vr-tier-card--selected {
@@ -1995,7 +1995,7 @@ h2 {
   border-color: var(--accent-bright);
   box-shadow:
     0 24px 52px -16px rgba(0, 0, 0, 0.75),
-    0 0 0 1px rgba(243, 204, 133, 0.45);
+    0 0 0 1px rgba(52, 211, 153, 0.45);
 }
 
 .vr-tier-card__top {
@@ -2010,8 +2010,8 @@ h2 {
   align-items: center;
   padding: 0.2rem 0.65rem;
   border-radius: 999px;
-  background: rgba(229, 184, 105, 0.16);
-  border: 1px solid rgba(229, 184, 105, 0.35);
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.35);
   color: var(--accent-bright);
   font-size: 0.72rem;
   font-weight: 700;
@@ -2136,15 +2136,15 @@ h2 {
 }
 
 .bg-emerald-500\/10 {
-  background-color: rgba(229, 184, 105, 0.15);
+  background-color: rgba(16, 185, 129, 0.15);
 }
 
 .bg-emerald-500 {
-  background-color: #e5b869;
+  background-color: #10b981;
 }
 
 .hover\:bg-emerald-400:hover:not(:disabled) {
-  background-color: #f3cc85;
+  background-color: #34d399;
 }
 
 .disabled\:bg-slate-800:disabled {
@@ -2246,7 +2246,7 @@ h2 {
 }
 
 .focus\:border-emerald-500:focus {
-  border-color: #e5b869;
+  border-color: #10b981;
 }
 
 /* ==========================================================================
@@ -2354,7 +2354,7 @@ h2 {
 }
 
 .to-emerald-950 {
-  --tw-gradient-to: #271f10;
+  --tw-gradient-to: #022c22;
 }
 
 .to-blue-950 {
@@ -2402,7 +2402,7 @@ h2 {
 }
 
 .hover\:border-emerald-500\/20:hover {
-  border-color: rgba(229, 184, 105, 0.38);
+  border-color: rgba(16, 185, 129, 0.38);
 }
 
 .group:hover .group-hover\:scale-\[1\.01\] {
@@ -2410,11 +2410,11 @@ h2 {
 }
 
 .group:hover .group-hover\:text-emerald-400 {
-  color: #f3cc85;
+  color: #34d399;
 }
 
 .group:hover .group-hover\:bg-emerald-500 {
-  background-color: #e5b869;
+  background-color: #10b981;
 }
 
 .group:hover .group-hover\:text-slate-950 {
@@ -2471,8 +2471,8 @@ h2 {
 
 .vr-pill-selected {
   border-color: var(--accent-bright) !important;
-  background: rgba(229, 184, 105, 0.18) !important;
-  box-shadow: 0 0 0 1px rgba(243, 204, 133, 0.45);
+  background: rgba(16, 185, 129, 0.18) !important;
+  box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.45);
 }
 
 .vr-discovery-header {
@@ -2491,7 +2491,7 @@ h2 {
   padding: 0.85rem 1rem;
   border-radius: 16px;
   background: rgba(15, 23, 42, 0.88);
-  border: 1px solid rgba(229, 184, 105, 0.35);
+  border: 1px solid rgba(16, 185, 129, 0.35);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   box-shadow: 0 18px 40px -16px rgba(0, 0, 0, 0.65);
@@ -2510,7 +2510,7 @@ h2 {
 
 .vr-space-search-input-wrap:focus-within {
   border-color: var(--accent-bright);
-  box-shadow: 0 0 0 2px rgba(229, 184, 105, 0.22);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.22);
 }
 
 .vr-space-search-icon {
@@ -2569,7 +2569,7 @@ h2 {
 }
 
 .vr-space-tier-pill--active {
-  background: #e5b869;
+  background: #10b981;
   color: #111827;
   border-color: transparent;
   font-weight: 700;
@@ -2644,11 +2644,11 @@ h2 {
 }
 
 .border-emerald-400 {
-  border-color: #f3cc85;
+  border-color: #34d399;
 }
 
 .hover\:border-emerald-500\/30:hover {
-  border-color: rgba(229, 184, 105, 0.45);
+  border-color: rgba(16, 185, 129, 0.45);
 }
 
 /* ==========================================================================
@@ -2672,7 +2672,7 @@ h2 {
   padding: 0.9rem 1.15rem;
   border-radius: 18px;
   background: rgba(15, 21, 32, 0.92);
-  border: 1px solid rgba(229, 184, 105, 0.42);
+  border: 1px solid rgba(16, 185, 129, 0.42);
   box-shadow: 0 14px 32px -12px rgba(0, 0, 0, 0.65);
   text-align: center;
 }
@@ -2686,7 +2686,7 @@ h2 {
   padding: 0.35rem 0.65rem;
   border-radius: 999px;
   background: rgba(2, 6, 23, 0.65);
-  border: 1px solid rgba(229, 184, 105, 0.35);
+  border: 1px solid rgba(16, 185, 129, 0.35);
 }
 
 .vr-swipe-toolbar__count {
@@ -2709,7 +2709,7 @@ h2 {
 .vr-swipe-pill {
   padding: 0.42rem 0.95rem;
   border-radius: 999px;
-  border: 1px solid rgba(229, 184, 105, 0.32);
+  border: 1px solid rgba(16, 185, 129, 0.32);
   background: rgba(255, 255, 255, 0.05);
   color: #f8fafc;
   font: inherit;
@@ -2729,15 +2729,15 @@ h2 {
   border-color: transparent;
   color: var(--accent-ink);
   font-weight: 700;
-  box-shadow: 0 4px 14px rgba(229, 184, 105, 0.4);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
 }
 
 .vr-swipe-arrow-btn {
   min-height: 2.35rem;
   padding: 0.4rem 1.05rem;
   border-radius: 999px;
-  border: 1px solid rgba(229, 184, 105, 0.45);
-  background: rgba(229, 184, 105, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.12);
   color: var(--accent-bright);
   font: inherit;
   font-size: 0.82rem;
@@ -2748,13 +2748,13 @@ h2 {
 
 .vr-swipe-arrow-btn:hover {
   border-color: var(--accent-bright);
-  background: rgba(229, 184, 105, 0.24);
+  background: rgba(16, 185, 129, 0.24);
   color: #ffffff;
 }
 
 .vr-swipe-arrow-btn--gold-outline {
-  border-color: rgba(229, 184, 105, 0.55);
-  background: rgba(229, 184, 105, 0.14);
+  border-color: rgba(16, 185, 129, 0.55);
+  background: rgba(16, 185, 129, 0.14);
   color: var(--accent-bright);
 }
 
@@ -2762,7 +2762,7 @@ h2 {
   background: var(--accent);
   color: var(--accent-ink);
   border-color: transparent;
-  box-shadow: 0 6px 18px -4px rgba(229, 184, 105, 0.5);
+  box-shadow: 0 6px 18px -4px rgba(16, 185, 129, 0.5);
 }
 
 .vr-swipe-arrow-btn--gold:hover {
@@ -2780,7 +2780,7 @@ h2 {
   padding: 0.25rem 0.25rem 0.85rem;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: rgba(229, 184, 105, 0.55) rgba(15, 23, 42, 0.5);
+  scrollbar-color: rgba(16, 185, 129, 0.55) rgba(15, 23, 42, 0.5);
   text-align: left;
 }
 
@@ -2799,7 +2799,7 @@ h2 {
   width: 1.9rem;
   height: 1.9rem;
   border-radius: 999px;
-  border: 1px solid rgba(229, 184, 105, 0.45);
+  border: 1px solid rgba(16, 185, 129, 0.45);
   background: rgba(2, 6, 23, 0.78);
   color: var(--accent-bright);
   font-size: 1.15rem;
@@ -2815,7 +2815,7 @@ h2 {
 
 .vr-card-photo-arrow:hover {
   opacity: 1;
-  background: rgba(229, 184, 105, 0.25);
+  background: rgba(16, 185, 129, 0.25);
 }
 
 .vr-card-photo-arrow--left {
@@ -2846,7 +2846,7 @@ h2 {
   padding: 0.9rem 1.1rem;
   border-radius: 20px;
   background: rgba(15, 21, 32, 0.92);
-  border: 1px solid rgba(229, 184, 105, 0.52);
+  border: 1px solid rgba(16, 185, 129, 0.52);
   box-shadow: 0 20px 44px -16px rgba(0, 0, 0, 0.75);
 }
 
@@ -2858,13 +2858,13 @@ h2 {
   padding: 0.55rem 0.95rem;
   border-radius: 14px;
   background: #020617;
-  border: 1px solid rgba(229, 184, 105, 0.45);
+  border: 1px solid rgba(16, 185, 129, 0.45);
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 
 .vr-zip-search-box:focus-within {
   border-color: var(--accent-bright);
-  box-shadow: 0 0 0 2px rgba(229, 184, 105, 0.25);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
 }
 
 .vr-zip-search-badge {
@@ -2900,8 +2900,8 @@ h2 {
   flex: 0 0 auto;
   padding: 0.3rem 0.75rem;
   border-radius: 999px;
-  border: 1px solid rgba(229, 184, 105, 0.45);
-  background: rgba(229, 184, 105, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.14);
   color: var(--accent-bright);
   font: inherit;
   font-size: 0.76rem;
@@ -2920,7 +2920,7 @@ h2 {
 .vr-zip-chip {
   padding: 0.34rem 0.8rem;
   border-radius: 999px;
-  border: 1px solid rgba(229, 184, 105, 0.32);
+  border: 1px solid rgba(16, 185, 129, 0.32);
   background: rgba(255, 255, 255, 0.04);
   color: #f8fafc;
   font: inherit;
