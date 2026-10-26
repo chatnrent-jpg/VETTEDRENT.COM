@@ -1,13 +1,20 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServiceRoleClient } from '../../../../lib/supabase';
 import { allocateIntegerSplitCents } from '../../../../lib/marketing-calculator';
+import { parseAvailabilityTierId, saveHostTierPhoto } from '../../../../lib/host-availability';
 
 export async function POST(request: Request) {
   try {
-    const { hostEmail, externalUrl, selectedTier, customWeeklyGross } = await request.json();
+    const { hostEmail, externalUrl, selectedTier, customWeeklyGross, photoInput } = await request.json();
 
     if (!hostEmail || !externalUrl || !selectedTier) {
       return NextResponse.json({ error: 'Missing mandatory onboarding vectors.' }, { status: 400 });
+    }
+
+    const safeTier = parseAvailabilityTierId(selectedTier) ?? 'RoomSanctuary';
+    let photoUrl = '/vettedrent-hero-renter.jpg';
+    if (typeof photoInput === 'string' && photoInput.trim() !== '') {
+      photoUrl = await saveHostTierPhoto({ tierId: safeTier, photoInput });
     }
 
     const supabase = getSupabaseServiceRoleClient();
@@ -40,6 +47,7 @@ export async function POST(request: Request) {
       propertyId,
       assignedTier: selectedTier,
       tierRecord,
+      photoUrl,
       financials: {
         weeklyGrossCents: finalWeeklyGrossCents,
         landlordNetCents: splits.hostPayoutCents,

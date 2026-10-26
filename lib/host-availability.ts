@@ -69,6 +69,7 @@ function createDefaultSchedules(): Record<DailyRateTierId, TierAvailabilitySched
       weeklyRateCents: DAILY_RATE_PRESET_TIERS.RoomSanctuary.weeklyRateCents,
       availableFromIso: today,
       blockedDates: [],
+      photoUrl: "/vettedrent-hero-renter.jpg",
       updatedAtIso: new Date().toISOString(),
     },
     PrivateSuite: {
@@ -79,6 +80,7 @@ function createDefaultSchedules(): Record<DailyRateTierId, TierAvailabilitySched
       weeklyRateCents: DAILY_RATE_PRESET_TIERS.PrivateSuite.weeklyRateCents,
       availableFromIso: today,
       blockedDates: [addDaysIsoUtc(today, 18), addDaysIsoUtc(today, 19)],
+      photoUrl: "/vettedrent-hero-landlord.jpg",
       updatedAtIso: new Date().toISOString(),
     },
     ExecutiveTownhome: {
@@ -93,6 +95,7 @@ function createDefaultSchedules(): Record<DailyRateTierId, TierAvailabilitySched
         addDaysIsoUtc(today, 26),
         addDaysIsoUtc(today, 27),
       ],
+      photoUrl: "/vettedrent-hero-renter.jpg",
       updatedAtIso: new Date().toISOString(),
     },
   };
@@ -274,6 +277,7 @@ export async function saveTierAvailabilitySchedule(options: {
   hostEmail?: string;
   weeklyRateCents?: number;
   configuredDailyRateCents?: number;
+  photoUrl?: string;
 }): Promise<{
   schedule: TierAvailabilitySchedule;
   schedules: Record<DailyRateTierId, TierAvailabilitySchedule>;
@@ -291,6 +295,10 @@ export async function saveTierAvailabilitySchedule(options: {
     weeklyRateCents: options.weeklyRateCents,
   });
   const nowIso = new Date().toISOString();
+  const nextPhotoUrl =
+    typeof options.photoUrl === "string" && options.photoUrl.trim() !== ""
+      ? options.photoUrl.trim()
+      : memorySchedules[options.tierId]?.photoUrl;
 
   const updated: TierAvailabilitySchedule = {
     ...memorySchedules[options.tierId],
@@ -299,6 +307,7 @@ export async function saveTierAvailabilitySchedule(options: {
     weeklyRateCents: rates.weeklyRateCents,
     availableFromIso: safeAvailableFrom,
     blockedDates: safeBlocked,
+    photoUrl: nextPhotoUrl,
     updatedAtIso: nowIso,
   };
   memorySchedules[options.tierId] = updated;
@@ -403,3 +412,72 @@ export async function reserveStayDatesInAvailability(options: {
     storageSource,
   };
 }
+
+const LISTING_PHOTOS_BUCKET = "listing-photos";
+const MAX_LISTING_PHOTO_BYTES = 4_000_000;
+
+/**
+ * Uploads a landlord's property photo (data URL or remote URL) into the public
+ * Supabase `listing-photos` bucket and updates the live tier schedule so tenants
+ * immediately see the photo on the homepage marketplace grid.
+ */
+export async function saveHostTierPhoto(options: {
+  tierId: DailyRateTierId;
+  photoInput: string;
+}): Promise<string> {
+  const trimmed = options.photoInput.trim();
+  if (!trimmed) {
+    return memorySchedules[options.tierId]?.photoUrl ?? "/vettedrent-hero-renter.jpg";
+  }
+
+  let resolvedUrl = trimmed;
+
+  const dataUrlMatch = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/i.exec(
+    trimmed,
+  );
+  if (dataUrlMatch) {
+    try {
+      const mimeType = dataUrlMatch[1].toLowerCase();
+      const ext = mimeType.includes("png")
+        ? "png"
+        : mimeType.includes("webp")
+          ? "webp"
+          : "jpg";
+      const bytes = Buffer.from(dataUrlMatch[2], "base64");
+      if (bytes.length > 0 && bytes.length <= MAX_LISTING_PHOTO_BYTES) {
+        const supabase = getSupabaseServerClient();
+        await supabase.storage.createBucket(LISTING_PHOTOS_BUCKET, {
+          public: true,
+          fileSizeLimit: MAX_LISTING_PHOTO_BYTES,
+          allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+        });
+        const objectPath = `${options.tierId.toLowerCase()}-${Date.now()}.${ext}`;
+        const copy = new ArrayBuffer(bytes.byteLength);
+        new Uint8Array(copy).set(bytes);
+        const blob = new Blob([copy], { type: mimeType });
+        const up = await supabase.storage
+          .from(LISTING_PHOTOS_BUCKET)
+          .upload(objectPath, blob, { contentType: mimeType, upsert: true });
+        if (!up.error) {
+          const pub = supabase.storage
+            .from(LISTING_PHOTOS_BUCKET)
+            .getPublicUrl(objectPath);
+          if (pub.data?.publicUrl) {
+            resolvedUrl = pub.data.publicUrl;
+          }
+        }
+      }
+    } catch {
+      // Keep data URL in memory schedule so the photo still renders immediately
+    }
+  }
+
+  memorySchedules[options.tierId] = {
+    ...memorySchedules[options.tierId],
+    photoUrl: resolvedUrl,
+    updatedAtIso: new Date().toISOString(),
+  };
+
+  return resolvedUrl;
+}
+

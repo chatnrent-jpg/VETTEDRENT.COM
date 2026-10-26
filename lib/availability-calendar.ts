@@ -28,6 +28,7 @@ export type TierAvailabilitySchedule = {
   weeklyRateCents: number;
   availableFromIso: string;
   blockedDates: string[];
+  photoUrl?: string;
   updatedAtIso: string;
 };
 
