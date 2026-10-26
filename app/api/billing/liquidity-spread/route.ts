@@ -355,7 +355,7 @@ function renderLiquiditySpreadHtml(
       --accent: #e5b869;
       --accent-bright: #f3cc85;
       --accent-ink: #111827;
-      --ok: #34d399;
+      --ok: #f3cc85;
       --line: rgba(255, 255, 255, 0.18);
     }
     * { box-sizing: border-box; }
