@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import React, { useEffect, useRef, useState } from "react";
+import { resolveMarylandStatewideSearch } from "@/lib/seo-registry";
 import type { PurposeCohortId } from "@/lib/underwriting-contract";
 
 export type SortMode = "convenience" | "price-asc" | "price-desc";
@@ -28,17 +29,17 @@ export interface PropertyCardProps {
 
 export const SAMPLE_LISTINGS: PropertyCardProps[] = [
   {
-    id: "college-park-metro-sanctuary",
-    title: "The Metro & Campus RoomSanctuary",
+    id: "md-statewide-room-sanctuary-1",
+    title: "Maryland RoomSanctuary · Campus & Transit Edition",
     tier: "RoomSanctuary",
-    location: "College Park / Hyattsville, MD",
-    zipCode: "20740",
+    location: "Statewide MD (Capital, Central & University Corridors)",
+    zipCode: "All MD ZIPs",
     dailyRate: 45,
     weeklyRate: 315,
     commuteMinutes: 3,
-    convenienceBadge: "Walk to Metro · Study Desk · Keyless",
-    proximityTag: "3 mins to University Campus & Metro Hub",
-    idealForLabel: "Students, Interns & Solo Traveling Professionals",
+    convenienceBadge: "Keyless Entry · Study Desk · All Utilities",
+    proximityTag: "Available Across All 24 Maryland Counties & Cities",
+    idealForLabel: "University Students, Interns & Solo Traveling Professionals",
     cohorts: ["Academic-Enrollment", "Contract-Assignment", "Seasonal-Remote"],
     imagePlaceholder: "bg-gradient-to-br from-slate-800 to-emerald-950",
     defaultImageUrl: "/vettedrent-hero-renter.jpg",
@@ -53,24 +54,24 @@ export const SAMPLE_LISTINGS: PropertyCardProps[] = [
       },
     ],
     features: [
-      "Ideal for Students, Interns & Solo Pros",
-      "Private Keyless Smart-Lock Entry",
+      "Ideal for Students, Interns & Traveling Pros",
+      "Private Keyless Smart-Lock Bedroom",
       "All Utilities & High-Speed Fiber Wi-Fi",
       "$0 Security Deposit · No Credit Check",
     ],
   },
   {
-    id: "bethesda-executive-suite",
-    title: "The Bethesda Executive Suite",
+    id: "md-statewide-private-suite-1",
+    title: "Maryland PrivateSuite · Professional & Fellow Edition",
     tier: "PrivateSuite",
-    location: "Bethesda, MD",
-    zipCode: "20814",
+    location: "Statewide MD (Metro, I-95, I-270 & Regional Hubs)",
+    zipCode: "All MD ZIPs",
     dailyRate: 75,
     weeklyRate: 525,
     commuteMinutes: 4,
-    convenienceBadge: "Private En-Suite · Red Line Walkable",
-    proximityTag: "4 mins to Downtown Corporate, NIH & Medical Hubs",
-    idealForLabel: "Temporary Professionals, Consultants & Grad Fellows",
+    convenienceBadge: "Private En-Suite Bath · Workspace · Kitchenette",
+    proximityTag: "Available Across All 24 Maryland Counties & Cities",
+    idealForLabel: "Temporary Professionals, Contractors & Visiting Fellows",
     cohorts: ["Contract-Assignment", "Academic-Enrollment", "Seasonal-Remote"],
     imagePlaceholder: "bg-gradient-to-br from-slate-800 to-blue-950",
     defaultImageUrl: "/vettedrent-hero-landlord.jpg",
@@ -92,16 +93,16 @@ export const SAMPLE_LISTINGS: PropertyCardProps[] = [
     ],
   },
   {
-    id: "bowie-family-townhome",
-    title: "The Bowie Family & Relocation Townhome",
+    id: "md-statewide-executive-townhome-1",
+    title: "Maryland ExecutiveTownhome · Family & Relocation Edition",
     tier: "ExecutiveTownhome",
-    location: "Bowie, MD",
-    zipCode: "20715",
+    location: "Statewide MD (Suburban, Coastal & Family Districts)",
+    zipCode: "All MD ZIPs",
     dailyRate: 106,
     weeklyRate: 745,
     commuteMinutes: 5,
-    convenienceBadge: "Entire 3BR Home · 2-Car Driveway · Yard",
-    proximityTag: "Quiet Residential Neighborhood · Schools & Parks",
+    convenienceBadge: "Entire Multi-BR Home · Driveway · In-Unit Laundry",
+    proximityTag: "Available Across All 24 Maryland Counties & Cities",
     idealForLabel: "Families in Transition, ALE Insurance & Relocations",
     cohorts: ["Insurance-Relocation", "Contract-Assignment", "Seasonal-Remote"],
     imagePlaceholder: "bg-gradient-to-br from-slate-800 to-slate-900",
@@ -118,22 +119,22 @@ export const SAMPLE_LISTINGS: PropertyCardProps[] = [
     ],
     features: [
       "Designed for Families in Transition & ALE Insurance",
-      "Entire Multi-Bedroom Home + Private Driveway",
+      "Entire Multi-Bedroom Home + Private Parking",
       "Full Chef's Kitchen & In-Unit Washer/Dryer",
       "Instant Bank Link Setup · Direct ALE Billing",
     ],
   },
   {
-    id: "baltimore-harbor-sanctuary",
-    title: "The Inner Harbor Professional & Student Sanctuary",
+    id: "md-statewide-room-sanctuary-2",
+    title: "Maryland RoomSanctuary · Flex Contractor & Grad Edition",
     tier: "RoomSanctuary",
-    location: "Baltimore, MD",
-    zipCode: "21202",
+    location: "Statewide MD (Baltimore, Frederick, Howard & Harford)",
+    zipCode: "All MD ZIPs",
     dailyRate: 49,
     weeklyRate: 343,
     commuteMinutes: 3,
-    convenienceBadge: "Transit Stop · Fast Fiber Wi-Fi",
-    proximityTag: "3 mins to Universities, Downtown & Medical District",
+    convenienceBadge: "Free Parking · Blackout Shades · Fast Wi-Fi",
+    proximityTag: "Near Universities, Employment & Medical Corridors",
     idealForLabel: "Contractors, University Rotators & Remote Workers",
     cohorts: ["Contract-Assignment", "Academic-Enrollment", "Seasonal-Remote"],
     imagePlaceholder: "bg-gradient-to-br from-slate-800 to-slate-900",
@@ -150,22 +151,22 @@ export const SAMPLE_LISTINGS: PropertyCardProps[] = [
     ],
     features: [
       "Flexible 7 to 90+ Day Professional & Student Stays",
-      "3-Min Access to Transit, Campus & Downtown",
+      "Easy Access to Transit, Campuses & Employers",
       "All Utilities & High-Speed Wi-Fi Included",
       "$0 Security Deposit · No Credit Check",
     ],
   },
   {
-    id: "silver-spring-metro-suite",
-    title: "The Silver Spring Transit & Remote Suite",
+    id: "md-statewide-private-suite-2",
+    title: "Maryland PrivateSuite · Remote & Corporate Mobility Suite",
     tier: "PrivateSuite",
-    location: "Silver Spring, MD",
-    zipCode: "20910",
+    location: "Statewide MD (Anne Arundel, Montgomery & Southern MD)",
+    zipCode: "All MD ZIPs",
     dailyRate: 79,
     weeklyRate: 553,
-    commuteMinutes: 3,
-    convenienceBadge: "Garage Parking · Private Bath & Kitchenette",
-    proximityTag: "3 mins to Metro Center, Corporate & Clinical Hubs",
+    commuteMinutes: 4,
+    convenienceBadge: "Reserved Parking · Private Bath & Kitchenette",
+    proximityTag: "Near Federal, Aerospace, Tech & Academic Hubs",
     idealForLabel: "Remote Professionals, Contractors & Visiting Faculty",
     cohorts: ["Seasonal-Remote", "Contract-Assignment", "Academic-Enrollment"],
     imagePlaceholder: "bg-gradient-to-br from-slate-800 to-emerald-950",
@@ -181,23 +182,23 @@ export const SAMPLE_LISTINGS: PropertyCardProps[] = [
       },
     ],
     features: [
-      "Reserved Covered Garage Parking Included",
+      "Reserved Off-Street or Garage Parking Included",
       "Private Bath, Walk-In Closet & Kitchenette",
       "High-Speed Fiber for Remote Work & Calls",
       "Instant Bank Link Setup",
     ],
   },
   {
-    id: "annapolis-family-townhome",
-    title: "The Annapolis Family & Executive Townhome",
+    id: "md-statewide-executive-townhome-2",
+    title: "Maryland ExecutiveTownhome · Extended Family Sanctuary",
     tier: "ExecutiveTownhome",
-    location: "Annapolis / Anne Arundel, MD",
-    zipCode: "21401",
+    location: "Statewide MD (Eastern Shore, Western MD & Central Corridors)",
+    zipCode: "All MD ZIPs",
     dailyRate: 115,
     weeklyRate: 805,
     commuteMinutes: 5,
-    convenienceBadge: "Entire 3BR Townhome · Private Fenced Patio",
-    proximityTag: "5 mins to Schools, Shopping & Regional Corridors",
+    convenienceBadge: "Entire 3BR Townhome · Private Patio & Yard",
+    proximityTag: "Near Local Schools, Shopping & Regional Highways",
     idealForLabel: "Families in Transition, Home Renovations & Relocations",
     cohorts: ["Insurance-Relocation", "Contract-Assignment", "Seasonal-Remote"],
     imagePlaceholder: "bg-gradient-to-br from-slate-800 to-blue-950",
@@ -285,9 +286,9 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
 
   const trimmedQuery = searchQuery.trim();
   const normalizedQuery = trimmedQuery.toLowerCase();
-  const isCustomZipQuery = /^\d{5}$/.test(trimmedQuery);
+  const resolvedMdPlace = resolveMarylandStatewideSearch(trimmedQuery);
 
-  // Filter by tier, audience cohort, family toggle, and open text/ZIP search
+  // Filter by tier, audience cohort, family toggle, and statewide search
   const baseListings = SAMPLE_LISTINGS.filter((property) => {
     if (activeTierFilter !== "ALL" && property.tier !== activeTierFilter) {
       return false;
@@ -301,11 +302,7 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
     if (familyReadyOnly && property.tier !== "ExecutiveTownhome") {
       return false;
     }
-    if (!normalizedQuery) {
-      return true;
-    }
-    // If user typed any 5-digit ZIP code, match exact ZIP or prefix, or dynamically localize all tiers to that ZIP
-    if (isCustomZipQuery) {
+    if (!normalizedQuery || resolvedMdPlace) {
       return true;
     }
     const haystack = [
@@ -323,15 +320,6 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
       .toLowerCase();
     return haystack.includes(normalizedQuery);
   }).sort((a, b) => {
-    // If user searched a specific ZIP, prioritize exact or closest numeric ZIP match first
-    if (isCustomZipQuery) {
-      const targetZipNum = Number(trimmedQuery);
-      const diffA = Math.abs(Number(a.zipCode) - targetZipNum);
-      const diffB = Math.abs(Number(b.zipCode) - targetZipNum);
-      if (diffA !== diffB) {
-        return diffA - diffB;
-      }
-    }
     if (sortMode === "price-asc") {
       return a.dailyRate - b.dailyRate;
     }
@@ -365,8 +353,8 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
     return (
       <div className="p-8 rounded-2xl border border-slate-800 bg-slate-900/60 text-center w-full">
         <p className="text-slate-200 font-semibold">
-          No spaces matched &ldquo;{searchQuery}&rdquo;. You can search by any ZIP code, city,
-          university, employer, or space tier.
+          No spaces matched &ldquo;{searchQuery}&rdquo;. Search any Maryland ZIP code
+          (20601–21930), county, city, university, or employer.
         </p>
         <button
           type="button"
@@ -376,7 +364,7 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
           }}
           className="button mt-4"
         >
-          Show All Available Spaces
+          Show All Statewide Maryland Spaces
         </button>
       </div>
     );
@@ -437,7 +425,9 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
           <span className="vr-swipe-toolbar__count">
             <strong>
               {baseListings.length} Verified Spaces
-              {isCustomZipQuery ? ` near ZIP ${trimmedQuery}` : ""}
+              {resolvedMdPlace
+                ? ` in ${resolvedMdPlace.cityOrArea} (ZIP ${resolvedMdPlace.zipCode})`
+                : " Statewide Across All 24 Maryland Jurisdictions"}
             </strong>{" "}
             · Swipe by Price &amp; Convenience
           </span>
@@ -482,7 +472,16 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
               ? hostPhotosByTier[property.tier]
               : (property.galleryPhotos[activePhotoIdx]?.url ?? property.defaultImageUrl);
 
-          const displayedZip = isCustomZipQuery ? trimmedQuery : property.zipCode;
+          const displayedLocation = resolvedMdPlace
+            ? resolvedMdPlace.cityOrArea
+            : property.location;
+          const displayedZip = resolvedMdPlace
+            ? `ZIP ${resolvedMdPlace.zipCode}`
+            : property.zipCode;
+          const displayedProximity = resolvedMdPlace
+            ? `Near ${resolvedMdPlace.hubSummary}`
+            : property.proximityTag;
+
           const bookingParams = new URLSearchParams({
             tier: property.tier,
             weeklyCents: String(property.weeklyRate * 100),
@@ -529,7 +528,7 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
 
                 {/* Top Convenience Tag */}
                 <div className="absolute top-4 left-4 bg-slate-950/80 backdrop-blur-md text-emerald-400 text-xs font-bold px-2.5 py-1 rounded-md border border-emerald-500/10 relative z-10">
-                  ★ {property.proximityTag}
+                  ★ {displayedProximity}
                 </div>
 
                 {/* In-Card Photo Swipe Controls */}
@@ -571,7 +570,7 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
                   }}
                 >
                   <span className="text-slate-200 text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-950/80 border border-slate-800">
-                    ZIP {displayedZip} · {property.convenienceBadge}
+                    {displayedZip} · {property.convenienceBadge}
                   </span>
                   <button
                     type="button"
@@ -595,8 +594,7 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
                       {property.title}
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      {property.location} (ZIP <strong>{displayedZip}</strong>) ·{" "}
-                      <strong>{property. idealForLabel}</strong>
+                      {displayedLocation} · <strong>{property.idealForLabel}</strong>
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
@@ -650,8 +648,7 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
             <div className="stay-card-head">
               <div>
                 <p className="pass-kicker">
-                  {lightboxProperty.location} ({lightboxProperty.zipCode}) ·{" "}
-                  {lightboxProperty.idealForLabel}
+                  {lightboxProperty.location} · {lightboxProperty.idealForLabel}
                 </p>
                 <h3>
                   {lightboxProperty.title} (${lightboxProperty.dailyRate}/day)

@@ -218,7 +218,7 @@ export function DualBrandHome({
         {/* UNIFIED MARKETPLACE HEADER FOR ALL 4 AUDIENCES */}
         <div className="vr-unified-marketplace__head">
           <div className="text-xs uppercase tracking-widest text-emerald-400 font-bold">
-            Temporary Professionals · University Students · Families in Transition &amp; Insurance
+            Statewide Maryland Marketplace (All 23 Counties &amp; Baltimore City) · Professionals · Students · Families in Transition
           </div>
           {!isLandlord ? (
             <>
@@ -254,12 +254,12 @@ export function DualBrandHome({
             {/* OPEN DYNAMIC ZIP CODE / CITY / CAMPUS / EMPLOYER SEARCH INPUT */}
             <div className="vr-zip-search-row">
               <div className="vr-zip-search-box">
-                <span className="vr-zip-search-badge">ZIP / LOCATION SEARCH</span>
+                <span className="vr-zip-search-badge">STATEWIDE MD ZIP / CITY SEARCH</span>
                 <input
                   type="search"
                   inputMode="search"
-                  aria-label="Enter any 5-digit ZIP code, city, university, or employer"
-                  placeholder="Enter any 5-digit ZIP code, city, university campus, or employer..."
+                  aria-label="Search any Maryland ZIP code (20601–21930), county, city, university, or employer"
+                  placeholder="Search any Maryland ZIP code (20601–21930), county, city, university, or employer..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="vr-zip-search-input"
