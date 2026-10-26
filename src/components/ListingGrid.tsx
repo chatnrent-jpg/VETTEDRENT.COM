@@ -11,6 +11,8 @@ export interface PropertyCardProps {
   title: string;
   tier: "RoomSanctuary" | "PrivateSuite" | "ExecutiveTownhome";
   location: string;
+  zipCode: string;
+  nearbyZips: string[];
   dailyRate: number;
   weeklyRate: number;
   commuteMinutes: number;
@@ -28,17 +30,19 @@ export const SAMPLE_LISTINGS: PropertyCardProps[] = [
     title: "The Hyattsville RoomSanctuary",
     tier: "RoomSanctuary",
     location: "Hyattsville, MD",
+    zipCode: "20785",
+    nearbyZips: ["20785", "20781", "20782", "20783", "20784", "20740", "20706"],
     dailyRate: 45,
     weeklyRate: 315,
     commuteMinutes: 2,
-    convenienceBadge: "Free Parking · 24/7 Keyless Check-In",
+    convenienceBadge: "ZIP 20785 · Free Parking · Keyless",
     hospitalTag: "2 mins to UM Capital Region Medical Center",
     imagePlaceholder: "bg-gradient-to-br from-slate-800 to-emerald-950",
     defaultImageUrl: "/vettedrent-hero-renter.jpg",
     galleryPhotos: [
       {
         url: "/vettedrent-hero-renter.jpg",
-        caption: "Furnished Bedroom Sanctuary with Smart-Lock Entry",
+        caption: "Furnished Bedroom Sanctuary with Smart-Lock Entry (ZIP 20785)",
       },
       {
         url: "/vettedrent-hero-landlord.jpg",
@@ -57,17 +61,19 @@ export const SAMPLE_LISTINGS: PropertyCardProps[] = [
     title: "The Inner Harbor Hopkins Sanctuary",
     tier: "RoomSanctuary",
     location: "Baltimore, MD",
+    zipCode: "21287",
+    nearbyZips: ["21287", "21202", "21205", "21231", "21201", "21224", "21218"],
     dailyRate: 49,
     weeklyRate: 343,
     commuteMinutes: 3,
-    convenienceBadge: "Hospital Shuttle Stop · Fast Wi-Fi",
+    convenienceBadge: "ZIP 21287 · Hospital Shuttle · Fast Wi-Fi",
     hospitalTag: "3 mins to Johns Hopkins Hospital",
     imagePlaceholder: "bg-gradient-to-br from-slate-800 to-slate-900",
     defaultImageUrl: "/vettedrent-hero-landlord.jpg",
     galleryPhotos: [
       {
         url: "/vettedrent-hero-landlord.jpg",
-        caption: "Quiet Blackout-Curtain Bedroom for Night-Shift Clinicians",
+        caption: "Quiet Blackout-Curtain Bedroom for Night-Shift Clinicians (ZIP 21287)",
       },
       {
         url: "/vettedrent-hero-renter.jpg",
@@ -82,50 +88,23 @@ export const SAMPLE_LISTINGS: PropertyCardProps[] = [
     ],
   },
   {
-    id: "bethesda-executive-suite",
-    title: "The Bethesda Executive Suite",
-    tier: "PrivateSuite",
-    location: "Bethesda, MD",
-    dailyRate: 75,
-    weeklyRate: 525,
-    commuteMinutes: 4,
-    convenienceBadge: "Private En-Suite · Metro Walkable",
-    hospitalTag: "4 mins to Suburban Hospital (Johns Hopkins)",
-    imagePlaceholder: "bg-gradient-to-br from-slate-800 to-blue-950",
-    defaultImageUrl: "/vettedrent-hero-landlord.jpg",
-    galleryPhotos: [
-      {
-        url: "/vettedrent-hero-landlord.jpg",
-        caption: "Executive En-Suite Living & Ergonomic Desk Area",
-      },
-      {
-        url: "/vettedrent-hero-renter.jpg",
-        caption: "King Suite Bedroom & Private En-Suite Bath",
-      },
-    ],
-    features: [
-      "Private En-Suite Bathroom",
-      "Ergonomic Dual-Monitor Workspace",
-      "Kitchenette & Private Entrance",
-      "$0 Security Deposit · No Credit Check",
-    ],
-  },
-  {
     id: "silver-spring-clinical-suite",
     title: "The Silver Spring Clinical Suite",
     tier: "PrivateSuite",
     location: "Silver Spring, MD",
+    zipCode: "20910",
+    nearbyZips: ["20910", "20901", "20902", "20903", "20904", "20912"],
     dailyRate: 79,
     weeklyRate: 553,
     commuteMinutes: 3,
-    convenienceBadge: "Garage Parking · Private Bath",
+    convenienceBadge: "ZIP 20910 · Garage Parking · Private Bath",
     hospitalTag: "3 mins to Holy Cross Hospital",
     imagePlaceholder: "bg-gradient-to-br from-slate-800 to-emerald-950",
     defaultImageUrl: "/vettedrent-hero-renter.jpg",
     galleryPhotos: [
       {
         url: "/vettedrent-hero-renter.jpg",
-        caption: "Private Suite with En-Suite Bath & Walk-In Closet",
+        caption: "Private Suite with En-Suite Bath & Walk-In Closet (ZIP 20910)",
       },
       {
         url: "/vettedrent-hero-landlord.jpg",
@@ -140,32 +119,34 @@ export const SAMPLE_LISTINGS: PropertyCardProps[] = [
     ],
   },
   {
-    id: "bowie-clinical-townhome",
-    title: "The Bowie Clinical Townhome",
-    tier: "ExecutiveTownhome",
-    location: "Bowie, MD",
-    dailyRate: 106,
-    weeklyRate: 745,
-    commuteMinutes: 6,
-    convenienceBadge: "Entire 3BR Home · 2-Car Driveway",
-    hospitalTag: "6 mins to Bowie Health Center & Transit Loop",
-    imagePlaceholder: "bg-gradient-to-br from-slate-800 to-slate-900",
-    defaultImageUrl: "/vettedrent-hero-renter.jpg",
+    id: "bethesda-executive-suite",
+    title: "The Bethesda Executive Suite",
+    tier: "PrivateSuite",
+    location: "Bethesda, MD",
+    zipCode: "20814",
+    nearbyZips: ["20814", "20815", "20816", "20817", "20892", "20852"],
+    dailyRate: 75,
+    weeklyRate: 525,
+    commuteMinutes: 4,
+    convenienceBadge: "ZIP 20814 · Private En-Suite · Metro Walkable",
+    hospitalTag: "4 mins to Suburban Hospital (Johns Hopkins)",
+    imagePlaceholder: "bg-gradient-to-br from-slate-800 to-blue-950",
+    defaultImageUrl: "/vettedrent-hero-landlord.jpg",
     galleryPhotos: [
       {
-        url: "/vettedrent-hero-renter.jpg",
-        caption: "Multi-Bedroom Primary Suite & Lounge",
+        url: "/vettedrent-hero-landlord.jpg",
+        caption: "Executive En-Suite Living & Ergonomic Desk Area (ZIP 20814)",
       },
       {
-        url: "/vettedrent-hero-landlord.jpg",
-        caption: "Full Chef's Kitchen, Living Area & In-Unit Laundry",
+        url: "/vettedrent-hero-renter.jpg",
+        caption: "King Suite Bedroom & Private En-Suite Bath",
       },
     ],
     features: [
-      "Entire Multi-Bedroom Home",
-      "Full Chef's Kitchen & Dining",
-      "In-Unit Washer & Dryer",
-      "Instant Bank Link Setup",
+      "Private En-Suite Bathroom",
+      "Ergonomic Dual-Monitor Workspace",
+      "Kitchenette & Private Entrance",
+      "$0 Security Deposit · No Credit Check",
     ],
   },
   {
@@ -173,17 +154,19 @@ export const SAMPLE_LISTINGS: PropertyCardProps[] = [
     title: "The Annapolis Medical Townhome",
     tier: "ExecutiveTownhome",
     location: "Annapolis, MD",
+    zipCode: "21401",
+    nearbyZips: ["21401", "21402", "21403", "21405", "21409", "21032"],
     dailyRate: 115,
     weeklyRate: 805,
     commuteMinutes: 5,
-    convenienceBadge: "Entire Townhome · Private Patio",
+    convenienceBadge: "ZIP 21401 · Entire Townhome · Patio",
     hospitalTag: "5 mins to Luminis Health Anne Arundel Medical",
     imagePlaceholder: "bg-gradient-to-br from-slate-800 to-blue-950",
     defaultImageUrl: "/vettedrent-hero-landlord.jpg",
     galleryPhotos: [
       {
         url: "/vettedrent-hero-landlord.jpg",
-        caption: "Spacious Executive Townhome Living Room & Patio",
+        caption: "Spacious Executive Townhome Living Room & Patio (ZIP 21401)",
       },
       {
         url: "/vettedrent-hero-renter.jpg",
@@ -195,6 +178,37 @@ export const SAMPLE_LISTINGS: PropertyCardProps[] = [
       "Private Driveway & Fenced Patio",
       "Full Kitchen + In-Unit Laundry",
       "$0 Security Deposit · No Credit Check",
+    ],
+  },
+  {
+    id: "bowie-clinical-townhome",
+    title: "The Bowie Clinical Townhome",
+    tier: "ExecutiveTownhome",
+    location: "Bowie, MD",
+    zipCode: "20715",
+    nearbyZips: ["20715", "20716", "20720", "20721", "20706", "20774"],
+    dailyRate: 106,
+    weeklyRate: 745,
+    commuteMinutes: 6,
+    convenienceBadge: "ZIP 20715 · Entire 3BR Home · Driveway",
+    hospitalTag: "6 mins to Bowie Health Center & Transit Loop",
+    imagePlaceholder: "bg-gradient-to-br from-slate-800 to-slate-900",
+    defaultImageUrl: "/vettedrent-hero-renter.jpg",
+    galleryPhotos: [
+      {
+        url: "/vettedrent-hero-renter.jpg",
+        caption: "Multi-Bedroom Primary Suite & Lounge (ZIP 20715)",
+      },
+      {
+        url: "/vettedrent-hero-landlord.jpg",
+        caption: "Full Chef's Kitchen, Living Area & In-Unit Laundry",
+      },
+    ],
+    features: [
+      "Entire Multi-Bedroom Home",
+      "Full Chef's Kitchen & Dining",
+      "In-Unit Washer & Dryer",
+      "Instant Bank Link Setup",
     ],
   },
 ];
@@ -275,6 +289,8 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
       property.title,
       property.tier,
       property.location,
+      property.zipCode,
+      ...property.nearbyZips,
       property.hospitalTag,
       property.convenienceBadge,
       `$${property.dailyRate}`,
@@ -317,7 +333,8 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
     return (
       <div className="p-8 rounded-2xl border border-slate-800 bg-slate-900/60 text-center w-full">
         <p className="text-slate-200 font-semibold">
-          No spaces matched your current filter.
+          No spaces matched &ldquo;{searchQuery}&rdquo;. Try ZIP codes 20785, 21287, 20910,
+          20814, 21401, or 20715.
         </p>
         <button
           type="button"
@@ -539,7 +556,8 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
                       {property.title}
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      {property.location} · <strong>{property.commuteMinutes} min commute</strong>
+                      {property.location} <strong>{property.zipCode}</strong> ·{" "}
+                      <strong>{property.commuteMinutes} min commute</strong>
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
@@ -593,7 +611,8 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
             <div className="stay-card-head">
               <div>
                 <p className="pass-kicker">
-                  {lightboxProperty.location} · {lightboxProperty.hospitalTag}
+                  {lightboxProperty.location} {lightboxProperty.zipCode} ·{" "}
+                  {lightboxProperty.hospitalTag}
                 </p>
                 <h3>
                   {lightboxProperty.title} (${lightboxProperty.dailyRate}/day)

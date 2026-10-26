@@ -2,11 +2,9 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
-import { AvailabilityCalendar } from "@/components/availability-calendar";
 import { ListingDiscoveryGrid } from "@/src/components/ListingGrid";
 import {
   addDaysIsoUtc,
-  formatReadableDate,
   todayIsoUtc,
 } from "@/lib/availability-calendar";
 import {
@@ -24,6 +22,15 @@ import type { PurposeCohortId } from "@/lib/underwriting-contract";
 
 export type BrandPerspective = "landlord" | "tenant";
 export { SPACE_TIER_CARDS, type SpaceTierCardOption };
+
+const QUICK_ZIP_FILTERS = [
+  { zip: "20785", label: "20785 · Hyattsville" },
+  { zip: "21287", label: "21287 · Baltimore (Hopkins)" },
+  { zip: "20910", label: "20910 · Silver Spring" },
+  { zip: "20814", label: "20814 · Bethesda" },
+  { zip: "21401", label: "21401 · Annapolis" },
+  { zip: "20715", label: "20715 · Bowie" },
+] as const;
 
 function diffDaysUtc(startIso: string, endIso: string): number {
   const startMs = Date.parse(`${startIso}T00:00:00Z`);
@@ -54,7 +61,6 @@ export function DualBrandHome({
   );
   const [stayDays, setStayDays] = useState<number>(30);
   const [checkInIso, setCheckInIso] = useState<string>(() => todayIsoUtc());
-  const [showCalendar, setShowCalendar] = useState<boolean>(false);
 
   const [hostEmail, setHostEmail] = useState("");
   const [hostSubmitting, setHostSubmitting] = useState(false);
@@ -110,9 +116,8 @@ export function DualBrandHome({
       });
       if (res.ok) {
         setHostNotice(
-          "Your property inquiry has been saved. Use the calendar below to set your open dates.",
+          "Your property inquiry has been saved. Visit List Your Property to upload photos and URL.",
         );
-        setShowCalendar(true);
       } else {
         setHostNotice("Could not save right now. Please try again.");
       }
@@ -206,77 +211,111 @@ export function DualBrandHome({
           )}
         </div>
 
-        {/* UNIFIED SEARCH / BOOKING BAR INSIDE THE MARKETPLACE */}
+        {/* PROMINENT SEARCHABLE SPACE & ZIP CODE BAR */}
         {!isLandlord ? (
-          <div
-            className="google-search-bar vr-clean-booking-bar relative z-10"
-            role="search"
-            aria-label="Search stays by destination, space tier, and dates"
-          >
-            <label className="google-search-cell vr-search-cell--destination">
-              <span>Where are you traveling? (Search Space / City / Hospital)</span>
-              <input
-                type="search"
-                list="vr-destination-suggestions"
-                aria-label="Where are you traveling?"
-                placeholder="Hyattsville, Bethesda, Bowie, Johns Hopkins..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <datalist id="vr-destination-suggestions">
-                <option value="Hyattsville" />
-                <option value="Bethesda" />
-                <option value="Bowie" />
-                <option value="Johns Hopkins" />
-                <option value="UM Capital Region Medical Center" />
-                <option value="RoomSanctuary" />
-                <option value="PrivateSuite" />
-                <option value="ExecutiveTownhome" />
-              </datalist>
-            </label>
+          <div className="vr-search-console relative z-10" role="search" aria-label="Search spaces by ZIP code, city, hospital, and dates">
+            {/* PRIMARY FULL-WIDTH ZIP CODE & SPACE SEARCH INPUT */}
+            <div className="vr-zip-search-row">
+              <div className="vr-zip-search-box">
+                <span className="vr-zip-search-badge">ZIP / LOCATION SEARCH</span>
+                <input
+                  type="search"
+                  list="vr-destination-suggestions"
+                  aria-label="Search spaces by ZIP code, city, or hospital"
+                  placeholder="Enter ZIP Code (20785, 21287, 20910, 20814, 21401, 20715), City, or Hospital..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="vr-zip-search-input"
+                />
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="vr-zip-search-clear"
+                  >
+                    Clear ✕
+                  </button>
+                ) : null}
+                <datalist id="vr-destination-suggestions">
+                  <option value="20785 — Hyattsville, MD (UM Capital Region Medical Center)" />
+                  <option value="21287 — Baltimore, MD (Johns Hopkins Hospital)" />
+                  <option value="20910 — Silver Spring, MD (Holy Cross Hospital)" />
+                  <option value="20814 — Bethesda, MD (Suburban Hospital / Johns Hopkins)" />
+                  <option value="21401 — Annapolis, MD (Luminis Health Anne Arundel)" />
+                  <option value="20715 — Bowie, MD (Bowie Health Center)" />
+                </datalist>
+              </div>
 
-            <label className="google-search-cell">
-              <span>Space Tier</span>
-              <select
-                aria-label="Space Tier"
-                value={selectedTierId}
-                onChange={(e) => {
-                  const nextTier = e.target.value as DailyRateTierId;
-                  selectTier(nextTier);
-                }}
-              >
-                {SPACE_TIER_CARDS.map((card) => (
-                  <option key={card.id} value={card.id}>
-                    {card.codeLabel} ({card.dailyPriceLabel})
-                  </option>
-                ))}
-              </select>
-            </label>
+              {/* 1-CLICK ZIP CODE QUICK CHIPS */}
+              <div className="vr-zip-quick-chips" role="group" aria-label="Filter by Maryland ZIP code">
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className={`vr-zip-chip${searchQuery === "" ? " vr-zip-chip--active" : ""}`}
+                >
+                  All ZIPs (6)
+                </button>
+                {QUICK_ZIP_FILTERS.map((item) => {
+                  const isActive = searchQuery.trim() === item.zip;
+                  return (
+                    <button
+                      key={item.zip}
+                      type="button"
+                      onClick={() => setSearchQuery(isActive ? "" : item.zip)}
+                      className={`vr-zip-chip${isActive ? " vr-zip-chip--active" : ""}`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-            <label className="google-search-cell">
-              <span>Check-In</span>
-              <input
-                type="date"
-                aria-label="Check-In date"
-                value={checkInIso}
-                onChange={(e) => handleCheckInChange(e.target.value)}
-              />
-            </label>
+            {/* BOOKING CONFIGURATION BAR: TIER + CHECK-IN + CHECK-OUT + BOOK CTA */}
+            <div className="google-search-bar vr-clean-booking-bar">
+              <label className="google-search-cell">
+                <span>Space Tier</span>
+                <select
+                  aria-label="Space Tier"
+                  value={selectedTierId}
+                  onChange={(e) => {
+                    const nextTier = e.target.value as DailyRateTierId;
+                    selectTier(nextTier);
+                  }}
+                >
+                  {SPACE_TIER_CARDS.map((card) => (
+                    <option key={card.id} value={card.id}>
+                      {card.codeLabel} ({card.dailyPriceLabel})
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="google-search-cell">
-              <span>Check-Out</span>
-              <input
-                type="date"
-                aria-label="Check-Out date"
-                min={addDaysIsoUtc(checkInIso, 7)}
-                value={checkOutIso}
-                onChange={(e) => handleCheckOutChange(e.target.value)}
-              />
-            </label>
+              <label className="google-search-cell">
+                <span>Check-In</span>
+                <input
+                  type="date"
+                  aria-label="Check-In date"
+                  value={checkInIso}
+                  onChange={(e) => handleCheckInChange(e.target.value)}
+                />
+              </label>
 
-            <Link className="button google-search-cta" href={underwritingHref}>
-              Book {selectedCard.codeLabel} ({selectedCard.dailyPriceLabel}) →
-            </Link>
+              <label className="google-search-cell">
+                <span>Check-Out</span>
+                <input
+                  type="date"
+                  aria-label="Check-Out date"
+                  min={addDaysIsoUtc(checkInIso, 7)}
+                  value={checkOutIso}
+                  onChange={(e) => handleCheckOutChange(e.target.value)}
+                />
+              </label>
+
+              <Link className="button google-search-cta" href={underwritingHref}>
+                Book {selectedCard.codeLabel} ({selectedCard.dailyPriceLabel}) →
+              </Link>
+            </div>
           </div>
         ) : (
           <form
@@ -335,86 +374,7 @@ export function DualBrandHome({
 
         {hostNotice ? <p className="payload">{hostNotice}</p> : null}
 
-        {/* SINGLE UNIFIED ROW OF TIER PILLS + CALENDAR TOGGLE */}
-        <div
-          className="google-pill-row"
-          role="radiogroup"
-          aria-label="Select or filter space tier"
-        >
-          {SPACE_TIER_CARDS.map((card) => {
-            const isSelected = selectedTierId === card.id;
-            return (
-              <button
-                key={card.id}
-                type="button"
-                role="radio"
-                aria-checked={isSelected}
-                className={`google-info-pill google-calendar-trigger${
-                  isSelected ? " vr-pill-selected" : ""
-                }`}
-                onClick={() => {
-                  selectTier(card.id);
-                  setActiveTierFilter((prev) =>
-                    prev === card.id && isSelected ? "ALL" : "ALL",
-                  );
-                }}
-              >
-                <strong>
-                  {isSelected ? "✓ " : ""}
-                  {card.codeLabel} · {card.dailyPriceLabel}
-                </strong>
-                <span>{card.badge}</span>
-              </button>
-            );
-          })}
-
-          {searchQuery || activeTierFilter !== "ALL" ? (
-            <button
-              type="button"
-              className="google-info-pill google-calendar-trigger"
-              onClick={() => {
-                setSearchQuery("");
-                setActiveTierFilter("ALL");
-              }}
-            >
-              <strong>Reset Filter</strong>
-              <span>Show all 3 spaces</span>
-            </button>
-          ) : null}
-
-          <button
-            type="button"
-            className="google-info-pill google-calendar-trigger"
-            onClick={() => setShowCalendar((prev) => !prev)}
-          >
-            <strong>{showCalendar ? "Hide Calendar ▲" : "Open Date Calendar ▼"}</strong>
-            <span>
-              {formatReadableDate(checkInIso)} → {formatReadableDate(checkOutIso)} ({stayDays}d)
-            </span>
-          </button>
-        </div>
-
-        {/* COLLAPSIBLE AVAILABILITY CALENDAR */}
-        {showCalendar ? (
-          <AvailabilityCalendar
-            mode={isLandlord ? "landlord" : "tenant"}
-            tierId={selectedTierId}
-            weeklyRateCents={clampedWeeklyCents}
-            onChangeWeeklyRateCents={(next) => setSelectedWeeklyCents(next)}
-            stayDays={stayDays}
-            checkInIso={checkInIso}
-            onSelectCheckIn={(iso) => {
-              setCheckInIso(iso);
-              setShowCalendar(true);
-            }}
-            hostEmail={hostEmail}
-            cohortId={selectedCohortId}
-            jurisdictionCode={selectedJurisdictionCode}
-            context="home"
-          />
-        ) : null}
-
-        {/* THE 3 LOCALIZED MARYLAND PROPERTY CARDS INSIDE THE SAME SECTION */}
+        {/* SWIPEABLE MARYLAND CLINICAL CORRIDOR LISTINGS */}
         <ListingDiscoveryGrid
           searchQuery={searchQuery}
           activeTierFilter={activeTierFilter}

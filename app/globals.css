@@ -2826,6 +2826,123 @@ h2 {
   right: 0.55rem;
 }
 
+/* ==========================================================================
+   PROMINENT ZIP CODE & SPACE SEARCH CONSOLE
+   ========================================================================== */
+
+.vr-search-console {
+  width: 100%;
+  max-width: 68rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.vr-zip-search-row {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.9rem 1.1rem;
+  border-radius: 20px;
+  background: rgba(15, 21, 32, 0.92);
+  border: 1px solid rgba(229, 184, 105, 0.52);
+  box-shadow: 0 20px 44px -16px rgba(0, 0, 0, 0.75);
+}
+
+.vr-zip-search-box {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.95rem;
+  border-radius: 14px;
+  background: #020617;
+  border: 1px solid rgba(229, 184, 105, 0.45);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.vr-zip-search-box:focus-within {
+  border-color: var(--accent-bright);
+  box-shadow: 0 0 0 2px rgba(229, 184, 105, 0.25);
+}
+
+.vr-zip-search-badge {
+  flex: 0 0 auto;
+  padding: 0.32rem 0.75rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.vr-zip-search-input {
+  flex: 1 1 auto;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.98rem;
+  font-weight: 600;
+  outline: none;
+}
+
+.vr-zip-search-input::placeholder {
+  color: rgba(248, 250, 252, 0.65);
+  font-weight: 500;
+}
+
+.vr-zip-search-clear {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(229, 184, 105, 0.45);
+  background: rgba(229, 184, 105, 0.14);
+  color: var(--accent-bright);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.vr-zip-quick-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.vr-zip-chip {
+  padding: 0.34rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(229, 184, 105, 0.32);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f8fafc;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.vr-zip-chip:hover {
+  border-color: var(--accent-bright);
+  color: var(--accent-bright);
+}
+
+.vr-zip-chip--active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: transparent;
+  font-weight: 700;
+}
+
+
 
 
 
