@@ -2651,6 +2651,167 @@ h2 {
   border-color: rgba(229, 184, 105, 0.45);
 }
 
+/* ==========================================================================
+   SWIPEABLE HORIZONTAL MARKETPLACE CAROUSEL (PRICE & CONVENIENCE)
+   ========================================================================== */
+
+.vr-swipe-marketplace {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.vr-swipe-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.95rem;
+  border-radius: 16px;
+  background: rgba(15, 21, 32, 0.85);
+  border: 1px solid rgba(229, 184, 105, 0.28);
+}
+
+.vr-swipe-toolbar__left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.vr-swipe-toolbar__count {
+  font-size: 0.82rem;
+  color: rgba(248, 250, 252, 0.85);
+}
+
+.vr-swipe-toolbar__count strong {
+  color: var(--accent-bright);
+}
+
+.vr-swipe-sort-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.vr-swipe-pill {
+  padding: 0.32rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f8fafc;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.vr-swipe-pill:hover {
+  border-color: var(--accent-bright);
+}
+
+.vr-swipe-pill--active {
+  background: rgba(229, 184, 105, 0.22);
+  border-color: var(--accent-bright);
+  color: var(--accent-bright);
+  font-weight: 700;
+}
+
+.vr-swipe-toolbar__right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.vr-swipe-nav-btns {
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+.vr-swipe-arrow-btn {
+  min-height: 2.15rem;
+  padding: 0.32rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.vr-swipe-arrow-btn:hover {
+  border-color: var(--accent-bright);
+}
+
+.vr-swipe-arrow-btn--gold {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: transparent;
+}
+
+.vr-swipe-arrow-btn--gold:hover {
+  background: var(--accent-bright);
+}
+
+.vr-swipe-carousel {
+  display: flex;
+  gap: 1.15rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  padding: 0.25rem 0.15rem 0.75rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(229, 184, 105, 0.45) rgba(15, 23, 42, 0.5);
+  text-align: left;
+}
+
+.vr-swipe-carousel .vr-swipe-card {
+  flex: 0 0 min(21.5rem, 84vw);
+  scroll-snap-align: start;
+}
+
+.vr-card-photo-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(229, 184, 105, 0.45);
+  background: rgba(2, 6, 23, 0.78);
+  color: var(--accent-bright);
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 140ms ease, background-color 140ms ease;
+}
+
+.vr-card-photo-arrow:hover {
+  opacity: 1;
+  background: rgba(229, 184, 105, 0.25);
+}
+
+.vr-card-photo-arrow--left {
+  left: 0.55rem;
+}
+
+.vr-card-photo-arrow--right {
+  right: 0.55rem;
+}
+
+
 
 
 
