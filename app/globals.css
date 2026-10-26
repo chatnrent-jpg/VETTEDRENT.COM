@@ -2099,4 +2099,155 @@ h2 {
   color: var(--ok);
 }
 
+/* ==========================================================================
+   HOST ONBOARDING PORTAL UTILITY CLASSES
+   ========================================================================== */
+
+.justify-center {
+  justify-content: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.max-w-xl {
+  max-width: 36rem;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.w-12 {
+  width: 3rem;
+}
+
+.h-12 {
+  height: 3rem;
+}
+
+.bg-slate-900\/60 {
+  background-color: rgba(15, 23, 42, 0.6);
+}
+
+.bg-slate-950\/40 {
+  background-color: rgba(2, 6, 23, 0.4);
+}
+
+.bg-emerald-500\/10 {
+  background-color: rgba(16, 185, 129, 0.1);
+}
+
+.bg-emerald-500 {
+  background-color: #10b981;
+}
+
+.hover\:bg-emerald-400:hover:not(:disabled) {
+  background-color: #34d399;
+}
+
+.disabled\:bg-slate-800:disabled {
+  background-color: #1e293b;
+}
+
+.text-slate-950 {
+  color: #020617;
+}
+
+.text-slate-300 {
+  color: #cbd5e1;
+}
+
+.rounded-2xl {
+  border-radius: 1rem;
+}
+
+.rounded-lg {
+  border-radius: 0.5rem;
+}
+
+.p-8 {
+  padding: 2rem;
+}
+
+.px-4 {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.py-3 {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.py-4 {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+.pt-4 {
+  padding-top: 1rem;
+}
+
+.mb-8 {
+  margin-bottom: 2rem;
+}
+
+.mb-2 {
+  margin-bottom: 0.5rem;
+}
+
+.mt-2 {
+  margin-top: 0.5rem;
+}
+
+.block {
+  display: block;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.text-3xl {
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+}
+
+.text-xl {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}
+
+.font-extrabold {
+  font-weight: 800;
+}
+
+.tracking-widest {
+  letter-spacing: 0.1em;
+}
+
+.shadow-2xl {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.55);
+}
+
+.shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.35);
+}
+
+.backdrop-blur-md {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.focus\:outline-none:focus {
+  outline: none;
+}
+
+.focus\:border-emerald-500:focus {
+  border-color: #10b981;
+}
+
+
 

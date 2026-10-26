@@ -21,6 +21,9 @@ export type IntegerSplitAllocation = {
   hostShareCents: number;
   gmfShareCents: number;
   platformShareCents: number;
+  hostPayoutCents: number;
+  gmfEscrowCents: number;
+  platformFeeCents: number;
 };
 
 /**
@@ -41,11 +44,17 @@ export function allocateIntegerSplitCents(grossCents: number): IntegerSplitAlloc
   const hostBig = (grossBig * BigInt(CALCULATOR_HOST_BPS) + halfBps) / bpsDenom;
   const gmfBig = (grossBig * BigInt(CALCULATOR_VAULT_BPS) + halfBps) / bpsDenom;
   const platformBig = grossBig - hostBig - gmfBig;
+  const hostCents = Number(hostBig);
+  const gmfCents = Number(gmfBig);
+  const platformCents = Number(platformBig);
   return {
     grossCents: safeGross,
-    hostShareCents: Number(hostBig),
-    gmfShareCents: Number(gmfBig),
-    platformShareCents: Number(platformBig),
+    hostShareCents: hostCents,
+    gmfShareCents: gmfCents,
+    platformShareCents: platformCents,
+    hostPayoutCents: hostCents,
+    gmfEscrowCents: gmfCents,
+    platformFeeCents: platformCents,
   };
 }
 
