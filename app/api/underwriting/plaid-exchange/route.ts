@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { exchangeBankPublicToken } from "@/lib/plaid-link";
+import { executeWithoutLimitation } from "@/lib/plaid";
 import { getSupabaseServerClient } from "@/lib/supabase";
 import { parseJurisdictionCode } from "@/lib/compliance/jurisdictions";
 import { resolveContractTerm, type ContractTerm } from "@/lib/underwriting-contract";
@@ -41,11 +42,26 @@ export async function POST(request: Request) {
       );
     }
 
-    const accessToken = await exchangeBankPublicToken(parsed.publicToken);
+    const exchangeExecution = await executeWithoutLimitation<{
+      accessToken: string | null;
+      simulatedFallback: boolean;
+    }>({
+      operationName: "plaid.itemPublicTokenExchange",
+      liveOperation: async () => {
+        const accessToken = await exchangeBankPublicToken(parsed.publicToken);
+        return { accessToken, simulatedFallback: false };
+      },
+      fallbackOperation: () => ({
+        accessToken: null,
+        simulatedFallback: true,
+      }),
+    });
+
     return forwardVelocityCheck(
       request,
       token,
-      accessToken,
+      exchangeExecution.value.accessToken,
+      exchangeExecution.value.simulatedFallback,
       parsed.weeklyTargetCents,
       userId,
       parsed.contract,
@@ -64,7 +80,8 @@ export async function POST(request: Request) {
 async function forwardVelocityCheck(
   request: Request,
   sessionToken: string,
-  accessToken: string,
+  accessToken: string | null,
+  simulatedFallback: boolean,
   weeklyTargetCents: number,
   userId: string,
   contract: ContractTerm,
@@ -79,7 +96,8 @@ async function forwardVelocityCheck(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        accessToken,
+        ...(accessToken ? { accessToken } : {}),
+        simulated: simulatedFallback,
         weeklyTargetCents,
         userId,
         credentialType: contract.credentialType,

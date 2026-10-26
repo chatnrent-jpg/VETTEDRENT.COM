@@ -2,9 +2,15 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getSeamClient } from "@/lib/seam";
 import { sendSMS } from "@/lib/sms";
-import { getStripe, splitWeeklyCapture } from "@/lib/stripe";
+import { getStripe, getStripeWebhookSecret, splitWeeklyCapture } from "@/lib/stripe";
 import { getSupabaseServerClient } from "@/lib/supabase";
-import { creditAgreementVault, creditVaultCents, type VaultCreditResult } from "@/lib/vault";
+import {
+  creditAgreementVault,
+  creditVaultCents,
+  recordInstallmentInWeeklyDeductionLedger,
+  type LedgerInstallmentSettlementResult,
+  type VaultCreditResult,
+} from "@/lib/vault";
 import {
   claimStripeWebhookEvent,
   completeStripeWebhookEvent,
@@ -94,6 +100,7 @@ async function handleStripeEvent(event: Stripe.Event): Promise<NextResponse> {
   let vault: VaultCreditResult | { ok: true; credited: false; reason: string } | null =
     null;
   let agreementVault: VaultCreditResult | { ok: true; synced: false } | null = null;
+  let ledgerInstallment: LedgerInstallmentSettlementResult | null = null;
   if (event.type === "invoice.paid") {
     const credit = await creditPaidInvoice(event.data.object);
     if (!credit.ok) {
@@ -108,6 +115,19 @@ async function handleStripeEvent(event: Stripe.Event): Promise<NextResponse> {
       return NextResponse.json({ ok: false, error: synced.error }, { status: 500 });
     }
     agreementVault = synced;
+
+    if (
+      Number.isSafeInteger(event.data.object.amount_paid) &&
+      event.data.object.amount_paid > 0
+    ) {
+      ledgerInstallment = await recordInstallmentInWeeklyDeductionLedger({
+        totalCents: event.data.object.amount_paid,
+        agreementId: agreementIdFromInvoice(event.data.object),
+        tenantId: payerKeyFromCustomer(event.data.object.customer),
+        stripeChargeId:
+          typeof event.data.object.id === "string" ? event.data.object.id : event.id,
+      });
+    }
   }
 
   const trigger = triggerFromEvent(event);
@@ -256,6 +276,7 @@ async function handleStripeEvent(event: Stripe.Event): Promise<NextResponse> {
     action: transition.action,
     ...(vault ? { vault } : {}),
     ...(agreementVault ? { agreementVault } : {}),
+    ...(ledgerInstallment ? { ledgerInstallment } : {}),
   });
 }
 
@@ -1076,18 +1097,8 @@ async function readStripeEvent(
     return parseDevelopmentEvent(rawBody);
   }
 
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!webhookSecret) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { ok: false, error: "STRIPE_WEBHOOK_SECRET is not configured" },
-        { status: 500 },
-      ),
-    };
-  }
-
   try {
+    const webhookSecret = getStripeWebhookSecret();
     const stripe = getStripe();
     return { ok: true, event: stripe.webhooks.constructEvent(rawBody, signature, webhookSecret) };
   } catch (error) {

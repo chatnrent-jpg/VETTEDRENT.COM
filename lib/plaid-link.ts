@@ -1,10 +1,11 @@
 import { CountryCode, Products } from "plaid";
-import { getPlaidClient } from "@/lib/plaid";
+import { getPlaidClient, resolvePlaidEnvName } from "@/lib/plaid";
 
 const LOOKBACK_DAYS = 90;
+const DEFAULT_SANDBOX_INSTITUTION_ID = "ins_109508";
 
 /**
- * Mint a short-lived Plaid Link token for the signed-in user.
+ * Mint a short-lived Plaid Link token for the user via the live Plaid API.
  * The browser may hold this token. It cannot read transactions.
  */
 export async function createBankLinkToken(clientUserId: string): Promise<string> {
@@ -39,7 +40,7 @@ export async function createBankLinkToken(clientUserId: string): Promise<string>
 }
 
 /**
- * Exchange a one-time public token for an access token.
+ * Exchange a one-time public token for an access token via the live Plaid API.
  * The access token stays on the server.
  */
 export async function exchangeBankPublicToken(publicToken: string): Promise<string> {
@@ -64,4 +65,25 @@ export async function exchangeBankPublicToken(publicToken: string): Promise<stri
     }
     throw new Error("bank link exchange failed");
   }
+}
+
+/**
+ * When running in Plaid `sandbox` environment with valid `PLAID_CLIENT_ID` and `PLAID_SECRET`,
+ * creates a live Plaid sandbox public token and exchanges it for a real `access-sandbox-...`
+ * token so authentic Plaid `accountsGet` and `transactionsGet` APIs can be executed.
+ */
+export async function createPlaidSandboxAccessToken(): Promise<string> {
+  if (resolvePlaidEnvName() !== "sandbox") {
+    throw new Error("PLAID_SANDBOX_ONLY");
+  }
+  const plaid = getPlaidClient();
+  const sandboxPub = await plaid.sandboxPublicTokenCreate({
+    institution_id: DEFAULT_SANDBOX_INSTITUTION_ID,
+    initial_products: [Products.Transactions],
+  });
+  const publicToken = sandboxPub.data.public_token?.trim() ?? "";
+  if (!publicToken.startsWith("public-")) {
+    throw new Error("bank link exchange failed");
+  }
+  return exchangeBankPublicToken(publicToken);
 }

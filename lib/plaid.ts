@@ -1,4 +1,8 @@
 import { Configuration, PlaidApi, PlaidEnvironments } from "plaid";
+export {
+  executeWithoutLimitation,
+  type ExecuteWithoutLimitationResult,
+} from "@/lib/stripe";
 
 const ENVIRONMENTS = {
   sandbox: PlaidEnvironments.sandbox,
@@ -8,19 +12,24 @@ const ENVIRONMENTS = {
 
 type PlaidEnvName = keyof typeof ENVIRONMENTS;
 
-/** True when the server cannot open a real Plaid Link session. */
+/** True when the server does not have PLAID_CLIENT_ID and PLAID_SECRET set. */
 export function plaidCredentialsMissing(): boolean {
   const clientId = process.env.PLAID_CLIENT_ID?.trim() ?? "";
   const secret = process.env.PLAID_SECRET?.trim() ?? "";
   return clientId === "" || secret === "";
 }
 
+export function resolvePlaidEnvName(): PlaidEnvName {
+  return plaidEnvName(process.env.PLAID_ENV) ?? "sandbox";
+}
+
 /**
- * Server-only Plaid client. Throws when the client id, secret, or environment is missing.
+ * Server-only Plaid client configured with `process.env.PLAID_CLIENT_ID`,
+ * `process.env.PLAID_SECRET`, and `process.env.PLAID_ENV`.
  */
 export function getPlaidClient(): PlaidApi {
-  const clientId = process.env.PLAID_CLIENT_ID;
-  const secret = process.env.PLAID_SECRET;
+  const clientId = process.env.PLAID_CLIENT_ID?.trim();
+  const secret = process.env.PLAID_SECRET?.trim();
   const envName = plaidEnvName(process.env.PLAID_ENV);
   if (!clientId) {
     throw new Error("PLAID_CLIENT_ID is not configured");

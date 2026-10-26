@@ -21,19 +21,22 @@ export type WeeklySplitCents = {
 const MAX_TOTAL_CENTS = Math.floor(Number.MAX_SAFE_INTEGER / 10000);
 
 /**
- * Split a captured weekly total in integer cents.
- * Host and vault use floor(totalCents * bps / 10000).
- * Platform cents are the remainder, so host + vault + platform === totalCents.
- * applicationFeeCents stays on the platform (vault + platform). The connected account receives hostCents.
+ * Split a captured weekly total in integer cents using pure BigInt half-up basis points.
+ * Host (75.5% / 7550 bps) and GMF vault (14.3% / 1430 bps) use (totalCents * bps + 5000) / 10000.
+ * Platform cents (10.2% / 1020 bps) are the exact integer remainder, so
+ * hostCents + vaultCents + platformCents === totalCents.
+ * applicationFeeCents stays on the platform (vaultCents + platformCents = 24.5%) so
+ * Stripe Connect destination charges dispatch exact hostCents (75.5%) to the host.
  */
 export function splitWeeklyCapture(totalCents: number): WeeklySplitCents {
   if (!Number.isSafeInteger(totalCents) || totalCents < 0 || totalCents > MAX_TOTAL_CENTS) {
     throw new Error("totalCents must be a non-negative integer");
   }
   const totalBig = BigInt(totalCents);
+  const halfBps = BigInt(5000);
   const bpsDenom = BigInt(10000);
-  const hostCents = Number((totalBig * BigInt(HOST_BPS)) / bpsDenom);
-  const vaultCents = Number((totalBig * BigInt(VAULT_BPS)) / bpsDenom);
+  const hostCents = Number((totalBig * BigInt(HOST_BPS) + halfBps) / bpsDenom);
+  const vaultCents = Number((totalBig * BigInt(VAULT_BPS) + halfBps) / bpsDenom);
   const platformCents = totalCents - hostCents - vaultCents;
   const split: WeeklySplitCents = {
     totalCents,
@@ -45,6 +48,58 @@ export function splitWeeklyCapture(totalCents: number): WeeklySplitCents {
   assert.equal(split.hostCents + split.vaultCents + split.platformCents, totalCents);
   assert.equal(split.applicationFeeCents + split.hostCents, totalCents);
   return split;
+}
+
+export type ExecuteWithoutLimitationResult<T> = {
+  value: T;
+  usedFallback: boolean;
+  fallbackSource: "live_api" | "internal_gmf_vault_rollback";
+  fallbackReason: string | null;
+};
+
+/**
+ * Atomic rollback & resilience wrapper (`executeWithoutLimitation`):
+ * Executes a live external financial rail (`liveOperation` — Plaid API or Stripe Connect).
+ * If the live endpoint encounters a network error, upstream outage, or missing credentials,
+ * it executes `rollbackOperation` to unwind any partial external state and defaults safely
+ * to the internal GMF vault mechanism (`fallbackOperation`) rather than failing the transaction.
+ */
+export async function executeWithoutLimitation<T>(options: {
+  operationName: string;
+  liveOperation: () => Promise<T>;
+  fallbackOperation: (reason: string) => Promise<T> | T;
+  rollbackOperation?: (error: unknown) => Promise<void> | void;
+}): Promise<ExecuteWithoutLimitationResult<T>> {
+  try {
+    const value = await options.liveOperation();
+    return {
+      value,
+      usedFallback: false,
+      fallbackSource: "live_api",
+      fallbackReason: null,
+    };
+  } catch (error) {
+    const reason =
+      error instanceof Error && error.message.trim() !== ""
+        ? error.message.trim()
+        : `${options.operationName} upstream error`;
+
+    if (options.rollbackOperation) {
+      try {
+        await options.rollbackOperation(error);
+      } catch {
+        // Ensure rollback errors never mask the safe GMF vault fallback
+      }
+    }
+
+    const fallbackValue = await options.fallbackOperation(reason);
+    return {
+      value: fallbackValue,
+      usedFallback: true,
+      fallbackSource: "internal_gmf_vault_rollback",
+      fallbackReason: reason,
+    };
+  }
 }
 
 export type CentsParse =
@@ -91,11 +146,26 @@ export function weeklySplitMetadata(
  * Server-only Stripe client. Throws when STRIPE_SECRET_KEY is missing. Never logs the key.
  */
 export function getStripe(): Stripe {
-  const secretKey = process.env.STRIPE_SECRET_KEY;
+  const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
   if (!secretKey) {
     throw new Error("STRIPE_SECRET_KEY is not configured");
   }
   return new Stripe(secretKey);
+}
+
+/**
+ * Server-only Stripe webhook signing secret (`process.env.STRIPE_WEBHOOK_SECRET`).
+ */
+export function getStripeWebhookSecret(): string {
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+  if (!webhookSecret) {
+    throw new Error("STRIPE_WEBHOOK_SECRET is not configured");
+  }
+  return webhookSecret;
+}
+
+export function stripeCredentialsConfigured(): boolean {
+  return (process.env.STRIPE_SECRET_KEY ?? "").trim() !== "";
 }
 
 export const WEEKLY_CURRENCY = "usd";

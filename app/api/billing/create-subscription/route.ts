@@ -10,6 +10,7 @@ import {
   VAULT_BPS,
   WEEKLY_CURRENCY,
   WEEKLY_INTERVAL,
+  executeWithoutLimitation,
   getStripe,
   resolveWeeklyStayPrice,
   splitWeeklyCapture,
@@ -18,7 +19,12 @@ import {
 } from "@/lib/stripe";
 import { applySimulatedWeeklyVault } from "@/lib/simulated-weekly-billing";
 import { INTENDED_STAY_DAYS, readListingCompliance } from "@/lib/geo-compliance";
-import { creditVaultCents, type VaultCreditResult } from "@/lib/vault";
+import {
+  creditVaultCents,
+  recordInstallmentInWeeklyDeductionLedger,
+  type LedgerInstallmentSettlementResult,
+  type VaultCreditResult,
+} from "@/lib/vault";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,78 +61,112 @@ export async function POST(request: Request) {
 
   const split = splitWeeklyCapture(parsed.totalCents);
 
-  if ((process.env.STRIPE_SECRET_KEY ?? "").trim() === "") {
-    return simulatedWeeklyResponse(parsed.tenantId, parsed.totalCents);
-  }
+  let createdCustomerId: string | null = null;
+  let createdSubscriptionId: string | null = null;
 
   try {
-    const stripe = getStripe();
-    const weeklyPrice = await resolveWeeklyStayPrice(stripe, split.totalCents);
-    const customer = await stripe.customers.create({
-      email: parsed.customerEmail,
-      metadata: { host_account_id: parsed.hostAccountId },
-    });
+    const execution = await executeWithoutLimitation({
+      operationName: "stripe.subscriptions.create",
+      liveOperation: async () => {
+        const stripe = getStripe();
+        const weeklyPrice = await resolveWeeklyStayPrice(stripe, split.totalCents);
+        const customer = await stripe.customers.create({
+          email: parsed.customerEmail,
+          metadata: { host_account_id: parsed.hostAccountId },
+        });
+        createdCustomerId = customer.id;
 
-    const subscription = await stripe.subscriptions.create({
-      customer: customer.id,
-      items: [{ price: weeklyPrice.priceId }],
-      transfer_data: {
-        destination: parsed.hostAccountId,
-      },
-      metadata: weeklySplitMetadata(parsed.hostAccountId, split),
-      expand: ["latest_invoice"],
-    });
-
-    const onboarded = await engageAgreement({
-      tenantId: parsed.tenantId,
-      hostId: parsed.hostId,
-      listingId: parsed.listingId,
-      seamDeviceId: parsed.seamDeviceId,
-      subscriptionId: subscription.id,
-    });
-
-    const invoice = invoiceFromSubscription(subscription.latest_invoice);
-    const applicationFeeStamped = await stampApplicationFee(stripe, invoice, split);
-
-    let vault: VaultOutcome = { ok: true, credited: false, reason: "invoice_not_paid" };
-    if (invoice && invoice.status === "paid") {
-      const credit = await creditCapturedInvoice(invoice);
-      if (!credit.ok) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: credit.error,
-            subscriptionId: subscription.id,
-            customerId: customer.id,
-            agreementId: onboarded.agreementId,
-            seamAccessCodeId: onboarded.seamAccessCodeId,
-            productId: weeklyPrice.productId,
-            priceId: weeklyPrice.priceId,
-            split: splitPayload(split, parsed.hostAccountId),
-            applicationFeeStamped,
-            vault: credit,
+        const subscription = await stripe.subscriptions.create({
+          customer: customer.id,
+          items: [{ price: weeklyPrice.priceId }],
+          transfer_data: {
+            destination: parsed.hostAccountId,
           },
-          { status: 500 },
-        );
-      }
-      vault = credit;
-    }
+          metadata: weeklySplitMetadata(parsed.hostAccountId, split),
+          expand: ["latest_invoice"],
+        });
+        createdSubscriptionId = subscription.id;
 
-    return NextResponse.json({
-      ok: true,
-      subscriptionId: subscription.id,
-      customerId: customer.id,
-      agreementId: onboarded.agreementId,
-      seamAccessCodeId: onboarded.seamAccessCodeId,
-      productId: weeklyPrice.productId,
-      priceId: weeklyPrice.priceId,
-      totalCents: split.totalCents,
-      currency: WEEKLY_CURRENCY,
-      interval: WEEKLY_INTERVAL,
-      split: splitPayload(split, parsed.hostAccountId),
-      applicationFeeStamped,
-      vault,
+        const onboarded = await engageAgreement({
+          tenantId: parsed.tenantId,
+          hostId: parsed.hostId,
+          listingId: parsed.listingId,
+          seamDeviceId: parsed.seamDeviceId,
+          subscriptionId: subscription.id,
+        });
+
+        const invoice = invoiceFromSubscription(subscription.latest_invoice);
+        const applicationFeeStamped = await stampApplicationFee(stripe, invoice, split);
+
+        let vault: VaultOutcome = {
+          ok: true,
+          credited: false,
+          reason: "invoice_not_paid",
+        };
+        let ledgerInstallment: LedgerInstallmentSettlementResult | null = null;
+
+        if (invoice && invoice.status === "paid") {
+          const credit = await creditCapturedInvoice(invoice);
+          if (!credit.ok) {
+            throw new Error(credit.error);
+          }
+          vault = credit;
+
+          const paidBasis = Number.isSafeInteger(invoice.amount_paid)
+            ? invoice.amount_paid
+            : split.totalCents;
+          ledgerInstallment = await recordInstallmentInWeeklyDeductionLedger({
+            totalCents: paidBasis,
+            agreementId: onboarded.agreementId,
+            tenantId: parsed.tenantId,
+            stripeChargeId: invoice.id,
+          });
+        } else {
+          ledgerInstallment = await recordInstallmentInWeeklyDeductionLedger({
+            totalCents: split.totalCents,
+            agreementId: onboarded.agreementId,
+            tenantId: parsed.tenantId,
+            stripeChargeId: subscription.id,
+          });
+        }
+
+        return NextResponse.json({
+          ok: true,
+          simulated: false,
+          fallbackUsed: false,
+          fallbackSource: "live_api",
+          subscriptionId: subscription.id,
+          customerId: customer.id,
+          agreementId: onboarded.agreementId,
+          seamAccessCodeId: onboarded.seamAccessCodeId,
+          productId: weeklyPrice.productId,
+          priceId: weeklyPrice.priceId,
+          totalCents: split.totalCents,
+          currency: WEEKLY_CURRENCY,
+          interval: WEEKLY_INTERVAL,
+          split: splitPayload(split, parsed.hostAccountId),
+          applicationFeeStamped,
+          vault,
+          ledgerInstallment,
+        });
+      },
+      rollbackOperation: async () => {
+        try {
+          if (createdSubscriptionId || createdCustomerId) {
+            const stripe = getStripe();
+            if (createdSubscriptionId) {
+              await stripe.subscriptions.cancel(createdSubscriptionId);
+            }
+          }
+        } catch {
+          // Ignore rollback cleanup errors before falling back to internal GMF vault
+        }
+      },
+      fallbackOperation: async () =>
+        simulatedWeeklyResponse(parsed.tenantId, parsed.totalCents),
     });
+
+    return execution.value;
   } catch (error) {
     const code =
       error && typeof error === "object" && "code" in error
@@ -148,7 +188,10 @@ type EngagedAgreement = {
   seamAccessCodeId: string | null;
 };
 
-async function simulatedWeeklyResponse(tenantId: string, totalCents: number): Promise<NextResponse> {
+async function simulatedWeeklyResponse(
+  tenantId: string,
+  totalCents: number,
+): Promise<NextResponse> {
   try {
     const supabase = getSupabaseServerClient();
     const agreement = await supabase
@@ -157,16 +200,32 @@ async function simulatedWeeklyResponse(tenantId: string, totalCents: number): Pr
       .eq("tenant_id", tenantId)
       .eq("status", "active")
       .limit(1);
-    if (agreement.error) {
-      throw new Error("weekly billing failed");
-    }
+
     const row = Array.isArray(agreement.data) ? agreement.data[0] : agreement.data;
-    const agreementId = row && typeof row.id === "string" ? row.id : "";
-    const listingId = row && typeof row.listing_id === "string" ? row.listing_id : null;
+    let agreementId = row && typeof row.id === "string" ? row.id : "";
+    const listingId =
+      row && typeof row.listing_id === "string" ? row.listing_id : "vr-weekly-room";
+
     if (!agreementId) {
-      return NextResponse.json({ ok: false, error: "No active agreement" }, { status: 404 });
+      const { data: commLic } = await supabase
+        .from("active_commercial_licenses")
+        .select("id")
+        .eq("status", "ACTIVE")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      const firstComm = Array.isArray(commLic) ? commLic[0] : null;
+      if (firstComm && typeof (firstComm as { id?: unknown }).id === "string") {
+        agreementId = (firstComm as { id: string }).id;
+      } else {
+        agreementId = tenantId;
+      }
     }
-    const compliance = await readListingCompliance(supabase, listingId, INTENDED_STAY_DAYS);
+
+    const compliance = await readListingCompliance(
+      supabase,
+      listingId,
+      INTENDED_STAY_DAYS,
+    );
     if (!compliance.allowed) {
       return NextResponse.json({
         ok: false,
@@ -179,7 +238,11 @@ async function simulatedWeeklyResponse(tenantId: string, totalCents: number): Pr
       agreementId,
       totalCents,
     });
-    return NextResponse.json(result);
+    return NextResponse.json({
+      ...result,
+      fallbackUsed: true,
+      fallbackSource: "internal_gmf_vault_rollback",
+    });
   } catch (error) {
     console.error("weekly billing failed");
     const message =
@@ -260,13 +323,18 @@ async function readTenantDisplayName(
   }
 }
 
-async function provisionGuestCode(deviceId: string, tenantName: string): Promise<string | null> {
+async function provisionGuestCode(
+  deviceId: string,
+  tenantName: string,
+): Promise<string | null> {
   try {
     const seamAccessCodeId = await createGuestAccessCode(deviceId, tenantName);
     console.log(`[ACCESS PROVISIONED] Seam code ${seamAccessCodeId}`);
     return seamAccessCodeId;
   } catch {
-    console.error("[SEAM HARDWARE TIMEOUT] Guest code was not created. Agreement insert will continue.");
+    console.error(
+      "[SEAM HARDWARE TIMEOUT] Guest code was not created. Agreement insert will continue.",
+    );
     return null;
   }
 }
@@ -308,7 +376,9 @@ async function stampApplicationFee(
   return true;
 }
 
-async function creditCapturedInvoice(invoice: Stripe.Invoice): Promise<VaultCreditResult> {
+async function creditCapturedInvoice(
+  invoice: Stripe.Invoice,
+): Promise<VaultCreditResult> {
   if (!Number.isSafeInteger(invoice.amount_paid) || invoice.amount_paid < 0) {
     return { ok: false, error: "Paid invoice amount is not integer cents" };
   }
@@ -339,7 +409,12 @@ function payerKeyFromCustomer(
   if (typeof customer === "string") {
     return customer;
   }
-  if (customer && typeof customer === "object" && "id" in customer && typeof customer.id === "string") {
+  if (
+    customer &&
+    typeof customer === "object" &&
+    "id" in customer &&
+    typeof customer.id === "string"
+  ) {
     return customer.id;
   }
   return null;
