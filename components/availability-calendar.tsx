@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
+  STAY_DURATION_OPTIONS,
   addDaysIsoUtc,
   buildCalendarWindow,
   formatReadableDate,
@@ -22,6 +23,7 @@ import {
   formatCurrencyCents,
 } from "@/lib/marketing-calculator";
 import {
+  SEASONAL_REMOTE_MIN_DAYS,
   resolvePurposeCohort,
   type PurposeCohortId,
 } from "@/lib/underwriting-contract";
@@ -54,6 +56,7 @@ export function AvailabilityCalendar({
   weeklyRateCents,
   onChangeWeeklyRateCents,
   stayDays,
+  onChangeStayDays,
   checkInIso,
   onSelectCheckIn,
   hostEmail,
@@ -69,6 +72,7 @@ export function AvailabilityCalendar({
   weeklyRateCents?: number;
   onChangeWeeklyRateCents?: (weeklyRateCents: number) => void;
   stayDays: number;
+  onChangeStayDays?: (stayDays: number) => void;
   checkInIso: string;
   onSelectCheckIn: (isoDate: string) => void;
   hostEmail?: string;
@@ -86,6 +90,9 @@ export function AvailabilityCalendar({
   const [localWeeklyCents, setLocalWeeklyCents] = useState<number>(
     () => clampTierWeeklyRateCents(tierId, weeklyRateCents),
   );
+  const [localStayDays, setLocalStayDays] = useState<number>(() =>
+    Math.max(7, Math.min(90, stayDays || 7)),
+  );
   const [newlyBookedDates, setNewlyBookedDates] = useState<string[]>([]);
   const [windowOffsetDays, setWindowOffsetDays] = useState<number>(0);
   const [saving, setSaving] = useState(false);
@@ -102,11 +109,19 @@ export function AvailabilityCalendar({
     tierId,
     weeklyRateCents ?? localWeeklyCents,
   );
-  const rateComparison = calculateDailyRateComparison(effectiveWeeklyCents, stayDays);
+  const effectiveStayDays = Math.max(7, Math.min(90, localStayDays));
+  const rateComparison = calculateDailyRateComparison(
+    effectiveWeeklyCents,
+    effectiveStayDays,
+  );
 
   useEffect(() => {
     setLocalWeeklyCents(clampTierWeeklyRateCents(tierId, weeklyRateCents));
   }, [tierId, weeklyRateCents]);
+
+  useEffect(() => {
+    setLocalStayDays(Math.max(7, Math.min(90, stayDays || 7)));
+  }, [stayDays]);
 
   useEffect(() => {
     let cancelled = false;
@@ -155,11 +170,23 @@ export function AvailabilityCalendar({
     startIso: windowStartIso,
     totalDays: 35,
     checkInIso,
-    stayDays,
+    stayDays: effectiveStayDays,
     blockedDates: localBlocked,
   });
 
-  const underwritingBookingHref = `/underwriting?tier=${encodeURIComponent(tierId)}&weeklyCents=${effectiveWeeklyCents}&days=${stayDays}&checkIn=${encodeURIComponent(calendar.checkInIso)}&cohort=${encodeURIComponent(cohortRule.id)}&jurisdiction=${encodeURIComponent(jurisdictionCode)}`;
+  const underwritingBookingHref = `/underwriting?tier=${encodeURIComponent(tierId)}&weeklyCents=${effectiveWeeklyCents}&days=${effectiveStayDays}&checkIn=${encodeURIComponent(calendar.checkInIso)}&cohort=${encodeURIComponent(cohortRule.id)}&jurisdiction=${encodeURIComponent(jurisdictionCode)}`;
+
+  function handleDurationChange(nextDaysRaw: number) {
+    const minDays =
+      cohortRule.id === "Seasonal-Remote" ? SEASONAL_REMOTE_MIN_DAYS : 7;
+    const clamped = Math.max(minDays, Math.min(90, Math.round(nextDaysRaw) || 7));
+    setLocalStayDays(clamped);
+    onChangeStayDays?.(clamped);
+    const nextCheckOut = addDaysIsoUtc(calendar.checkInIso, clamped);
+    setSaveMessage(
+      `✓ Stay length set to ${clamped} days (${Math.round((clamped / 7) * 10) / 10} weeks): ${formatReadableDate(calendar.checkInIso)} → ${formatReadableDate(nextCheckOut)}. Click any start date below to automatically book ${clamped} days.`,
+    );
+  }
 
   async function persistHostBlockedDates(
     nextBlocked: string[],
@@ -230,45 +257,61 @@ export function AvailabilityCalendar({
     if (mode === "tenant") {
       if (isBlocked && !newlyBookedDates.includes(isoDate)) {
         setSaveMessage(
-          `${formatReadableDate(isoDate)} is currently reserved. Select any open date for Check-In.`,
+          `${formatReadableDate(isoDate)} is already BOOKED. Click any Available date to automatically book the next ${effectiveStayDays} days.`,
         );
         return;
       }
-      if (newlyBookedDates.includes(isoDate)) {
-        setNewlyBookedDates([]);
-      }
       onSelectCheckIn(isoDate);
-      const nextCheckOut = addDaysIsoUtc(isoDate, stayDays);
-      setSaveMessage(
-        `✓ Check-In set to ${formatReadableDate(isoDate)} → Check-Out ${formatReadableDate(nextCheckOut)} (${stayDays} nights).`,
+      // Automatically book the next `effectiveStayDays` days (7 days if 7 days selected, 90 days if 90 days selected)
+      const autoSpanDates: string[] = [];
+      for (let i = 0; i < effectiveStayDays; i++) {
+        autoSpanDates.push(addDaysIsoUtc(isoDate, i));
+      }
+      setNewlyBookedDates(autoSpanDates);
+      setLocalBlocked((prev) => {
+        const withoutPrevNew = prev.filter((d) => !newlyBookedDates.includes(d));
+        return Array.from(new Set([...withoutPrevNew, ...autoSpanDates])).sort();
+      });
+      void handleInstantBookStay(isoDate, effectiveStayDays);
+      return;
+    }
+
+    // Landlord mode: clicking an available date books the next `effectiveStayDays` days (or unbooks if already booked)
+    const isAlreadyBooked = localBlocked.includes(isoDate);
+    if (isAlreadyBooked) {
+      const nextBlocked = localBlocked.filter((d) => d !== isoDate);
+      setLocalBlocked(nextBlocked);
+      void persistHostBlockedDates(
+        nextBlocked,
+        `✓ Saved: ${formatReadableDate(isoDate)} marked AVAILABLE.`,
       );
       return;
     }
 
-    const willBeBlocked = !localBlocked.includes(isoDate);
-    const nextBlocked = willBeBlocked
-      ? [...localBlocked, isoDate].sort()
-      : localBlocked.filter((d) => d !== isoDate);
-
+    const spanToBook: string[] = [];
+    for (let i = 0; i < effectiveStayDays; i++) {
+      spanToBook.push(addDaysIsoUtc(isoDate, i));
+    }
+    const nextBlocked = Array.from(new Set([...localBlocked, ...spanToBook])).sort();
     setLocalBlocked(nextBlocked);
-    const statusLabel = willBeBlocked ? "Blocked (Reserved)" : "Available (Open)";
+    const endIso = addDaysIsoUtc(isoDate, effectiveStayDays);
     void persistHostBlockedDates(
       nextBlocked,
-      `✓ Saved: ${formatReadableDate(isoDate)} marked ${statusLabel}.`,
+      `✓ Automatically booked ${effectiveStayDays} days (${formatReadableDate(isoDate)} → ${formatReadableDate(endIso)}) — marked BOOKED.`,
     );
   }
 
-  function blockNextSevenDays() {
-    const start = todayIsoUtc();
-    const nextSeven: string[] = [];
-    for (let i = 0; i < 7; i++) {
-      nextSeven.push(addDaysIsoUtc(start, i));
+  function bookNextSpanDays() {
+    const start = calendar.checkInIso || todayIsoUtc();
+    const span: string[] = [];
+    for (let i = 0; i < effectiveStayDays; i++) {
+      span.push(addDaysIsoUtc(start, i));
     }
-    const merged = Array.from(new Set([...localBlocked, ...nextSeven])).sort();
+    const merged = Array.from(new Set([...localBlocked, ...span])).sort();
     setLocalBlocked(merged);
     void persistHostBlockedDates(
       merged,
-      `✓ Saved: Next 7 days blocked for ${tier.shortLabel}.`,
+      `✓ Saved: Next ${effectiveStayDays} days marked BOOKED for ${tier.shortLabel}.`,
     );
   }
 
@@ -288,7 +331,14 @@ export function AvailabilityCalendar({
     );
   }
 
-  async function handleInstantBookStay() {
+  async function handleInstantBookStay(
+    overrideCheckInIso?: string,
+    overrideStayDays?: number,
+  ) {
+    const targetCheckInIso = overrideCheckInIso ?? calendar.checkInIso;
+    const targetStayDays = overrideStayDays ?? effectiveStayDays;
+    const targetCheckOutIso = addDaysIsoUtc(targetCheckInIso, targetStayDays);
+
     setBookingBusy(true);
     setBookingError(null);
 
@@ -307,8 +357,8 @@ export function AvailabilityCalendar({
           jurisdiction: jurisdictionCode,
           tier: tierId,
           weeklyRateCents: effectiveWeeklyCents,
-          stayDays,
-          checkInDate: calendar.checkInIso,
+          stayDays: targetStayDays,
+          checkInDate: targetCheckInIso,
           credentialIdentifier: effectiveCredential,
           coverageRatio: 3.25,
         }),
@@ -342,8 +392,8 @@ export function AvailabilityCalendar({
         setLocalBlocked((prev) => Array.from(new Set([...prev, ...reserved])).sort());
       } else {
         const fallbackReserved: string[] = [];
-        for (let i = 0; i < stayDays; i++) {
-          fallbackReserved.push(addDaysIsoUtc(calendar.checkInIso, i));
+        for (let i = 0; i < targetStayDays; i++) {
+          fallbackReserved.push(addDaysIsoUtc(targetCheckInIso, i));
         }
         setNewlyBookedDates(fallbackReserved);
         setLocalBlocked((prev) =>
@@ -366,7 +416,7 @@ export function AvailabilityCalendar({
       const validUntil =
         typeof lic.valid_until === "string"
           ? lic.valid_until
-          : calendar.checkOutIso;
+          : targetCheckOutIso;
       const activeStaysCount =
         typeof record.activeStaysCount === "number"
           ? record.activeStaysCount
@@ -383,7 +433,7 @@ export function AvailabilityCalendar({
       const passportQuery = new URLSearchParams({
         cohort: cohortRule.id,
         jurisdiction: jurisdictionCode,
-        days: String(stayDays),
+        days: String(targetStayDays),
         weeklyCents: String(effectiveWeeklyCents),
         credentialId: effectiveCredential,
         ratio: "3.25",
@@ -398,7 +448,7 @@ export function AvailabilityCalendar({
         agreementId,
         cohort: cohortRule.id,
         jurisdiction: jurisdictionCode,
-        days: String(stayDays),
+        days: String(targetStayDays),
         credentialId: effectiveCredential,
         ratio: "3.25",
         weeklyFeeCents: String(effectiveWeeklyCents),
@@ -419,20 +469,20 @@ export function AvailabilityCalendar({
         tier: tierId,
         weeklyRateCents: effectiveWeeklyCents,
         dailyRateCents: rateComparison.grossDailyRateCents,
-        stayDays,
-        checkInDate: calendar.checkInIso,
+        stayDays: targetStayDays,
+        checkInDate: targetCheckInIso,
         validUntil,
         activeStaysCount,
         targetStaysCount,
         progressPercentage,
-        reservedDatesCount: reserved.length || stayDays,
+        reservedDatesCount: reserved.length || targetStayDays,
         passportPdfHref,
         commercialLicensePdfHref,
       };
 
       setBookingConfirmation(confirmation);
       setSaveMessage(
-        `✓ Reservation confirmed for ${formatReadableDate(calendar.checkInIso)} → ${formatReadableDate(validUntil)} (${stayDays} nights).`,
+        `✓ Automatically BOOKED ${targetStayDays} days: ${formatReadableDate(targetCheckInIso)} → ${formatReadableDate(validUntil)} (${targetStayDays} days marked BOOKED).`,
       );
 
       if (typeof window !== "undefined") {
@@ -460,23 +510,58 @@ export function AvailabilityCalendar({
     <div
       className="vr-calendar-box relative z-10"
       style={{ position: "relative", zIndex: 10 }}
-      aria-label="Availability calendar"
+      aria-label="7 to 90 Day Weekly & Mid-Term Booking Calendar"
     >
       <div className="vr-calendar-head relative z-10">
         <div className="vr-calendar-title">
           <strong>
             {mode === "tenant"
-              ? `${tier.shortLabel} Availability (${formatCurrencyCents(rateComparison.grossDailyRateCents)}/day)`
-              : `Host Availability Setup · ${tier.shortLabel}`}
+              ? `Weekly-to-90-Day Booking Calendar · ${tier.shortLabel} (${formatCurrencyCents(rateComparison.grossDailyRateCents)}/day · ${formatCurrencyCents(effectiveWeeklyCents)}/wk)`
+              : `Host 7-to-90-Day Availability Calendar · ${tier.shortLabel}`}
           </strong>
           <span>
-            {mode === "tenant"
-              ? `Check-In: ${formatReadableDate(calendar.checkInIso)} → Check-Out: ${formatReadableDate(calendar.checkOutIso)} (${stayDays} nights · $0 Security Deposit)`
-              : "Click any date to toggle between Available and Blocked."}
+            Select your stay length (7 to 90 days), then{" "}
+            <strong>click any start day</strong> to automatically book the next{" "}
+            <strong>{effectiveStayDays} days</strong> ({formatReadableDate(calendar.checkInIso)} →{" "}
+            {formatReadableDate(calendar.checkOutIso)}).
           </span>
         </div>
 
         <div className="vr-calendar-controls">
+          {/* 1-CLICK 7 TO 90 DAY STAY LENGTH SELECTOR */}
+          <label
+            className="vr-cal-btn vr-cal-btn--gold"
+            style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem" }}
+          >
+            <span>Stay Length:</span>
+            <select
+              aria-label="Stay Length (7 to 90 Days)"
+              value={effectiveStayDays}
+              onChange={(e) => handleDurationChange(Number(e.target.value))}
+              style={{
+                background: "transparent",
+                color: "inherit",
+                border: "none",
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              {STAY_DURATION_OPTIONS.map((opt) => (
+                <option
+                  key={opt.days}
+                  value={opt.days}
+                  disabled={
+                    cohortRule.id === "Seasonal-Remote" &&
+                    opt.days < SEASONAL_REMOTE_MIN_DAYS
+                  }
+                  style={{ color: "#0b1220" }}
+                >
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <label
             className="vr-cal-btn"
             style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem" }}
@@ -505,16 +590,17 @@ export function AvailabilityCalendar({
               ))}
             </select>
           </label>
+
           {mode === "tenant" ? (
             <span
               className="vr-calendar-status"
               data-available={!calendar.hasConflict ? "true" : "false"}
             >
               {!calendar.hasConflict
-                ? `✓ Dates Available (${formatReadableDate(calendar.checkInIso)} → ${formatReadableDate(calendar.checkOutIso)})`
+                ? `✓ ${effectiveStayDays}-Day Span Available (${formatReadableDate(calendar.checkInIso)} → ${formatReadableDate(calendar.checkOutIso)})`
                 : newlyBookedDates.length > 0
-                  ? `✓ Reserved (${newlyBookedDates.length} nights)`
-                  : `⚠ ${calendar.conflictingDates.length} unavailable day(s) in range`}
+                  ? `✓ BOOKED (${newlyBookedDates.length} days)`
+                  : `⚠ ${calendar.conflictingDates.length} BOOKED day(s) in range`}
             </span>
           ) : (
             <>
@@ -530,9 +616,9 @@ export function AvailabilityCalendar({
                 type="button"
                 className="vr-cal-btn"
                 disabled={saving}
-                onClick={blockNextSevenDays}
+                onClick={bookNextSpanDays}
               >
-                Block Next 7 Days
+                Book Next {effectiveStayDays} Days
               </button>
               <button
                 type="button"
@@ -566,6 +652,33 @@ export function AvailabilityCalendar({
         </div>
       </div>
 
+      {/* QUICK DURATION PILL BAR (7d / 14d / 21d / 30d / 60d / 90d) */}
+      <div
+        className="vr-swipe-sort-pills"
+        role="group"
+        aria-label="Quick select 7 to 90 day booking duration"
+        style={{ justifyContent: "flex-start" }}
+      >
+        {STAY_DURATION_OPTIONS.map((opt) => {
+          const isActive = effectiveStayDays === opt.days;
+          return (
+            <button
+              key={opt.days}
+              type="button"
+              aria-pressed={isActive}
+              disabled={
+                cohortRule.id === "Seasonal-Remote" &&
+                opt.days < SEASONAL_REMOTE_MIN_DAYS
+              }
+              onClick={() => handleDurationChange(opt.days)}
+              className={`vr-swipe-pill${isActive ? " vr-swipe-pill--active" : ""}`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+
       {saveMessage ? (
         <div
           className="vr-calendar-confirmation-banner relative z-10"
@@ -583,6 +696,7 @@ export function AvailabilityCalendar({
       >
         {calendar.cells.map((cell) => {
           const isNewlyBooked = newlyBookedDates.includes(cell.isoDate);
+          const isBookedCell = cell.isBlocked || isNewlyBooked;
           const isInWindow = mode === "tenant" && cell.isInSelectedStay;
           const state =
             cell.isBlocked && !isNewlyBooked && !isInWindow
@@ -594,16 +708,14 @@ export function AvailabilityCalendar({
                   : "available";
 
           let badgeLabel = "AVAILABLE";
-          if (mode === "landlord") {
-            badgeLabel = cell.isBlocked ? "BLOCKED" : "AVAILABLE";
-          } else if (cell.isSelectedStart) {
-            badgeLabel = "CHECK-IN";
-          } else if (cell.isSelectedEnd) {
-            badgeLabel = "CHECK-OUT";
-          } else if (cell.isInSelectedStay) {
-            badgeLabel = isNewlyBooked ? "RESERVED" : "STAY WINDOW";
-          } else if (cell.isBlocked) {
+          if (isBookedCell) {
             badgeLabel = "BOOKED";
+          } else if (mode === "tenant" && cell.isSelectedStart) {
+            badgeLabel = "CHECK-IN";
+          } else if (mode === "tenant" && cell.isSelectedEnd) {
+            badgeLabel = "CHECK-OUT";
+          } else if (mode === "tenant" && cell.isInSelectedStay) {
+            badgeLabel = `BOOKED (${effectiveStayDays}D)`;
           }
 
           return (
@@ -621,15 +733,13 @@ export function AvailabilityCalendar({
                   : undefined
               }
               aria-pressed={
-                mode === "tenant" ? cell.isInSelectedStay : cell.isBlocked
+                mode === "tenant" ? cell.isInSelectedStay : isBookedCell
               }
               onClick={() => handleCellClick(cell.isoDate, cell.isBlocked)}
               title={
-                mode === "landlord"
-                  ? `${cell.isoDate} — Click to toggle Available / Blocked`
-                  : cell.isBlocked && !isNewlyBooked
-                    ? `${cell.isoDate} — Reserved`
-                    : `${cell.isoDate} — Click to set Check-In (${stayDays} nights)`
+                isBookedCell
+                  ? `${cell.isoDate} — BOOKED`
+                  : `${cell.isoDate} — Click to automatically book ${effectiveStayDays} days`
               }
             >
               <span className="vr-calendar-day__dow">{cell.weekdayShort}</span>
@@ -644,7 +754,8 @@ export function AvailabilityCalendar({
 
       <div className="vr-calendar-legend relative z-10">
         <span>
-          <i className="vr-dot vr-dot--open" /> Available
+          <i className="vr-dot vr-dot--open" /> Available (Click Any Day to Auto-Book{" "}
+          {effectiveStayDays} Days)
         </span>
         {mode === "tenant" ? (
           <>
@@ -652,12 +763,12 @@ export function AvailabilityCalendar({
               <i className="vr-dot vr-dot--selected" /> Check-In / Check-Out
             </span>
             <span>
-              <i className="vr-dot vr-dot--window" /> Selected Stay ({stayDays} Nights)
+              <i className="vr-dot vr-dot--window" /> {effectiveStayDays}-Day Booking Span
             </span>
           </>
         ) : null}
         <span>
-          <i className="vr-dot vr-dot--blocked" /> Reserved
+          <i className="vr-dot vr-dot--blocked" /> Booked
         </span>
       </div>
 
@@ -677,16 +788,17 @@ export function AvailabilityCalendar({
               <strong>
                 {formatReadableDate(calendar.checkInIso)} →{" "}
                 {formatReadableDate(calendar.checkOutIso)}{" "}
-                <span>({stayDays} nights)</span>
+                <span>({effectiveStayDays} days)</span>
               </strong>
             </div>
             <div className="vr-booking-bar__tier">
               <strong>
-                {tier.shortLabel} ({formatCurrencyCents(rateComparison.grossDailyRateCents)}/day)
+                {tier.shortLabel} ({formatCurrencyCents(rateComparison.grossDailyRateCents)}/day ·{" "}
+                {formatCurrencyCents(effectiveWeeklyCents)}/wk)
               </strong>{" "}
               · Total:{" "}
               <strong>
-                {formatCurrencyCents(rateComparison.grossDailyRateCents * stayDays)}
+                {formatCurrencyCents(rateComparison.grossDailyRateCents * effectiveStayDays)}
               </strong>{" "}
               with <strong>$0 Security Deposit</strong>
             </div>
@@ -696,7 +808,7 @@ export function AvailabilityCalendar({
             {context === "home" ? (
               <>
                 <Link className="button" href={underwritingBookingHref}>
-                  Book Selected Dates →
+                  Book {effectiveStayDays}-Day Stay →
                 </Link>
                 <button
                   type="button"
@@ -704,7 +816,9 @@ export function AvailabilityCalendar({
                   disabled={bookingBusy}
                   onClick={() => void handleInstantBookStay()}
                 >
-                  {bookingBusy ? "Booking..." : "Instant Reserve"}
+                  {bookingBusy
+                    ? "Booking..."
+                    : `Auto-Book ${effectiveStayDays} Days Now`}
                 </button>
               </>
             ) : (
@@ -714,7 +828,9 @@ export function AvailabilityCalendar({
                 disabled={bookingBusy}
                 onClick={() => void handleInstantBookStay()}
               >
-                {bookingBusy ? "Confirming..." : "Confirm Reservation Now →"}
+                {bookingBusy
+                  ? "Confirming..."
+                  : `Confirm ${effectiveStayDays}-Day Booking Now →`}
               </button>
             )}
           </div>
@@ -736,11 +852,11 @@ export function AvailabilityCalendar({
         >
           <div className="stay-card-head" style={{ flexWrap: "wrap" }}>
             <div>
-              <p className="pass-kicker">Reservation Confirmed</p>
+              <p className="pass-kicker">Reservation Confirmed · Marked BOOKED</p>
               <h3>
-                {formatReadableDate(bookingConfirmation.checkInDate)} →{" "}
+                BOOKED: {formatReadableDate(bookingConfirmation.checkInDate)} →{" "}
                 {formatReadableDate(bookingConfirmation.validUntil)} (
-                {bookingConfirmation.stayDays} Nights)
+                {bookingConfirmation.stayDays} Days)
               </h3>
             </div>
             <span className="stay-badge" data-status="active">
@@ -753,7 +869,8 @@ export function AvailabilityCalendar({
               <span>Space Tier</span>
               <strong>
                 {bookingConfirmation.tier} ·{" "}
-                {formatCurrencyCents(bookingConfirmation.dailyRateCents)}/day
+                {formatCurrencyCents(bookingConfirmation.dailyRateCents)}/day (
+                {formatCurrencyCents(bookingConfirmation.weeklyRateCents)}/wk)
               </strong>
             </div>
             <div>

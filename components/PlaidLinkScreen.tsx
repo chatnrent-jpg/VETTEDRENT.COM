@@ -9,6 +9,7 @@ import {
 } from "@/components/availability-calendar";
 import { usePlaidLinkFlow } from "@/hooks/usePlaidLinkFlow";
 import {
+  STAY_DURATION_OPTIONS,
   addDaysIsoUtc,
   formatReadableDate,
   todayIsoUtc,
@@ -33,6 +34,7 @@ import {
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import {
   PURPOSE_COHORTS,
+  SEASONAL_REMOTE_MIN_DAYS,
   defaultContractTerm,
   resolvePurposeCohort,
   type ContractTerm,
@@ -61,7 +63,7 @@ export function PlaidLinkScreen() {
   const [prefilledLeadEmail, setPrefilledLeadEmail] = useState<string | null>(null);
   const [prefilledStayDays, setPrefilledStayDays] = useState<number | null>(null);
   const [checkInIso, setCheckInIso] = useState<string>(() => todayIsoUtc());
-  const [showCalendar, setShowCalendar] = useState<boolean>(false);
+  const [showCalendar, setShowCalendar] = useState<boolean>(true);
   const [activatingPass, setActivatingPass] = useState(false);
   const [activationMessage, setActivationMessage] = useState<string | null>(null);
   const [activationError, setActivationError] = useState<string | null>(null);
@@ -509,27 +511,35 @@ export function PlaidLinkScreen() {
           </label>
 
           <label className="google-search-cell">
-            <span>Check-In</span>
+            <span>Stay Length (7 to 90 Days)</span>
+            <select
+              aria-label="Stay Length (7 to 90 Days)"
+              value={selectedStayDays}
+              onChange={(e) => updateStayDurationDays(Number(e.target.value) || 7)}
+            >
+              {STAY_DURATION_OPTIONS.map((opt) => (
+                <option
+                  key={opt.days}
+                  value={opt.days}
+                  disabled={
+                    activeCohort.id === "Seasonal-Remote" &&
+                    opt.days < SEASONAL_REMOTE_MIN_DAYS
+                  }
+                >
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="google-search-cell">
+            <span>Check-In (→ {formatReadableDate(checkOutIso)})</span>
             <input
               type="date"
               value={checkInIso}
               onChange={(e) => {
                 if (e.target.value) {
                   updateCheckInDate(e.target.value);
-                }
-              }}
-            />
-          </label>
-
-          <label className="google-search-cell">
-            <span>Check-Out</span>
-            <input
-              type="date"
-              min={addDaysIsoUtc(checkInIso, 7)}
-              value={checkOutIso}
-              onChange={(e) => {
-                if (e.target.value) {
-                  updateCheckOutDate(e.target.value);
                 }
               }}
             />
@@ -709,6 +719,7 @@ export function PlaidLinkScreen() {
             weeklyRateCents={clampedWeeklyStayCents}
             onChangeWeeklyRateCents={(next) => setWeeklyStayCents(next)}
             stayDays={selectedStayDays}
+            onChangeStayDays={(nextDays) => updateStayDurationDays(nextDays)}
             checkInIso={checkInIso}
             onSelectCheckIn={(iso) => updateCheckInDate(iso)}
             cohortId={activeCohort.id}

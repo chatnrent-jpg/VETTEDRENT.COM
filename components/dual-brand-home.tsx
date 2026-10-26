@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
+import { AvailabilityCalendar } from "@/components/availability-calendar";
 import { ListingDiscoveryGrid } from "@/src/components/ListingGrid";
 import {
+  STAY_DURATION_OPTIONS,
   addDaysIsoUtc,
+  formatReadableDate,
   todayIsoUtc,
 } from "@/lib/availability-calendar";
 import {
@@ -49,16 +52,6 @@ const AUDIENCE_PURPOSE_FILTERS: readonly {
   },
 ];
 
-function diffDaysUtc(startIso: string, endIso: string): number {
-  const startMs = Date.parse(`${startIso}T00:00:00Z`);
-  const endMs = Date.parse(`${endIso}T00:00:00Z`);
-  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
-    return 30;
-  }
-  const diff = Math.round((endMs - startMs) / (24 * 60 * 60 * 1000));
-  return Math.max(7, Math.min(365, diff));
-}
-
 export function DualBrandHome({
   stay,
 }: {
@@ -78,7 +71,7 @@ export function DualBrandHome({
   const [selectedJurisdictionCode, setSelectedJurisdictionCode] = useState<string>(
     DEFAULT_JURISDICTION_CODE,
   );
-  const [stayDays, setStayDays] = useState<number>(30);
+  const [stayDays, setStayDays] = useState<number>(7);
   const [checkInIso, setCheckInIso] = useState<string>(() => todayIsoUtc());
 
   const [hostEmail, setHostEmail] = useState("");
@@ -119,12 +112,10 @@ export function DualBrandHome({
     setCheckInIso(nextCheckInIso);
   }
 
-  function handleCheckOutChange(nextCheckOutIso: string) {
-    if (!nextCheckOutIso) {
-      return;
-    }
-    const nextStayDays = diffDaysUtc(checkInIso, nextCheckOutIso);
-    setStayDays(nextStayDays);
+  function handleStayDaysChange(nextDaysRaw: number) {
+    const minDays =
+      selectedCohortId === "Seasonal-Remote" ? SEASONAL_REMOTE_MIN_DAYS : 7;
+    setStayDays(Math.max(minDays, Math.min(90, nextDaysRaw || 7)));
   }
 
   async function handleQuickHostStart(event: FormEvent<HTMLFormElement>) {
@@ -149,7 +140,7 @@ export function DualBrandHome({
       });
       if (res.ok) {
         setHostNotice(
-          "Your property inquiry has been saved. Visit List Your Property to upload photos and URL.",
+          "Your property inquiry has been saved. Use the 7-to-90-Day Calendar below to set your open or booked dates.",
         );
       } else {
         setHostNotice("Could not save right now. Please try again.");
@@ -218,22 +209,23 @@ export function DualBrandHome({
         {/* UNIFIED MARKETPLACE HEADER FOR ALL 4 AUDIENCES */}
         <div className="vr-unified-marketplace__head">
           <div className="text-xs uppercase tracking-widest text-emerald-400 font-bold">
-            Statewide Maryland Marketplace (All 23 Counties &amp; Baltimore City) · Professionals · Students · Families in Transition
+            Statewide Maryland Marketplace (All 23 Counties &amp; Baltimore City) · Weekly to 90-Day Stays
           </div>
           {!isLandlord ? (
             <>
               <h1 className="vr-unified-marketplace__title">
-                Explore Verified Mid-Term Spaces
+                Explore Verified 7-to-90-Day Stays
               </h1>
               <p className="vr-unified-marketplace__sub">
-                Move-in ready furnished stays with <strong>$0 Security Deposit</strong>,{" "}
+                Move-in ready furnished stays for professionals, students, and families in
+                transition with <strong>$0 Security Deposit</strong>,{" "}
                 <strong>No Credit Check</strong>, and <strong>Instant Bank Link Setup</strong>.
               </p>
             </>
           ) : (
             <>
               <h1 className="vr-unified-marketplace__title">
-                Host Verified Mid-Term Guests with Confidence
+                Host Verified 7-to-90-Day Guests with Confidence
               </h1>
               <p className="vr-unified-marketplace__sub">
                 Welcome pre-verified professionals, students, and relocating families with{" "}
@@ -275,7 +267,7 @@ export function DualBrandHome({
                 ) : null}
               </div>
 
-              {/* 4 UNIVERSAL AUDIENCE PILLS (NO HARDCODED ZIP CHIPS) */}
+              {/* 4 UNIVERSAL AUDIENCE PILLS */}
               <div
                 className="vr-zip-quick-chips"
                 role="group"
@@ -298,7 +290,7 @@ export function DualBrandHome({
               </div>
             </div>
 
-            {/* BOOKING CONFIGURATION BAR: TIER + STAY PURPOSE + CHECK-IN + CHECK-OUT + BOOK CTA */}
+            {/* WEEKLY-TO-90-DAY BOOKING BAR: TIER + WHO IS STAYING + STAY LENGTH (7–90 DAYS) + CHECK-IN + BOOK CTA */}
             <div className="google-search-bar vr-clean-booking-bar">
               <label className="google-search-cell">
                 <span>Space Tier</span>
@@ -312,7 +304,7 @@ export function DualBrandHome({
                 >
                   {SPACE_TIER_CARDS.map((card) => (
                     <option key={card.id} value={card.id}>
-                      {card.codeLabel} ({card.dailyPriceLabel})
+                      {card.codeLabel} ({card.dailyPriceLabel} · {card.weeklyPriceLabel})
                     </option>
                   ))}
                 </select>
@@ -327,6 +319,12 @@ export function DualBrandHome({
                     const nextCohort = e.target.value as PurposeCohortId;
                     setSelectedCohortId(nextCohort);
                     setActiveCohortFilter(nextCohort);
+                    if (
+                      nextCohort === "Seasonal-Remote" &&
+                      stayDays < SEASONAL_REMOTE_MIN_DAYS
+                    ) {
+                      setStayDays(SEASONAL_REMOTE_MIN_DAYS);
+                    }
                   }}
                 >
                   <option value="Contract-Assignment">Temporary Professional / Contractor</option>
@@ -337,7 +335,29 @@ export function DualBrandHome({
               </label>
 
               <label className="google-search-cell">
-                <span>Check-In</span>
+                <span>Stay Length (7 to 90 Days)</span>
+                <select
+                  aria-label="Stay Length (7 to 90 Days)"
+                  value={stayDays}
+                  onChange={(e) => handleStayDaysChange(Number(e.target.value))}
+                >
+                  {STAY_DURATION_OPTIONS.map((opt) => (
+                    <option
+                      key={opt.days}
+                      value={opt.days}
+                      disabled={
+                        selectedCohortId === "Seasonal-Remote" &&
+                        opt.days < SEASONAL_REMOTE_MIN_DAYS
+                      }
+                    >
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="google-search-cell">
+                <span>Check-In (→ {formatReadableDate(checkOutIso)})</span>
                 <input
                   type="date"
                   aria-label="Check-In date"
@@ -346,19 +366,8 @@ export function DualBrandHome({
                 />
               </label>
 
-              <label className="google-search-cell">
-                <span>Check-Out</span>
-                <input
-                  type="date"
-                  aria-label="Check-Out date"
-                  min={addDaysIsoUtc(checkInIso, 7)}
-                  value={checkOutIso}
-                  onChange={(e) => handleCheckOutChange(e.target.value)}
-                />
-              </label>
-
               <Link className="button google-search-cta" href={underwritingHref}>
-                Book {selectedCard.codeLabel} ({selectedCard.dailyPriceLabel}) →
+                Book {stayDays}-Day Stay ({selectedCard.dailyPriceLabel}) →
               </Link>
             </div>
           </div>
@@ -434,6 +443,22 @@ export function DualBrandHome({
             setActiveTierFilter("ALL");
             setActiveCohortFilter("ALL");
           }}
+        />
+
+        {/* INTERACTIVE 7-TO-90-DAY BOOKING CALENDAR (CLICK ANY DAY TO AUTO-BOOK 7 TO 90 DAYS) */}
+        <AvailabilityCalendar
+          mode={isLandlord ? "landlord" : "tenant"}
+          tierId={selectedTierId}
+          weeklyRateCents={clampedWeeklyCents}
+          onChangeWeeklyRateCents={(next) => setSelectedWeeklyCents(next)}
+          stayDays={stayDays}
+          onChangeStayDays={(nextDays) => handleStayDaysChange(nextDays)}
+          checkInIso={checkInIso}
+          onSelectCheckIn={(iso) => setCheckInIso(iso)}
+          hostEmail={hostEmail}
+          cohortId={selectedCohortId}
+          jurisdictionCode={selectedJurisdictionCode}
+          context="home"
         />
       </section>
 
