@@ -1,0 +1,304 @@
+/* Save as vettedrent-server/src/frontend/premium.css */
+@import url('https://googleapis.com');
+
+:root {
+  --bg-primary: #F8F9FA;
+  --text-main: #111111;
+  --text-muted: #6C757D;
+  --vr-accent: #000000;
+  --vr-success: #198754;
+  --border-color: #E5E5E5;
+  --panel-glass: #FFFFFF;
+}
+
+.vettedrent-premium-checkout {
+  font-family: 'Inter', sans-serif;
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+}
+
+/* Left Interaction Panel styling */
+.checkout-actions-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.badge-status {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--vr-success);
+  background: rgba(25, 135, 84, 0.1);
+  padding: 6px 12px;
+  border-radius: 100px;
+  margin-bottom: 12px;
+}
+
+.panel-header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px 0;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 15px;
+  margin: 0;
+}
+
+/* Premium Form Elements */
+.premium-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  letter-spacing: -0.01em;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.premium-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  font-size: 15px;
+  background-color: #FFFFFF;
+  transition: all 0.2s ease;
+}
+
+.premium-input:focus {
+  outline: none;
+  border-color: var(--vr-accent);
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.05);
+}
+
+/* Pill Selectors */
+.pill-selector-row {
+  display: flex;
+  gap: 10px;
+  background: #EFEFEF;
+  padding: 4px;
+  border-radius: 12px;
+}
+
+.pill-option {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pill-option.active {
+  background: #FFFFFF;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+/* Signature Block Overhaul */
+.signature-pad-wrapper {
+  position: relative;
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.signature-input-field {
+  width: 100%;
+  border: none;
+  font-family: 'Inter', sans-serif;
+  font-size: 20px;
+  font-style: italic;
+  font-weight: 500;
+  text-align: center;
+  letter-spacing: 0.02em;
+  background: transparent;
+}
+
+.signature-input-field:focus {
+  outline: none;
+}
+
+.signature-line-decorator {
+  height: 1px;
+  background: #CCCCCC;
+  width: 60%;
+  margin: 12px auto 0 auto;
+}
+
+.legal-micro-disclosure {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 10px;
+}
+
+.premium-link {
+  color: var(--vr-accent);
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+/* Right Summary Invoice Card styling */
+.summary-card-glass {
+  background: var(--panel-glass);
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.02);
+  position: sticky;
+  top: 40px;
+}
+
+.tier-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.tier-preview-header h3 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+}
+
+.location-tag {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.price-pill {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.price-pill span {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--vr-accent);
+}
+
+.stay-span-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-primary);
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 28px;
+}
+
+.duration-days-count {
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+/* Invoice Ledger Elements */
+.premium-ledger {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ledger-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.benefit-row {
+  color: var(--vr-success);
+  font-weight: 500;
+}
+
+.highlight-free {
+  background: rgba(25, 135, 84, 0.1);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ledger-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 8px 0;
+}
+
+.total-row {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--vr-accent);
+}
+
+.total-row span:last-child {
+  font-size: 24px;
+  letter-spacing: -0.02em;
+}
+
+/* Premium Action Trigger Button */
+.premium-submit-btn {
+  width: 100%;
+  background: var(--vr-accent);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 14px;
+  padding: 18px;
+  font-size: 15px;
+  font-weight: 600;
+  margin-top: 32px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.premium-submit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+.escrow-shield-notice {
+  font-size: 11px;
+  text-align: center;
+  color: var(--text-muted);
+  margin: 16px 0 0 0;
+}
+
+/* Responsive Adaptive Viewport Rules */
+@media (max-width: 900px) {
+  .vettedrent-premium-checkout {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding: 20px 16px;
+  }
+}

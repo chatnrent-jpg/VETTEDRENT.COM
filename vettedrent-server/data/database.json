@@ -1,0 +1,68 @@
+{
+  "platform_meta": {
+    "domain": "vettedrent.com",
+    "region": "Statewide Maryland (All 24 Jurisdictions)",
+    "gmf_escrow_pool_balance_usd": 250000.00
+  },
+  "space_inventory_tiers": {
+    "RoomSanctuary": {
+      "base_daily_rate_usd": 45,
+      "weekly_rate_usd": 315,
+      "features": ["Keyless Entry", "Study Desk", "All Utilities Included", "$0 Security Deposit"]
+    },
+    "PrivateSuite": {
+      "base_daily_rate_usd": 75,
+      "weekly_rate_usd": 525,
+      "features": ["Private En-Suite Bath", "Dual-Monitor Workspace", "Kitchenette", "Private Entrance"]
+    },
+    "ExecutiveTownhome": {
+      "base_daily_rate_usd": 106,
+      "weekly_rate_usd": 745,
+      "features": ["Entire Multi-BR Home", "Driveway Parking", "In-Unit Laundry", "Full Chef Kitchen"]
+    }
+  },
+  "active_bookings_table": {
+    "VR-2026-9981": {
+      "booking_id": "VR-2026-9981",
+      "legal_full_name": "John Doe",
+      "verified_email": "johndoe@example.com",
+      "space_tier": "RoomSanctuary",
+      "stay_duration_days": 7,
+      "check_in_date": "2026-10-26",
+      "check_out_date": "2026-11-02",
+      "legal_track": "transient",
+      "contract_title": "Transient Guest Occupancy License",
+      "escrow_gmf_backed": false,
+      "cryptographic_token_status": "revoked",
+      "financial_remediation_window_hours": 0
+    },
+    "VR-2026-9982": {
+      "booking_id": "VR-2026-9982",
+      "legal_full_name": "Jane Smith",
+      "verified_email": "janesmith@example.com",
+      "space_tier": "PrivateSuite",
+      "stay_duration_days": 60,
+      "check_in_date": "2026-10-26",
+      "check_out_date": "2026-12-25",
+      "legal_track": "corporate_shield",
+      "contract_title": "Corporate Housing Operational Occupancy License",
+      "escrow_gmf_backed": true,
+      "cryptographic_token_status": "remediation",
+      "financial_remediation_window_hours": 24
+    }
+  },
+  "transaction_audit_logs": [
+    {
+      "timestamp": "2026-10-26T15:38:00Z",
+      "booking_id": "VR-2026-9981",
+      "event": "CHECKOUT_PROCESSED",
+      "details": "Assigned Track A: Transient framework automatically applied based on 7-day selector."
+    },
+    {
+      "timestamp": "2026-10-26T15:38:05Z",
+      "booking_id": "VR-2026-9981",
+      "event": "BANK_LINK_DISCONNECTED_WEBHOOK_RECEIVED",
+      "details": "Immediate cryptographic access token revoked. Smart lock code wiped."
+    }
+  ]
+}
