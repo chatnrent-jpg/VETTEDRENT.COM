@@ -4,12 +4,7 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { AvailabilityCalendar } from "@/components/availability-calendar";
 import { ListingDiscoveryGrid } from "@/src/components/ListingGrid";
-import {
-  STAY_DURATION_OPTIONS,
-  addDaysIsoUtc,
-  formatReadableDate,
-  todayIsoUtc,
-} from "@/lib/availability-calendar";
+import { todayIsoUtc } from "@/lib/availability-calendar";
 import {
   DEFAULT_JURISDICTION_CODE,
   JURISDICTION_RULES,
@@ -82,10 +77,6 @@ export function DualBrandHome({
     selectedTierId,
     selectedWeeklyCents,
   );
-  const checkOutIso = addDaysIsoUtc(checkInIso, stayDays);
-  const selectedCard =
-    SPACE_TIER_CARDS.find((card) => card.id === selectedTierId) ?? SPACE_TIER_CARDS[0];
-
   function selectTier(nextTierId: DailyRateTierId) {
     setSelectedTierId(nextTierId);
     setSelectedWeeklyCents(DAILY_RATE_PRESET_TIERS[nextTierId].weeklyRateCents);
@@ -151,8 +142,6 @@ export function DualBrandHome({
       setHostSubmitting(false);
     }
   }
-
-  const underwritingHref = `/underwriting?tier=${encodeURIComponent(selectedTierId)}&weeklyCents=${clampedWeeklyCents}&days=${stayDays}&checkIn=${encodeURIComponent(checkInIso)}&cohort=${encodeURIComponent(selectedCohortId)}&jurisdiction=${encodeURIComponent(selectedJurisdictionCode)}`;
 
   return (
     <main className="google-home google-home--unified" data-perspective={perspective}>
@@ -290,86 +279,6 @@ export function DualBrandHome({
               </div>
             </div>
 
-            {/* WEEKLY-TO-90-DAY BOOKING BAR: TIER + WHO IS STAYING + STAY LENGTH (7–90 DAYS) + CHECK-IN + BOOK CTA */}
-            <div className="google-search-bar vr-clean-booking-bar">
-              <label className="google-search-cell">
-                <span>Space Tier</span>
-                <select
-                  aria-label="Space Tier"
-                  value={selectedTierId}
-                  onChange={(e) => {
-                    const nextTier = e.target.value as DailyRateTierId;
-                    selectTier(nextTier);
-                  }}
-                >
-                  {SPACE_TIER_CARDS.map((card) => (
-                    <option key={card.id} value={card.id}>
-                      {card.codeLabel} ({card.dailyPriceLabel} · {card.weeklyPriceLabel})
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="google-search-cell">
-                <span>Who Is Staying?</span>
-                <select
-                  aria-label="Who Is Staying?"
-                  value={selectedCohortId}
-                  onChange={(e) => {
-                    const nextCohort = e.target.value as PurposeCohortId;
-                    setSelectedCohortId(nextCohort);
-                    setActiveCohortFilter(nextCohort);
-                    if (
-                      nextCohort === "Seasonal-Remote" &&
-                      stayDays < SEASONAL_REMOTE_MIN_DAYS
-                    ) {
-                      setStayDays(SEASONAL_REMOTE_MIN_DAYS);
-                    }
-                  }}
-                >
-                  <option value="Contract-Assignment">Temporary Professional / Contractor</option>
-                  <option value="Academic-Enrollment">University Student / Intern</option>
-                  <option value="Insurance-Relocation">Family in Transition / Insurance (ALE)</option>
-                  <option value="Seasonal-Remote">Remote / Seasonal Stay (14d+)</option>
-                </select>
-              </label>
-
-              <label className="google-search-cell">
-                <span>Stay Length (7 to 90 Days)</span>
-                <select
-                  aria-label="Stay Length (7 to 90 Days)"
-                  value={stayDays}
-                  onChange={(e) => handleStayDaysChange(Number(e.target.value))}
-                >
-                  {STAY_DURATION_OPTIONS.map((opt) => (
-                    <option
-                      key={opt.days}
-                      value={opt.days}
-                      disabled={
-                        selectedCohortId === "Seasonal-Remote" &&
-                        opt.days < SEASONAL_REMOTE_MIN_DAYS
-                      }
-                    >
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="google-search-cell">
-                <span>Check-In (→ {formatReadableDate(checkOutIso)})</span>
-                <input
-                  type="date"
-                  aria-label="Check-In date"
-                  value={checkInIso}
-                  onChange={(e) => handleCheckInChange(e.target.value)}
-                />
-              </label>
-
-              <Link className="button google-search-cta" href={underwritingHref}>
-                Book {stayDays}-Day Stay ({selectedCard.dailyPriceLabel}) →
-              </Link>
-            </div>
           </div>
         ) : (
           <form
@@ -459,6 +368,7 @@ export function DualBrandHome({
           cohortId={selectedCohortId}
           jurisdictionCode={selectedJurisdictionCode}
           context="home"
+          onChangeCohort={(nextCohort) => handleSelectAudienceFilter(nextCohort)}
         />
       </section>
 

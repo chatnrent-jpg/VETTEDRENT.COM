@@ -9,17 +9,17 @@ import {
 import { SPACE_TIER_CARDS } from "@/lib/daily-rate-comparison";
 import { PURPOSE_COHORTS } from "@/lib/underwriting-contract";
 
-export function generateStaticParams(): Array<{ code: string }> {
-  return JURISDICTION_RULES.map((rule) => ({ code: rule.code }));
+export function generateStaticParams(): Array<{ state: string }> {
+  return JURISDICTION_RULES.map((rule) => ({ state: rule.code }));
 }
 
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ code: string }>;
+  params: Promise<{ state: string }>;
 }): Promise<Metadata> {
-  const { code } = await params;
-  const rule = resolveJurisdiction(code);
+  const { state } = await params;
+  const rule = resolveJurisdiction(state);
   if (!rule) {
     return {
       title: "Destination Not Found · VettedRent",
@@ -34,10 +34,10 @@ export async function generateMetadata({
 export default async function JurisdictionLandingPage({
   params,
 }: {
-  params: Promise<{ code: string }>;
+  params: Promise<{ state: string }>;
 }) {
-  const { code } = await params;
-  const rule = resolveJurisdiction(code);
+  const { state } = await params;
+  const rule = resolveJurisdiction(state);
   if (!rule) {
     notFound();
   }
