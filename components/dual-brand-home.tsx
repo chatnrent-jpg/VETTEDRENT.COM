@@ -5,10 +5,7 @@ import { useState, type FormEvent } from "react";
 import { AvailabilityCalendar } from "@/components/availability-calendar";
 import { ListingDiscoveryGrid } from "@/src/components/ListingGrid";
 import { todayIsoUtc } from "@/lib/availability-calendar";
-import {
-  DEFAULT_JURISDICTION_CODE,
-  JURISDICTION_RULES,
-} from "@/lib/compliance/jurisdictions";
+import { DEFAULT_JURISDICTION_CODE } from "@/lib/compliance/jurisdictions";
 import {
   DAILY_RATE_PRESET_TIERS,
   SPACE_TIER_CARDS,
@@ -28,23 +25,11 @@ const AUDIENCE_PURPOSE_FILTERS: readonly {
   id: PurposeCohortId | "ALL";
   label: string;
 }[] = [
-  { id: "ALL", label: "All Verified Stays" },
-  {
-    id: "Contract-Assignment",
-    label: "Temporary Professionals & Contractors",
-  },
-  {
-    id: "Academic-Enrollment",
-    label: "University Students & Interns",
-  },
-  {
-    id: "Insurance-Relocation",
-    label: "Families in Transition & Insurance (ALE)",
-  },
-  {
-    id: "Seasonal-Remote",
-    label: "Remote & Seasonal Stays",
-  },
+  { id: "ALL", label: "Anyone" },
+  { id: "Contract-Assignment", label: "Professional" },
+  { id: "Academic-Enrollment", label: "Student" },
+  { id: "Insurance-Relocation", label: "Family" },
+  { id: "Seasonal-Remote", label: "Remote" },
 ];
 
 export function DualBrandHome({
@@ -94,13 +79,6 @@ export function DualBrandHome({
         setStayDays(SEASONAL_REMOTE_MIN_DAYS);
       }
     }
-  }
-
-  function handleCheckInChange(nextCheckInIso: string) {
-    if (!nextCheckInIso) {
-      return;
-    }
-    setCheckInIso(nextCheckInIso);
   }
 
   function handleStayDaysChange(nextDaysRaw: number) {
@@ -197,29 +175,18 @@ export function DualBrandHome({
       >
         {/* UNIFIED MARKETPLACE HEADER FOR ALL 4 AUDIENCES */}
         <div className="vr-unified-marketplace__head">
-          <div className="text-xs uppercase tracking-widest text-emerald-400 font-bold">
-            Statewide Maryland Marketplace (All 23 Counties &amp; Baltimore City) · Weekly to 90-Day Stays
-          </div>
           {!isLandlord ? (
             <>
-              <h1 className="vr-unified-marketplace__title">
-                Explore Verified 7-to-90-Day Stays
-              </h1>
+              <h1 className="vr-unified-marketplace__title">Find a stay in Maryland</h1>
               <p className="vr-unified-marketplace__sub">
-                Move-in ready furnished stays for professionals, students, and families in
-                transition with <strong>$0 Security Deposit</strong>,{" "}
-                <strong>No Credit Check</strong>, and <strong>Instant Bank Link Setup</strong>.
+                Furnished rooms, suites, and homes. $0 deposit.
               </p>
             </>
           ) : (
             <>
-              <h1 className="vr-unified-marketplace__title">
-                Host Verified 7-to-90-Day Guests with Confidence
-              </h1>
+              <h1 className="vr-unified-marketplace__title">List your property</h1>
               <p className="vr-unified-marketplace__sub">
-                Welcome pre-verified professionals, students, and relocating families with{" "}
-                <strong>$0 Security Deposit</strong> friction, <strong>No Credit Check</strong>{" "}
-                delays, and <strong>Instant Bank Link Setup</strong>.
+                Welcome guests. We handle verification.
               </p>
             </>
           )}
@@ -235,12 +202,11 @@ export function DualBrandHome({
             {/* OPEN DYNAMIC ZIP CODE / CITY / CAMPUS / EMPLOYER SEARCH INPUT */}
             <div className="vr-zip-search-row">
               <div className="vr-zip-search-box">
-                <span className="vr-zip-search-badge">STATEWIDE MD ZIP / CITY SEARCH</span>
                 <input
                   type="search"
                   inputMode="search"
-                  aria-label="Search any Maryland ZIP code (20601–21930), county, city, university, or employer"
-                  placeholder="Search any Maryland ZIP code (20601–21930), county, city, university, or employer..."
+                  aria-label="City or ZIP"
+                  placeholder="City or ZIP"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="vr-zip-search-input"
@@ -286,36 +252,8 @@ export function DualBrandHome({
             onSubmit={(e) => void handleQuickHostStart(e)}
             aria-label="List your property"
           >
-            <label className="google-search-cell">
-              <span>Where is your property?</span>
-              <select
-                value={selectedJurisdictionCode}
-                onChange={(e) => setSelectedJurisdictionCode(e.target.value)}
-              >
-                {JURISDICTION_RULES.map((rule) => (
-                  <option key={rule.code} value={rule.code}>
-                    {rule.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="google-search-cell">
-              <span>Space Tier</span>
-              <select
-                value={selectedTierId}
-                onChange={(e) => selectTier(e.target.value as DailyRateTierId)}
-              >
-                {SPACE_TIER_CARDS.map((tier) => (
-                  <option key={tier.id} value={tier.id}>
-                    {tier.title} ({tier.dailyPriceLabel})
-                  </option>
-                ))}
-              </select>
-            </label>
-
             <label className="google-search-cell" style={{ flex: "1.4 1 12rem" }}>
-              <span>Your Email</span>
+              <span>Your email</span>
               <input
                 type="email"
                 required
@@ -339,6 +277,7 @@ export function DualBrandHome({
 
         {/* SWIPEABLE MARKETPLACE FOR PROFESSIONALS, STUDENTS & FAMILIES IN TRANSITION */}
         <ListingDiscoveryGrid
+          simple
           searchQuery={searchQuery}
           activeTierFilter={activeTierFilter}
           activeCohortFilter={activeCohortFilter}
@@ -354,22 +293,22 @@ export function DualBrandHome({
           }}
         />
 
-        {/* INTERACTIVE 7-TO-90-DAY BOOKING CALENDAR (CLICK ANY DAY TO AUTO-BOOK 7 TO 90 DAYS) */}
-        <AvailabilityCalendar
-          mode={isLandlord ? "landlord" : "tenant"}
-          tierId={selectedTierId}
-          weeklyRateCents={clampedWeeklyCents}
-          onChangeWeeklyRateCents={(next) => setSelectedWeeklyCents(next)}
-          stayDays={stayDays}
-          onChangeStayDays={(nextDays) => handleStayDaysChange(nextDays)}
-          checkInIso={checkInIso}
-          onSelectCheckIn={(iso) => setCheckInIso(iso)}
-          hostEmail={hostEmail}
-          cohortId={selectedCohortId}
-          jurisdictionCode={selectedJurisdictionCode}
-          context="home"
-          onChangeCohort={(nextCohort) => handleSelectAudienceFilter(nextCohort)}
-        />
+        {!isLandlord ? (
+          <AvailabilityCalendar
+            mode="tenant"
+            tierId={selectedTierId}
+            weeklyRateCents={clampedWeeklyCents}
+            onChangeWeeklyRateCents={(next) => setSelectedWeeklyCents(next)}
+            stayDays={stayDays}
+            onChangeStayDays={(nextDays) => handleStayDaysChange(nextDays)}
+            checkInIso={checkInIso}
+            onSelectCheckIn={(iso) => setCheckInIso(iso)}
+            cohortId={selectedCohortId}
+            jurisdictionCode={selectedJurisdictionCode}
+            context="home"
+            onChangeCohort={(nextCohort) => handleSelectAudienceFilter(nextCohort)}
+          />
+        ) : null}
       </section>
 
       {/* CLEAN FOOTER */}
@@ -378,8 +317,7 @@ export function DualBrandHome({
         style={{ position: "relative", zIndex: 10 }}
       >
         <span>
-          VettedRent ({stay.name}) · <strong>$0 Security Deposit</strong> ·{" "}
-          <strong>No Credit Check</strong> · <strong>Instant Bank Link Setup</strong>
+          VettedRent · $0 deposit · Maryland
         </span>
         <div className="google-footer__links">
           <Link href="/underwriting">Book a Stay</Link>

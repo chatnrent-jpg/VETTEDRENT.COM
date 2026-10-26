@@ -563,6 +563,94 @@ export function AvailabilityCalendar({
     }
   }
 
+  const isSimpleGuestHome = mode === "tenant" && context === "home";
+
+  if (isSimpleGuestHome) {
+    return (
+      <div className="vr-simple-book" aria-label="Book your stay">
+        <div className="vr-simple-book__when">
+          <label>
+            <span>Check-in</span>
+            <input
+              type="date"
+              aria-label="Check-in date"
+              value={calendar.checkInIso}
+              onChange={(event) => {
+                if (event.target.value) {
+                  onSelectCheckIn(event.target.value);
+                }
+              }}
+            />
+          </label>
+          <label>
+            <span>How long</span>
+            <select
+              aria-label="Stay length"
+              value={effectiveStayDays}
+              onChange={(event) => handleDurationChange(Number(event.target.value))}
+            >
+              {STAY_DURATION_OPTIONS.map((opt) => (
+                <option
+                  key={opt.days}
+                  value={opt.days}
+                  disabled={
+                    cohortRule.id === "Seasonal-Remote" &&
+                    opt.days < SEASONAL_REMOTE_MIN_DAYS
+                  }
+                >
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <PremiumCheckoutCard
+          tierId={tierId}
+          dailyRateCents={rateComparison.grossDailyRateCents}
+          stayDays={effectiveStayDays}
+          checkInIso={calendar.checkInIso}
+          checkOutIso={calendar.checkOutIso}
+          jurisdictionCode={jurisdictionCode}
+          cohortId={cohortRule.id}
+          guestFullName={guestFullName}
+          guestEmail={guestEmail}
+          onChangeFullName={(value) => {
+            setGuestFullName(value);
+            setBookingError(null);
+          }}
+          onChangeEmail={(value) => {
+            setGuestEmail(value);
+            setBookingError(null);
+          }}
+          onChangeCohort={onChangeCohort}
+          submitBusy={bookingBusy}
+          errorMessage={bookingError}
+          onSubmit={() => {
+            const signed = guestFullName.trim().length >= 2;
+            if (!signed || !guestEmail.includes("@")) {
+              setBookingError(
+                "Please input your full legal name and verified email to affirm documentation execution.",
+              );
+              return;
+            }
+            if (effectiveStayDays >= 30) {
+              router.push(underwritingBookingHref);
+              return;
+            }
+            void handleInstantBookStay();
+          }}
+        />
+        {bookingConfirmation ? (
+          <p className="vr-simple-book__done" role="status">
+            Booked {formatReadableDate(bookingConfirmation.checkInDate)} →{" "}
+            {formatReadableDate(bookingConfirmation.validUntil)}. Check your email for the Stay
+            Passport.
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div
       className="vr-calendar-box relative z-10"

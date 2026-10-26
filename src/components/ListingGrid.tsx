@@ -222,6 +222,12 @@ export const SAMPLE_LISTINGS: PropertyCardProps[] = [
   },
 ];
 
+const SIMPLE_TIER_LABELS: Record<PropertyCardProps["tier"], string> = {
+  RoomSanctuary: "Room",
+  PrivateSuite: "Suite",
+  ExecutiveTownhome: "Townhome",
+};
+
 export interface ListingDiscoveryGridProps {
   searchQuery?: string;
   activeTierFilter?: string;
@@ -230,6 +236,7 @@ export interface ListingDiscoveryGridProps {
   checkInIso?: string;
   stayDays?: number;
   jurisdictionCode?: string;
+  simple?: boolean;
   onSelectTier?: (tier: "RoomSanctuary" | "PrivateSuite" | "ExecutiveTownhome") => void;
   onResetFilters?: () => void;
 }
@@ -242,6 +249,7 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
   checkInIso = "",
   stayDays = 30,
   jurisdictionCode = "MD-PG",
+  simple = false,
   onSelectTier,
   onResetFilters,
 }) => {
@@ -372,6 +380,38 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
 
   const effectiveCohort: PurposeCohortId =
     activeCohortFilter === "ALL" ? "Contract-Assignment" : activeCohortFilter;
+
+  const displayListings = simple
+    ? baseListings.filter((property, index, all) =>
+        all.findIndex((item) => item.tier === property.tier) === index,
+      )
+    : baseListings;
+
+  if (simple) {
+    return (
+      <div className="vr-simple-spaces" role="list" aria-label="Available spaces">
+        {displayListings.map((property) => {
+          const isSelected = selectedTierId === property.tier;
+          const photoUrl = hostPhotosByTier[property.tier] || property.defaultImageUrl;
+          return (
+            <button
+              key={property.id}
+              type="button"
+              role="listitem"
+              className={`vr-simple-space${isSelected ? " vr-simple-space--selected" : ""}`}
+              onClick={() => onSelectTier?.(property.tier)}
+            >
+              <img src={photoUrl} alt="" className="vr-simple-space__photo" />
+              <div className="vr-simple-space__meta">
+                <strong>{SIMPLE_TIER_LABELS[property.tier]}</strong>
+                <span>${property.dailyRate} / day</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className="vr-swipe-marketplace w-full">

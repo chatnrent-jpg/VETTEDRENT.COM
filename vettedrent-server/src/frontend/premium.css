@@ -1,5 +1,5 @@
 /* Save as vettedrent-server/src/frontend/premium.css */
-@import url('https://googleapis.com');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
   --bg-primary: #F8F9FA;
@@ -43,7 +43,8 @@
   margin-bottom: 12px;
 }
 
-.panel-header h1 {
+.panel-header h1,
+.panel-header h2 {
   font-size: 32px;
   font-weight: 700;
   letter-spacing: -0.02em;
