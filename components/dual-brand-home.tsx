@@ -43,6 +43,7 @@ export function DualBrandHome({
   const [perspective, setPerspective] = useState<BrandPerspective>("tenant");
   const isLandlord = perspective === "landlord";
 
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedTierId, setSelectedTierId] = useState<DailyRateTierId>("RoomSanctuary");
   const [selectedWeeklyCents, setSelectedWeeklyCents] = useState<number>(31500);
   const [selectedCohortId] = useState<PurposeCohortId>("Contract-Assignment");
@@ -65,9 +66,25 @@ export function DualBrandHome({
   const selectedCard =
     SPACE_TIER_CARDS.find((card) => card.id === selectedTierId) ?? SPACE_TIER_CARDS[0];
 
+  function broadcastSearch(nextQuery: string, nextTier: string) {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("vettedrent:search-spaces", {
+          detail: { query: nextQuery, tier: nextTier },
+        }),
+      );
+    }
+  }
+
   function selectTier(nextTierId: DailyRateTierId) {
     setSelectedTierId(nextTierId);
     setSelectedWeeklyCents(DAILY_RATE_PRESET_TIERS[nextTierId].weeklyRateCents);
+    broadcastSearch(searchQuery, "ALL");
+  }
+
+  function handleSearchQueryChange(nextQuery: string) {
+    setSearchQuery(nextQuery);
+    broadcastSearch(nextQuery, "ALL");
   }
 
   function handleCheckInChange(nextCheckInIso: string) {
@@ -123,7 +140,7 @@ export function DualBrandHome({
   const underwritingHref = `/underwriting?tier=${encodeURIComponent(selectedTierId)}&weeklyCents=${clampedWeeklyCents}&days=${stayDays}&checkIn=${encodeURIComponent(checkInIso)}&cohort=${encodeURIComponent(selectedCohortId)}&jurisdiction=${encodeURIComponent(selectedJurisdictionCode)}`;
 
   return (
-    <main className="google-home" data-perspective={perspective}>
+    <div className="google-home google-home--compact" data-perspective={perspective}>
       <div
         className="google-hero-backdrop pointer-events-none"
         style={{ pointerEvents: "none" }}
@@ -159,23 +176,19 @@ export function DualBrandHome({
           >
             Book a Stay
           </button>
-          <button
-            type="button"
-            className="text-button"
-            onClick={() => setPerspective("landlord")}
-          >
+          <Link className="text-button" href="/host/onboard">
             List Your Property
-          </button>
+          </Link>
           <Link className="button" href="/dashboard">
             Sign In
           </Link>
         </nav>
       </header>
 
-      {/* CENTERED AIRBNB / HOTWIRE STYLE HERO & BOOKING STAGE */}
+      {/* CENTERED AIRBNB / HOTWIRE STYLE HERO & SEARCHABLE BOOKING STAGE */}
       <section
         className="google-stage relative z-10"
-        style={{ position: "relative", zIndex: 10 }}
+        style={{ position: "relative", zIndex: 10, paddingBottom: "0.75rem" }}
         aria-label="Search and book furnished stays"
       >
         {/* CONSUMER VALUE HEADLINE */}
@@ -229,24 +242,44 @@ export function DualBrandHome({
           </div>
         </div>
 
-        {/* MINIMALIST DESTINATION + CHECK-IN / CHECK-OUT SEARCH BAR */}
+        {/* PROMINENT SEARCHABLE SPACE & DATE RANGE BAR */}
         {!isLandlord ? (
           <div
             className="google-search-bar vr-clean-booking-bar relative z-10"
             style={{ position: "relative", zIndex: 10 }}
             role="search"
-            aria-label="Search stays by destination and dates"
+            aria-label="Search stays by destination, space, and dates"
           >
             <label className="google-search-cell vr-search-cell--destination">
-              <span>Where are you traveling?</span>
-              <select
+              <span>Where are you traveling? (Search Space / City / Hospital)</span>
+              <input
+                type="search"
+                list="vr-destination-suggestions"
                 aria-label="Where are you traveling?"
-                value={selectedJurisdictionCode}
-                onChange={(e) => setSelectedJurisdictionCode(e.target.value)}
+                placeholder="Hyattsville, Bethesda, Bowie, Johns Hopkins..."
+                value={searchQuery}
+                onChange={(e) => handleSearchQueryChange(e.target.value)}
+              />
+              <datalist id="vr-destination-suggestions">
+                <option value="Hyattsville, MD — UM Capital Region Medical Center" />
+                <option value="Bethesda, MD — Suburban Hospital (Johns Hopkins)" />
+                <option value="Bowie, MD — Regional Medical Transit Corridor" />
+                <option value="RoomSanctuary ($45/day)" />
+                <option value="PrivateSuite ($75/day)" />
+                <option value="ExecutiveTownhome ($106/day)" />
+              </datalist>
+            </label>
+
+            <label className="google-search-cell">
+              <span>Space Tier</span>
+              <select
+                aria-label="Select space tier"
+                value={selectedTierId}
+                onChange={(e) => selectTier(e.target.value as DailyRateTierId)}
               >
-                {JURISDICTION_RULES.map((rule) => (
-                  <option key={rule.code} value={rule.code}>
-                    {rule.name}
+                {SPACE_TIER_CARDS.map((card) => (
+                  <option key={card.id} value={card.id}>
+                    {card.codeLabel} ({card.dailyPriceLabel})
                   </option>
                 ))}
               </select>
@@ -274,7 +307,7 @@ export function DualBrandHome({
             </label>
 
             <Link className="button google-search-cta" href={underwritingHref}>
-              Book {selectedCard.title} ({selectedCard.dailyPriceLabel}) →
+              Book {selectedCard.codeLabel} ({selectedCard.dailyPriceLabel}) →
             </Link>
           </div>
         ) : (
@@ -335,91 +368,35 @@ export function DualBrandHome({
 
         {hostNotice ? <p className="payload">{hostNotice}</p> : null}
 
-        {/* SINGLE PREMIUM TIER SELECTOR: 3 VISUAL CARDS */}
-        <div
-          className="vr-tier-selector-section"
-          role="region"
-          aria-label="Choose your space tier"
-        >
-          <div className="vr-tier-selector-header">
-            <h2>Select Your Space</h2>
-            <span>
-              {formatReadableDate(checkInIso)} → {formatReadableDate(checkOutIso)} ({stayDays}{" "}
-              nights) · Featured: {stay.name}
-            </span>
-          </div>
-
-          <div className="vr-tier-cards-grid" role="radiogroup" aria-label="Space tiers">
-            {SPACE_TIER_CARDS.map((card) => {
-              const isSelected = selectedTierId === card.id;
-              const cardHref = `/underwriting?tier=${encodeURIComponent(card.id)}&weeklyCents=${card.weeklyRateCents}&days=${stayDays}&checkIn=${encodeURIComponent(checkInIso)}&cohort=${encodeURIComponent(selectedCohortId)}&jurisdiction=${encodeURIComponent(selectedJurisdictionCode)}`;
-
-              return (
-                <div
-                  key={card.id}
-                  role="radio"
-                  aria-checked={isSelected}
-                  tabIndex={0}
-                  className={`vr-tier-card${isSelected ? " vr-tier-card--selected" : ""}`}
-                  onClick={() => selectTier(card.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      selectTier(card.id);
-                    }
-                  }}
-                >
-                  <div className="vr-tier-card__top">
-                    <span className="vr-tier-card__badge">{card.badge}</span>
-                    <span className="vr-tier-card__code">{card.codeLabel}</span>
-                  </div>
-
-                  <div className="vr-tier-card__title-row">
-                    <h3>{card.title}</h3>
-                    <div className="vr-tier-card__price">
-                      <strong>{card.dailyPriceLabel}</strong>
-                      <span>{card.weeklyPriceLabel}</span>
-                    </div>
-                  </div>
-
-                  <p className="vr-tier-card__summary">{card.summary}</p>
-
-                  <ul className="vr-tier-card__features">
-                    {card.features.map((feat) => (
-                      <li key={feat}>
-                        <span aria-hidden="true">•</span> <strong>{feat}</strong>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <div className="vr-tier-card__footer">
-                    <span className="vr-tier-card__select-indicator">
-                      {isSelected ? "✓ Selected" : "Click to Select"}
-                    </span>
-                    <Link
-                      className={isSelected ? "button" : "button button-secondary"}
-                      href={cardHref}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      Book {card.dailyPriceLabel} →
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* OPTIONAL INTERACTIVE CALENDAR TOGGLE */}
-        <div className="google-pill-row">
+        {/* COMPACT 3-TIER SELECTOR BAR + CALENDAR TOGGLE */}
+        <div className="google-pill-row" role="radiogroup" aria-label="Quick select space tier">
+          {SPACE_TIER_CARDS.map((card) => {
+            const isSelected = selectedTierId === card.id;
+            return (
+              <button
+                key={card.id}
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
+                className={`google-info-pill google-calendar-trigger${isSelected ? " vr-pill-selected" : ""}`}
+                onClick={() => selectTier(card.id)}
+              >
+                <strong>
+                  {isSelected ? "✓ " : ""}
+                  {card.codeLabel} · {card.dailyPriceLabel}
+                </strong>
+                <span>{card.badge}</span>
+              </button>
+            );
+          })}
           <button
             type="button"
             className="google-info-pill google-calendar-trigger"
             onClick={() => setShowCalendar((prev) => !prev)}
           >
-            <strong>{showCalendar ? "Hide Date Calendar ▲" : "Browse Open Dates on Calendar ▼"}</strong>
+            <strong>{showCalendar ? "Hide Calendar ▲" : "Open Date Calendar ▼"}</strong>
             <span>
-              {formatReadableDate(checkInIso)} → {formatReadableDate(checkOutIso)}
+              {formatReadableDate(checkInIso)} → {formatReadableDate(checkOutIso)} ({stayDays}d)
             </span>
           </button>
         </div>
@@ -443,21 +420,6 @@ export function DualBrandHome({
           />
         ) : null}
       </section>
-
-      {/* CLEAN PUBLIC FOOTER */}
-      <footer
-        className="google-footer relative z-10"
-        style={{ position: "relative", zIndex: 10 }}
-      >
-        <span>
-          VettedRent · <strong>$0 Security Deposit</strong> · <strong>No Credit Check</strong> ·{" "}
-          <strong>Instant Bank Link Setup</strong>
-        </span>
-        <div className="google-footer__links">
-          <Link href="/underwriting">Book a Stay</Link>
-          <Link href="/dashboard">Sign In</Link>
-        </div>
-      </footer>
-    </main>
+    </div>
   );
 }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { DualBrandHome } from "@/components/dual-brand-home";
 import { ListingDiscoveryGrid } from "../components/ListingGrid";
 import { defaultGeoStatusLabel } from "@/lib/geo-compliance";
@@ -17,9 +18,22 @@ export default async function HomePage() {
   const weeklyRate = formatCents(stay.weeklyPriceCents);
 
   return (
-    <div className="bg-slate-950 min-h-screen text-slate-100">
+    <div className="min-h-screen text-slate-100">
       <DualBrandHome stay={stay} weeklyRate={weeklyRate} />
       <ListingDiscoveryGrid />
+      <footer className="max-w-7xl mx-auto px-6 pb-8 relative z-10">
+        <div className="google-footer">
+          <span>
+            VettedRent · <strong>$0 Security Deposit</strong> · <strong>No Credit Check</strong> ·{" "}
+            <strong>Instant Bank Link Setup</strong>
+          </span>
+          <div className="google-footer__links">
+            <Link href="/underwriting">Book a Stay</Link>
+            <Link href="/host/onboard">List Your Property</Link>
+            <Link href="/dashboard">Sign In</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
