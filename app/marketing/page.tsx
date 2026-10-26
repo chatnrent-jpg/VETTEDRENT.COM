@@ -12,6 +12,7 @@ import {
   DEFAULT_JURISDICTION_CODE,
   JURISDICTION_RULES,
 } from "@/lib/compliance/jurisdictions";
+import { isAdminRole, resolveCallerRole } from "@/lib/host-access";
 import {
   CALCULATOR_PLATFORM_BPS,
   CALCULATOR_VAULT_BPS,
@@ -19,6 +20,7 @@ import {
   calculateJurisdictionYield,
   formatCurrencyCents,
 } from "@/lib/marketing-calculator";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
 import {
   PURPOSE_COHORTS,
   resolvePurposeCohort,
@@ -38,6 +40,8 @@ const ALL_PIPELINE_COHORTS: readonly LeadCohort[] = [
 ];
 
 export default function MarketingCommandCenterPage() {
+  const [adminAuthorized, setAdminAuthorized] = useState<boolean>(false);
+  const [authChecking, setAuthChecking] = useState<boolean>(true);
   const [campaignCohort, setCampaignCohort] = useState<PurposeCohortId>("Contract-Assignment");
   const [agencyName, setAgencyName] = useState("VettedCare Maryland Staffing");
   const [agencyBillingEmail, setAgencyBillingEmail] = useState("billing@vettedcare.com");
@@ -76,7 +80,30 @@ export default function MarketingCommandCenterPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    async function checkAdmin() {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const { data, error } = await supabase.auth.getUser();
+        if (!error && data.user) {
+          const role = await resolveCallerRole(supabase, data.user);
+          if (!cancelled) {
+            setAdminAuthorized(isAdminRole(role));
+          }
+        }
+      } catch {
+        // Keep unauthorized on error
+      } finally {
+        if (!cancelled) {
+          setAuthChecking(false);
+        }
+      }
+    }
+    void checkAdmin();
     void loadPipeline();
+    return () => {
+      cancelled = true;
+    };
   }, [loadPipeline]);
 
   const selectedCohortRule = resolvePurposeCohort(campaignCohort);
@@ -221,6 +248,34 @@ export default function MarketingCommandCenterPage() {
     cohort,
     count: pipelineLeads.filter((lead) => lead.cohort === cohort).length,
   }));
+
+  if (authChecking || !adminAuthorized) {
+    return (
+      <main className="shell">
+        <header className="topbar">
+          <div>
+            <p className="pass-kicker">Protected Internal Console</p>
+            <h1>Admin Authorization Required</h1>
+          </div>
+          <div className="actions">
+            <Link className="button button-secondary" href="/">
+              ← Explore Stays
+            </Link>
+            <Link className="button" href="/admin">
+              Admin Sign In →
+            </Link>
+          </div>
+        </header>
+        <article className="panel">
+          <p className="note">
+            {authChecking
+              ? "Verifying administrator session..."
+              : "Internal growth, valuation milestones, and financial calculators are restricted to authenticated administrators."}
+          </p>
+        </article>
+      </main>
+    );
+  }
 
   return (
     <main className="shell">

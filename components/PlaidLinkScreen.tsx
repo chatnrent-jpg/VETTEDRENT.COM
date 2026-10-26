@@ -7,10 +7,8 @@ import {
   AvailabilityCalendar,
   type InstantBookingConfirmation,
 } from "@/components/availability-calendar";
-import { ValuationCounter } from "@/components/ValuationCounter";
 import { usePlaidLinkFlow } from "@/hooks/usePlaidLinkFlow";
 import {
-  STAY_DURATION_OPTIONS,
   addDaysIsoUtc,
   formatReadableDate,
   todayIsoUtc,
@@ -22,33 +20,36 @@ import {
 } from "@/lib/compliance/jurisdictions";
 import {
   DAILY_RATE_PRESET_TIERS,
-  DAILY_RATE_TIER_LIST,
-  EXTERNAL_OFFER_PRESETS,
+  SPACE_TIER_CARDS,
   calculateDailyRateComparison,
   clampTierWeeklyRateCents,
-  getTierRateOptions,
   type DailyRateTierId,
 } from "@/lib/daily-rate-comparison";
 import { intendedStayLengthDays } from "@/lib/geo-compliance";
 import {
-  allocateIntegerSplitCents,
-  calculateMonthlyHostNetCents,
   divideIntegerCentsHalfUp,
   formatCurrencyCents,
 } from "@/lib/marketing-calculator";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import {
   PURPOSE_COHORTS,
-  SEASONAL_REMOTE_MIN_DAYS,
-  addUtcDays,
   defaultContractTerm,
   resolvePurposeCohort,
   type ContractTerm,
   type PurposeCohortId,
 } from "@/lib/underwriting-contract";
 
-/** Default weekly stay rate in integer cents ($315.00/wk = $45.00/day Universal Floor). */
 const DEFAULT_WEEKLY_STAY_CENTS = 31500;
+
+function diffDaysUtc(startIso: string, endIso: string): number {
+  const startMs = Date.parse(`${startIso}T00:00:00Z`);
+  const endMs = Date.parse(`${endIso}T00:00:00Z`);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+    return 30;
+  }
+  const diff = Math.round((endMs - startMs) / (24 * 60 * 60 * 1000));
+  return Math.max(7, Math.min(365, diff));
+}
 
 export function PlaidLinkScreen() {
   const router = useRouter();
@@ -60,8 +61,7 @@ export function PlaidLinkScreen() {
   const [prefilledLeadEmail, setPrefilledLeadEmail] = useState<string | null>(null);
   const [prefilledStayDays, setPrefilledStayDays] = useState<number | null>(null);
   const [checkInIso, setCheckInIso] = useState<string>(() => todayIsoUtc());
-  const [showCalendar, setShowCalendar] = useState<boolean>(true);
-  const [comparisonNightlyDollars, setComparisonNightlyDollars] = useState("277");
+  const [showCalendar, setShowCalendar] = useState<boolean>(false);
   const [activatingPass, setActivatingPass] = useState(false);
   const [activationMessage, setActivationMessage] = useState<string | null>(null);
   const [activationError, setActivationError] = useState<string | null>(null);
@@ -151,15 +151,10 @@ export function PlaidLinkScreen() {
     }
   }, []);
 
-  const activeTierPreset = DAILY_RATE_PRESET_TIERS[selectedTierId];
-  const tierRateOptions = getTierRateOptions(selectedTierId);
   const clampedWeeklyStayCents = clampTierWeeklyRateCents(
     selectedTierId,
     weeklyStayCents,
   );
-  const weeklySplit = allocateIntegerSplitCents(clampedWeeklyStayCents);
-  const hostWeeklyNetCents = weeklySplit.hostShareCents;
-  const hostMonthlyNetCents = calculateMonthlyHostNetCents(clampedWeeklyStayCents);
 
   const { phase, error, decision, ready, open, canSimulate, simulate } = usePlaidLinkFlow(
     clampedWeeklyStayCents,
@@ -172,15 +167,13 @@ export function PlaidLinkScreen() {
     activeCohort.minStayDays,
     prefilledStayDays ?? intendedStayLengthDays(contract.intendedStayEndDate),
   );
-  const comparisonNightlyCents = Math.max(
-    3500,
-    Math.round((Number(comparisonNightlyDollars) || 277) * 100),
-  );
+  const checkOutIso = addDaysIsoUtc(checkInIso, selectedStayDays);
   const dailyComparison = calculateDailyRateComparison(
     clampedWeeklyStayCents,
     selectedStayDays,
-    comparisonNightlyCents,
   );
+  const selectedCard =
+    SPACE_TIER_CARDS.find((card) => card.id === selectedTierId) ?? SPACE_TIER_CARDS[0];
 
   function selectTier(nextTierId: DailyRateTierId) {
     setSelectedTierId(nextTierId);
@@ -213,13 +206,17 @@ export function PlaidLinkScreen() {
 
   function updateCheckInDate(nextCheckInIso: string) {
     setCheckInIso(nextCheckInIso);
-    setShowCalendar(true);
     const targetEndDate = addDaysIsoUtc(nextCheckInIso, selectedStayDays);
     setContract((prev) => ({
       ...prev,
       contractEndDate: targetEndDate,
       intendedStayEndDate: targetEndDate,
     }));
+  }
+
+  function updateCheckOutDate(nextCheckOutIso: string) {
+    const days = diffDaysUtc(checkInIso, nextCheckOutIso);
+    updateStayDurationDays(days);
   }
 
   async function handleActivateWeeklyBillingAndPass() {
@@ -245,7 +242,6 @@ export function PlaidLinkScreen() {
       const applicantEmail =
         signedInEmail ?? prefilledLeadEmail ?? "verified.lodger@vettedrent.com";
 
-      // 1. Trigger Phase 8 Automated Lead-to-Stay Conversion Engine
       const convRes = await fetch("/api/conversion/activate-stay", {
         method: "POST",
         credentials: "same-origin",
@@ -277,7 +273,6 @@ export function PlaidLinkScreen() {
         return;
       }
 
-      // 2. If signed in, also run weekly billing cycle / subscription sync
       if (token && signedInUserId) {
         try {
           const cycleRes = await fetch("/api/billing/weekly-cycle", {
@@ -401,7 +396,7 @@ export function PlaidLinkScreen() {
       }
 
       setActivationMessage(
-        `Stay activated (${selectedStayDays} days: ${checkInIso} → ${validUntil})! License Token: ${tokenPreview} · Agreement ID: ${agreementId} · Active Stays: ${activeStaysCount}/45.`,
+        `Booking confirmed (${selectedStayDays} days: ${checkInIso} → ${validUntil}). Digital entry pass ready.`,
       );
       if (decision?.approved) {
         router.push("/dashboard");
@@ -427,7 +422,7 @@ export function PlaidLinkScreen() {
         <Link href="/" className="google-logo">
           <img
             src="/vettedrent-logo-mark.jpg"
-            alt="VettedRent.Com Crest"
+            alt="VettedRent Crest"
             className="google-logo-badge"
             width={42}
             height={42}
@@ -441,7 +436,7 @@ export function PlaidLinkScreen() {
         </Link>
         <nav className="google-nav" aria-label="Main navigation">
           <Link className="text-button" href="/">
-            ← Home
+            ← Explore Stays
           </Link>
           <Link className="button" href="/dashboard">
             Sign In
@@ -452,114 +447,72 @@ export function PlaidLinkScreen() {
       <section
         className="google-stage relative z-10"
         style={{ position: "relative", zIndex: 10 }}
-        aria-label="Bank connection"
+        aria-label="Instant booking and bank verification"
       >
-        <div
-          className="vettilo-fintech-badge"
-          aria-label="VettedRent.com · Powered by Vettilo™ UMI Engine"
-        >
-          <span className="vettilo-fintech-badge__top">
-            <span className="fintech-live-dot" aria-hidden="true" />
-            VettedRent.com · Powered by Vettilo™
-          </span>
-          <span className="vettilo-fintech-badge__sub">
-            Vettilo (vettilo.com) proprietary Underwritten Mid-Term Infrastructure (UMI) engine
-            powering payroll webhooks, the 14.3% GMF Escrow Vault &amp; revocable commercial
-            license tokens
-          </span>
-        </div>
-
         <div className="google-headline">
-          <h1>Get approved in 60 seconds.</h1>
+          <h1>Complete your reservation in 60 seconds.</h1>
           <p>
-            <strong>{formatCents(clampedWeeklyStayCents)}/wk</strong> ·{" "}
-            <strong>{formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day</strong> (
-            <strong>{formatCurrencyCents(dailyComparison.netEffectiveDailyRateCents)}/day net</strong>{" "}
-            after +{formatCurrencyCents(dailyComparison.dailyGmfVaultCreditCents)}/day 14.3% GMF
-            Vault credit) · <strong>{dailyComparison.savingsPercentage}% less</strong> than{" "}
-            <strong>{formatCurrencyCents(dailyComparison.aggregatorNightlyCents)}/night</strong>{" "}
-            hotel &amp; aggregator rates · <strong>$0.00 Security Deposit</strong>
+            <strong>{selectedCard.title}</strong> ({selectedCard.dailyPriceLabel}) ·{" "}
+            <strong>$0 Security Deposit</strong> · <strong>No Credit Check</strong> ·{" "}
+            <strong>Instant Bank Link Setup</strong>
           </p>
         </div>
 
-        {/* ONE HORIZONTAL BAR FOR RENTER APPLICATION */}
+        {/* CONSUMER VALUE BAR */}
+        <div className="vr-value-badges" aria-label="Reservation benefits">
+          <div className="vr-value-badge">
+            <span className="vr-value-badge__icon" aria-hidden="true">
+              ✓
+            </span>
+            <div>
+              <strong>$0 Security Deposit</strong>
+              <span>Move in without upfront deposit lockups</span>
+            </div>
+          </div>
+          <div className="vr-value-badge">
+            <span className="vr-value-badge__icon" aria-hidden="true">
+              ✓
+            </span>
+            <div>
+              <strong>No Credit Check</strong>
+              <span>Protect your credit score</span>
+            </div>
+          </div>
+          <div className="vr-value-badge">
+            <span className="vr-value-badge__icon" aria-hidden="true">
+              ✓
+            </span>
+            <div>
+              <strong>Instant Bank Link Setup</strong>
+              <span>Fast Plaid verification &amp; digital key</span>
+            </div>
+          </div>
+        </div>
+
+        {/* MINIMALIST DESTINATION + CHECK-IN / CHECK-OUT + INSTANT ACTION BAR */}
         <div
-          className="google-search-bar relative z-10"
+          className="google-search-bar vr-clean-booking-bar relative z-10"
           style={{ position: "relative", zIndex: 10 }}
         >
-          <label className="google-search-cell">
-            <span>Space</span>
+          <label className="google-search-cell vr-search-cell--destination">
+            <span>Where are you traveling?</span>
             <select
-              value={selectedTierId}
-              onChange={(e) => selectTier(e.target.value as DailyRateTierId)}
+              value={jurisdictionCode}
+              onChange={(e) => setJurisdictionCode(e.target.value)}
             >
-              {DAILY_RATE_TIER_LIST.map((tier) => (
-                <option key={tier.id} value={tier.id}>
-                  {tier.label}
+              {JURISDICTION_RULES.map((rule) => (
+                <option key={rule.code} value={rule.code}>
+                  {rule.name}
                 </option>
               ))}
             </select>
           </label>
 
           <label className="google-search-cell">
-            <span>Daily / Weekly Rate ({activeTierPreset.bandLabel})</span>
-            <select
-              value={clampedWeeklyStayCents}
-              onChange={(e) =>
-                setWeeklyStayCents(
-                  clampTierWeeklyRateCents(selectedTierId, Number(e.target.value)),
-                )
-              }
-            >
-              {tierRateOptions.map((opt) => (
-                <option key={opt.weeklyRateCents} value={opt.weeklyRateCents}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="google-search-cell">
-            <span>Reason</span>
-            <select
-              value={activeCohort.id}
-              onChange={(e) => selectCohort(e.target.value as PurposeCohortId)}
-            >
-              {PURPOSE_COHORTS.map((cohort) => (
-                <option key={cohort.id} value={cohort.id}>
-                  {cohort.title}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="google-search-cell">
-            <span>Stay Length (7 to 90 Days)</span>
-            <select
-              value={selectedStayDays}
-              onChange={(e) => updateStayDurationDays(Number(e.target.value) || 90)}
-            >
-              {STAY_DURATION_OPTIONS.map((opt) => (
-                <option
-                  key={opt.days}
-                  value={opt.days}
-                  disabled={
-                    activeCohort.id === "Seasonal-Remote" &&
-                    opt.days < SEASONAL_REMOTE_MIN_DAYS
-                  }
-                >
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="google-search-cell">
-            <span>Check-In Date</span>
+            <span>Check-In</span>
             <input
               type="date"
               value={checkInIso}
-              onFocus={() => setShowCalendar(true)}
               onChange={(e) => {
                 if (e.target.value) {
                   updateCheckInDate(e.target.value);
@@ -569,17 +522,17 @@ export function PlaidLinkScreen() {
           </label>
 
           <label className="google-search-cell">
-            <span>Location</span>
-            <select
-              value={jurisdictionCode}
-              onChange={(e) => setJurisdictionCode(e.target.value)}
-            >
-              {JURISDICTION_RULES.map((rule) => (
-                <option key={rule.code} value={rule.code}>
-                  {rule.name} ({rule.code})
-                </option>
-              ))}
-            </select>
+            <span>Check-Out</span>
+            <input
+              type="date"
+              min={addDaysIsoUtc(checkInIso, 7)}
+              value={checkOutIso}
+              onChange={(e) => {
+                if (e.target.value) {
+                  updateCheckOutDate(e.target.value);
+                }
+              }}
+            />
           </label>
 
           {canSimulate ? (
@@ -589,7 +542,7 @@ export function PlaidLinkScreen() {
               disabled={phase === "loading" || checking}
               onClick={() => simulate(contract)}
             >
-              {checking ? "Verifying..." : "Verify Income & Get Approved →"}
+              {checking ? "Verifying..." : "Instant Bank Link Setup →"}
             </button>
           ) : (
             <button
@@ -598,7 +551,7 @@ export function PlaidLinkScreen() {
               disabled={!ready || checking}
               onClick={() => open()}
             >
-              Connect Bank &amp; Verify →
+              Instant Bank Link Setup →
             </button>
           )}
 
@@ -608,10 +561,55 @@ export function PlaidLinkScreen() {
             disabled={activatingPass}
             onClick={() => void handleActivateWeeklyBillingAndPass()}
           >
-            {activatingPass
-              ? "Issuing Vettilo™ Pass..."
-              : "Confirm Dates & Issue Vettilo™ Pass Now"}
+            {activatingPass ? "Confirming..." : "Confirm & Issue Stay Pass"}
           </button>
+        </div>
+
+        {/* SINGLE PREMIUM TIER SELECTOR: 3 VISUAL CARDS */}
+        <div
+          className="vr-tier-selector-section"
+          role="region"
+          aria-label="Select your space tier"
+        >
+          <div className="vr-tier-cards-grid" role="radiogroup" aria-label="Space tiers">
+            {SPACE_TIER_CARDS.map((card) => {
+              const isSelected = selectedTierId === card.id;
+              return (
+                <div
+                  key={card.id}
+                  role="radio"
+                  aria-checked={isSelected}
+                  tabIndex={0}
+                  className={`vr-tier-card${isSelected ? " vr-tier-card--selected" : ""}`}
+                  onClick={() => selectTier(card.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      selectTier(card.id);
+                    }
+                  }}
+                >
+                  <div className="vr-tier-card__top">
+                    <span className="vr-tier-card__badge">{card.badge}</span>
+                    <span className="vr-tier-card__code">{card.codeLabel}</span>
+                  </div>
+                  <div className="vr-tier-card__title-row">
+                    <h3>{card.title}</h3>
+                    <div className="vr-tier-card__price">
+                      <strong>{card.dailyPriceLabel}</strong>
+                      <span>{card.weeklyPriceLabel}</span>
+                    </div>
+                  </div>
+                  <p className="vr-tier-card__summary">{card.summary}</p>
+                  <div className="vr-tier-card__footer">
+                    <span className="vr-tier-card__select-indicator">
+                      {isSelected ? "✓ Selected Space" : "Select Space"}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {error ? (
@@ -626,7 +624,6 @@ export function PlaidLinkScreen() {
             weeklyStayCents={clampedWeeklyStayCents}
             jurisdictionCode={jurisdictionCode}
             stayDays={prefilledStayDays ?? activeCohort.defaultStayDays}
-            comparisonNightlyCents={comparisonNightlyCents}
             applicantEmail={prefilledLeadEmail}
             activatingPass={activatingPass}
             activationMessage={activationMessage}
@@ -634,43 +631,6 @@ export function PlaidLinkScreen() {
             onActivate={() => void handleActivateWeeklyBillingAndPass()}
           />
         ) : null}
-
-        <div className="google-pill-row">
-          <div className="google-info-pill">
-            <strong>
-              {formatCents(clampedWeeklyStayCents)}/wk ·{" "}
-              {formatCurrencyCents(dailyComparison.grossDailyRateCents)}/day
-            </strong>
-            <span>
-              ({formatCurrencyCents(dailyComparison.netEffectiveDailyRateCents)}/day net after +
-              {formatCurrencyCents(dailyComparison.dailyGmfVaultCreditCents)}/day 14.3% GMF Vault
-              credit)
-            </span>
-          </div>
-          <div className="google-info-pill">
-            <strong>Save {formatCurrencyCents(dailyComparison.totalSavingsVsAggregatorCents)}</strong>
-            <span>
-              ({dailyComparison.savingsPercentage}% less than{" "}
-              {formatCurrencyCents(dailyComparison.aggregatorNightlyCents)}/night hotel &amp;
-              aggregator rates)
-            </span>
-          </div>
-          <div className="google-info-pill">
-            <strong>$0.00 Deposit</strong>
-            <span>
-              Landlord guaranteed {formatCurrencyCents(hostWeeklyNetCents)}/wk (
-              {formatCurrencyCents(hostMonthlyNetCents)}/mo net)
-            </span>
-          </div>
-          <button
-            type="button"
-            className="google-info-pill google-calendar-trigger"
-            onClick={() => setShowCalendar((prev) => !prev)}
-          >
-            <strong>{showCalendar ? "Hide Calendar ▲" : "View Available Dates ▼"}</strong>
-            <span>Check-in {checkInIso}</span>
-          </button>
-        </div>
 
         {confirmedBooking ? (
           <div
@@ -681,43 +641,29 @@ export function PlaidLinkScreen() {
           >
             <div className="stay-card-head" style={{ flexWrap: "wrap" }}>
               <div>
-                <p className="pass-kicker">
-                  Vettilo™ UMI Engine · Sandbox / Demo Stay Confirmed
-                </p>
+                <p className="pass-kicker">Reservation Confirmed</p>
                 <h2>
-                  Pass Issued: {formatReadableDate(confirmedBooking.checkInDate)} →{" "}
+                  {formatReadableDate(confirmedBooking.checkInDate)} →{" "}
                   {formatReadableDate(confirmedBooking.validUntil)} (
-                  {confirmedBooking.stayDays} Days)
+                  {confirmedBooking.stayDays} Nights)
                 </h2>
               </div>
               <span className="stay-badge" data-status="active">
-                Active Stays: {confirmedBooking.activeStaysCount} /{" "}
-                {confirmedBooking.targetStaysCount} ({confirmedBooking.progressPercentage}%)
+                $0 Security Deposit
               </span>
             </div>
 
             <div className="vr-booking-confirmation__grid">
               <div>
-                <span>Cryptographic License Token</span>
-                <code>{confirmedBooking.licenseToken}</code>
-              </div>
-              <div>
-                <span>Agreement ID</span>
-                <code>{confirmedBooking.agreementId}</code>
-              </div>
-              <div>
-                <span>Tier &amp; Weekly Rate</span>
+                <span>Space Tier</span>
                 <strong>
                   {confirmedBooking.tier} ·{" "}
-                  {formatCurrencyCents(confirmedBooking.dailyRateCents)}/day (
-                  {formatCurrencyCents(confirmedBooking.weeklyRateCents)}/wk)
+                  {formatCurrencyCents(confirmedBooking.dailyRateCents)}/day
                 </strong>
               </div>
               <div>
-                <span>Cohort &amp; Jurisdiction</span>
-                <strong>
-                  {confirmedBooking.cohort} · {confirmedBooking.jurisdiction}
-                </strong>
+                <span>Destination</span>
+                <strong>{confirmedBooking.jurisdiction}</strong>
               </div>
             </div>
 
@@ -727,21 +673,34 @@ export function PlaidLinkScreen() {
                 href={confirmedBooking.passportPdfHref}
                 download={`VettedRent-Trust-Passport-${confirmedBooking.cohort}.pdf`}
               >
-                Download Trust Passport (PDF) ↓
+                Download Stay Passport (PDF) ↓
               </a>
               <a
                 className="button button-secondary"
                 href={confirmedBooking.commercialLicensePdfHref}
                 download={`VettedRent-Commercial-License-${confirmedBooking.cohort}-${confirmedBooking.jurisdiction}.pdf`}
               >
-                Download Commercial License (PDF) ↓
+                Download Stay Agreement (PDF) ↓
               </a>
               <Link className="button button-secondary" href="/dashboard">
-                Open Stay Pass Dashboard →
+                Open Digital Key Dashboard →
               </Link>
             </div>
           </div>
         ) : null}
+
+        <div className="google-pill-row">
+          <button
+            type="button"
+            className="google-info-pill google-calendar-trigger"
+            onClick={() => setShowCalendar((prev) => !prev)}
+          >
+            <strong>{showCalendar ? "Hide Date Calendar ▲" : "View Availability Calendar ▼"}</strong>
+            <span>
+              {formatReadableDate(checkInIso)} → {formatReadableDate(checkOutIso)}
+            </span>
+          </button>
+        </div>
 
         {showCalendar ? (
           <AvailabilityCalendar
@@ -761,15 +720,23 @@ export function PlaidLinkScreen() {
           />
         ) : null}
 
-        <ValuationCounter variant="compact" />
-
         <details className="google-compare-drawer">
-          <summary>
-            Optional: Edit verification ID ({contract.credentialIdentifier}), dates, or compare
-            against hotels
-          </summary>
+          <summary>Travel Purpose &amp; Verification Details (Optional)</summary>
           <div className="google-compare-drawer__body">
             <div className="simple-grid-2">
+              <label className="field">
+                <span>Travel Purpose</span>
+                <select
+                  value={activeCohort.id}
+                  onChange={(e) => selectCohort(e.target.value as PurposeCohortId)}
+                >
+                  {PURPOSE_COHORTS.map((cohort) => (
+                    <option key={cohort.id} value={cohort.id}>
+                      {cohort.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="field">
                 <span>{activeCohort.identifierLabel}</span>
                 <input
@@ -779,42 +746,24 @@ export function PlaidLinkScreen() {
                   }
                 />
               </label>
-              <label className="field">
-                <span>Stay End Date</span>
-                <input
-                  type="date"
-                  value={contract.intendedStayEndDate}
-                  onChange={(event) => {
-                    const nextDate = event.target.value;
-                    setContract({
-                      ...contract,
-                      intendedStayEndDate: nextDate,
-                      contractEndDate: nextDate,
-                    });
-                  }}
-                />
-              </label>
-            </div>
-            <div className="actions" style={{ justifyContent: "center" }}>
-              {EXTERNAL_OFFER_PRESETS.map((preset) => {
-                const dollars = String(Math.round(preset.nightlyRateCents / 100));
-                return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    className={
-                      comparisonNightlyDollars === dollars ? "button" : "button button-secondary"
-                    }
-                    onClick={() => setComparisonNightlyDollars(dollars)}
-                  >
-                    {preset.providerLabel}
-                  </button>
-                );
-              })}
             </div>
           </div>
         </details>
       </section>
+
+      <footer
+        className="google-footer relative z-10"
+        style={{ position: "relative", zIndex: 10 }}
+      >
+        <span>
+          VettedRent · <strong>$0 Security Deposit</strong> · <strong>No Credit Check</strong> ·{" "}
+          <strong>Instant Bank Link Setup</strong>
+        </span>
+        <div className="google-footer__links">
+          <Link href="/">Explore Stays</Link>
+          <Link href="/dashboard">Sign In</Link>
+        </div>
+      </footer>
     </main>
   );
 }
@@ -824,7 +773,6 @@ function Decision({
   weeklyStayCents,
   jurisdictionCode,
   stayDays,
-  comparisonNightlyCents,
   applicantEmail,
   activatingPass,
   activationMessage,
@@ -846,7 +794,6 @@ function Decision({
   weeklyStayCents: number;
   jurisdictionCode: string;
   stayDays: number;
-  comparisonNightlyCents: number;
   applicantEmail: string | null;
   activatingPass: boolean;
   activationMessage: string | null;
@@ -863,7 +810,6 @@ function Decision({
     monthlyInflow: String(decision.monthlyInflowEstimated),
     contractEnd: decision.contractEndDate,
     stayEnd: decision.intendedStayEndDate,
-    comparisonNightlyCents: String(comparisonNightlyCents),
     ...(applicantEmail ? { applicant: applicantEmail } : {}),
   });
   const passportHref = `/api/underwriting/trust-passport?${passportQuery.toString()}`;
@@ -882,33 +828,26 @@ function Decision({
   });
   const licenseHref = `/api/agreements/license?${licenseQuery.toString()}`;
 
-  const decisionComparison = calculateDailyRateComparison(
-    weeklyStayCents,
-    stayDays,
-    comparisonNightlyCents,
-  );
+  const decisionComparison = calculateDailyRateComparison(weeklyStayCents, stayDays);
 
   return (
     <div className="panel stack" style={{ width: "100%", textAlign: "left" }}>
       <div className="stay-card-head">
         <div>
-          <p className="pass-kicker">Instant Decision · Be Great to Yourself.</p>
-          <h2>{decision.approved ? "Approved for $0 Deposit Stay" : "Not Approved Yet"}</h2>
+          <p className="pass-kicker">Instant Bank Link Setup Complete</p>
+          <h2>{decision.approved ? "Approved for $0 Security Deposit Stay" : "Verification Needed"}</h2>
         </div>
         <span
           className="stay-badge"
           data-status={decision.approved ? "active" : "terminated"}
         >
-          {decision.ratio.toFixed(2)}x Verified ({formatDollars(decision.monthlyInflowEstimated)}/mo)
+          {decision.approved ? "Verified" : "Action Required"}
         </span>
       </div>
 
       <p className="note">
-        {formatCurrencyCents(decisionComparison.grossDailyRateCents)}/day gross ·{" "}
-        {formatCurrencyCents(decisionComparison.netEffectiveDailyRateCents)}/day net · Save{" "}
-        {formatCurrencyCents(decisionComparison.totalSavingsVsAggregatorCents)} (
-        {decisionComparison.savingsPercentage}% Off) vs.{" "}
-        {formatCurrencyCents(decisionComparison.aggregatorNightlyCents)}/night.
+        Rate: <strong>{formatCurrencyCents(decisionComparison.grossDailyRateCents)}/day</strong> ·{" "}
+        <strong>$0 Security Deposit</strong> · <strong>No Credit Check</strong>
       </p>
 
       {decision.rejection ? (
@@ -935,14 +874,14 @@ function Decision({
             href={passportHref}
             download={`VettedRent-Trust-Passport-${decision.credentialType}.pdf`}
           >
-            Trust Passport (PDF) ↓
+            Stay Passport (PDF) ↓
           </a>
           <a
             className="button button-secondary"
             href={licenseHref}
             download={`VettedRent-Commercial-License-${decision.credentialType}-${jurisdictionCode}.pdf`}
           >
-            Lodging License (PDF) ↓
+            Stay Agreement (PDF) ↓
           </a>
         </div>
       ) : null}
@@ -951,12 +890,4 @@ function Decision({
       {activationError ? <p className="error">{activationError}</p> : null}
     </div>
   );
-}
-
-function formatCents(cents: number): string {
-  return formatDollars(cents / 100);
-}
-
-function formatDollars(amount: number): string {
-  return amount.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }

@@ -7,8 +7,6 @@ import { ActiveStayCard } from "@/components/active-stay-card";
 import { AvailabilityCalendar } from "@/components/availability-calendar";
 import { JurisdictionSelect } from "@/components/jurisdiction-select";
 import { Progress } from "@/components/ui/progress";
-import { ValuationCounter } from "@/components/ValuationCounter";
-import { WeeklyLiquiditySpreadPanel } from "@/components/weekly-liquidity-spread-panel";
 import { todayIsoUtc } from "@/lib/availability-calendar";
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/compliance/jurisdictions";
 import { defaultGeoStatusLabel } from "@/lib/geo-compliance";
@@ -102,12 +100,6 @@ export default function DashboardPage() {
         {gate === "host" ? (
           <div style={{ width: "100%", textAlign: "left" }}>
             <HostPanel />
-            <details className="google-compare-drawer" style={{ maxWidth: "100%", marginTop: "1.25rem" }}>
-              <summary>Private Treasury Record · Weekly Liquidity Spread (Host / Admin Only)</summary>
-              <div style={{ marginTop: "1rem", textAlign: "left" }}>
-                <WeeklyLiquiditySpreadPanel />
-              </div>
-            </details>
           </div>
         ) : null}
         {gate === "lodger" ? (
@@ -115,18 +107,16 @@ export default function DashboardPage() {
             <LodgerPanel />
           </div>
         ) : null}
-
-        <div style={{ width: "100%", textAlign: "left" }}>
-          <ValuationCounter variant="compact" />
-        </div>
       </section>
 
       <footer className="google-footer">
-        <span>VettedRent.Com · Be Great to Yourself.</span>
+        <span>
+          VettedRent · <strong>$0 Security Deposit</strong> · <strong>No Credit Check</strong> ·{" "}
+          <strong>Instant Bank Link Setup</strong>
+        </span>
         <div className="google-footer__links">
-          <Link href="/">Home</Link>
-          <Link href="/underwriting">Renter Approval</Link>
-          <Link href="/marketing">Partner Tools</Link>
+          <Link href="/">Explore Stays</Link>
+          <Link href="/underwriting">Book Now</Link>
         </div>
       </footer>
     </main>
@@ -322,25 +312,26 @@ function HostPanel() {
           {listing.kind === "ready" && listing.weeklyPriceCents !== null ? (
             <span className="chip">{formatCentsAsDollars(listing.weeklyPriceCents)}</span>
           ) : (
-            <strong>{listing.kind === "loading" ? "Checking" : "$315.00/wk ($45.00/day)"}</strong>
+            <strong>{listing.kind === "loading" ? "Checking" : "$45/day ($315/wk)"}</strong>
           )}
         </div>
-        <div className="row">
-          <span>Guaranteed Landlord Payout (75.5%)</span>
-          <strong>$237.83/wk ($1,030.58/mo net)</strong>
-        </div>
         <p className="note">
-          Universal Entry Floor: $315/wk · $45.00/day ($38.56/day net after +$6.44/day 14.3% GMF
-          Vault credit) · 84% less than $277/night hotel &amp; aggregator rates.
+          Verified guest stays include <strong>$0 Security Deposit</strong>,{" "}
+          <strong>No Credit Check</strong>, and <strong>Instant Bank Link Setup</strong>.
         </p>
-        <button
-          type="button"
-          className="button"
-          disabled={billing}
-          onClick={() => void runHostWeeklyBilling(setBilling, setBillingNote)}
-        >
-          Run weekly billing
-        </button>
+        <div className="actions" style={{ flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="button"
+            disabled={billing}
+            onClick={() => void runHostWeeklyBilling(setBilling, setBillingNote)}
+          >
+            Run weekly billing
+          </button>
+          <Link className="button button-secondary" href="/admin">
+            Open Protected Admin Console →
+          </Link>
+        </div>
         {billingNote ? <p className="note">{billingNote}</p> : null}
       </article>
       <ActiveStayCard key={locationVersion} />

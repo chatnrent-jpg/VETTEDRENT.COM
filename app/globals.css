@@ -1839,3 +1839,264 @@ h2 {
   }
 }
 
+/* ==========================================================================
+   AIRBNB / HOTWIRE CONSUMER SEARCH, VALUE BADGES & VISUAL TIER CARDS
+   ========================================================================== */
+
+.vr-value-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 58rem;
+}
+
+.vr-value-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 1.05rem;
+  border-radius: 999px;
+  background: rgba(15, 21, 32, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  text-align: left;
+  box-shadow: 0 12px 28px -12px rgba(0, 0, 0, 0.55);
+}
+
+.vr-value-badge__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 999px;
+  background: rgba(52, 211, 153, 0.18);
+  color: var(--ok);
+  font-size: 0.8rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.vr-value-badge div {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.vr-value-badge strong {
+  font-size: 0.88rem;
+  font-weight: 750;
+  color: #ffffff;
+}
+
+.vr-value-badge span {
+  font-size: 0.75rem;
+  color: rgba(248, 250, 252, 0.78);
+}
+
+.vr-clean-booking-bar {
+  max-width: 58rem;
+  border-radius: 999px;
+  padding: 0.55rem 0.65rem;
+}
+
+.vr-clean-booking-bar .google-search-cell {
+  border-radius: 999px;
+  padding: 0.55rem 1.15rem;
+}
+
+.vr-search-cell--destination {
+  flex: 1.5 1 13rem;
+}
+
+.vr-clean-booking-bar .google-search-cta {
+  border-radius: 999px;
+  padding: 0 1.65rem;
+}
+
+@media (max-width: 820px) {
+  .vr-clean-booking-bar {
+    border-radius: 22px;
+  }
+
+  .vr-clean-booking-bar .google-search-cell,
+  .vr-clean-booking-bar .google-search-cta {
+    border-radius: 14px;
+  }
+}
+
+.vr-tier-selector-section {
+  width: 100%;
+  max-width: 62rem;
+  display: grid;
+  gap: 0.85rem;
+  text-align: left;
+}
+
+.vr-tier-selector-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 0.25rem;
+}
+
+.vr-tier-selector-header h2 {
+  font-size: 1.2rem;
+  font-weight: 750;
+  color: #ffffff;
+}
+
+.vr-tier-selector-header span {
+  font-size: 0.86rem;
+  color: rgba(248, 250, 252, 0.82);
+}
+
+.vr-tier-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+@media (max-width: 860px) {
+  .vr-tier-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.vr-tier-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1.2rem 1.25rem;
+  border-radius: 20px;
+  background: rgba(15, 21, 32, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  box-shadow: 0 20px 44px -18px rgba(0, 0, 0, 0.65);
+  cursor: pointer;
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease,
+    background-color 150ms ease;
+}
+
+.vr-tier-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(229, 184, 105, 0.55);
+}
+
+.vr-tier-card--selected {
+  background: rgba(22, 30, 46, 0.92);
+  border-color: var(--accent-bright);
+  box-shadow:
+    0 24px 52px -16px rgba(0, 0, 0, 0.75),
+    0 0 0 1px rgba(243, 204, 133, 0.45);
+}
+
+.vr-tier-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.vr-tier-card__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(229, 184, 105, 0.16);
+  border: 1px solid rgba(229, 184, 105, 0.35);
+  color: var(--accent-bright);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.vr-tier-card__code {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: rgba(248, 250, 252, 0.65);
+}
+
+.vr-tier-card__title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.vr-tier-card__title-row h3 {
+  font-size: 1.18rem;
+  font-weight: 750;
+  color: #ffffff;
+}
+
+.vr-tier-card__price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+}
+
+.vr-tier-card__price strong {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--accent-bright);
+}
+
+.vr-tier-card__price span {
+  font-size: 0.75rem;
+  color: rgba(248, 250, 252, 0.72);
+}
+
+.vr-tier-card__summary {
+  margin: 0;
+  font-size: 0.88rem;
+  color: rgba(248, 250, 252, 0.84);
+  line-height: 1.45;
+}
+
+.vr-tier-card__features {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.85rem;
+  font-size: 0.8rem;
+  color: rgba(248, 250, 252, 0.9);
+}
+
+.vr-tier-card__features li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.vr-tier-card__features li span {
+  color: var(--ok);
+}
+
+.vr-tier-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.vr-tier-card__select-indicator {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ok);
+}
+
+

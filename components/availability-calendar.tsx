@@ -18,8 +18,6 @@ import {
   type DailyRateTierId,
 } from "@/lib/daily-rate-comparison";
 import {
-  allocateIntegerSplitCents,
-  calculateMonthlyHostNetCents,
   divideIntegerCentsHalfUp,
   formatCurrencyCents,
 } from "@/lib/marketing-calculator";
@@ -105,9 +103,6 @@ export function AvailabilityCalendar({
     weeklyRateCents ?? localWeeklyCents,
   );
   const rateComparison = calculateDailyRateComparison(effectiveWeeklyCents, stayDays);
-  const weeklySplit = allocateIntegerSplitCents(effectiveWeeklyCents);
-  const hostWeeklyNetCents = weeklySplit.hostShareCents;
-  const hostMonthlyNetCents = calculateMonthlyHostNetCents(effectiveWeeklyCents);
 
   useEffect(() => {
     setLocalWeeklyCents(clampTierWeeklyRateCents(tierId, weeklyRateCents));
@@ -158,17 +153,11 @@ export function AvailabilityCalendar({
   const windowStartIso = addDaysIsoUtc(todayIsoUtc(), windowOffsetDays);
   const calendar = buildCalendarWindow({
     startIso: windowStartIso,
-    totalDays: 35, // 5 clean weeks (35 days) per view
+    totalDays: 35,
     checkInIso,
     stayDays,
     blockedDates: localBlocked,
   });
-
-  const weeklyBillingCycles = Math.max(1, Math.round((stayDays / 7) * 10) / 10);
-  const cyclesLabel =
-    Number.isInteger(weeklyBillingCycles)
-      ? `${weeklyBillingCycles} weekly billing cycle${weeklyBillingCycles === 1 ? "" : "s"}`
-      : `${weeklyBillingCycles.toFixed(1)} weekly billing cycles`;
 
   const underwritingBookingHref = `/underwriting?tier=${encodeURIComponent(tierId)}&weeklyCents=${effectiveWeeklyCents}&days=${stayDays}&checkIn=${encodeURIComponent(calendar.checkInIso)}&cohort=${encodeURIComponent(cohortRule.id)}&jurisdiction=${encodeURIComponent(jurisdictionCode)}`;
 
@@ -223,18 +212,15 @@ export function AvailabilityCalendar({
       onChangeWeeklyRateCents(clamped);
     }
     const nextDailyCents = divideIntegerCentsHalfUp(clamped, 7);
-    const nextSplit = allocateIntegerSplitCents(clamped);
-    const nextHostWeekly = nextSplit.hostShareCents;
-    const nextHostMonthly = calculateMonthlyHostNetCents(clamped);
     if (mode === "landlord") {
       void persistHostBlockedDates(
         localBlocked,
-        `✓ Saved ${tier.shortLabel} rate: ${formatCurrencyCents(nextDailyCents)}/day (${formatCurrencyCents(clamped)}/wk) → Landlord net ${formatCurrencyCents(nextHostWeekly)}/wk (${formatCurrencyCents(nextHostMonthly)}/mo) within ${tier.bandLabel}.`,
+        `✓ Saved ${tier.shortLabel} rate: ${formatCurrencyCents(nextDailyCents)}/day (${formatCurrencyCents(clamped)}/wk).`,
         clamped,
       );
     } else {
       setSaveMessage(
-        `✓ Rate updated to ${formatCurrencyCents(nextDailyCents)}/day (${formatCurrencyCents(clamped)}/wk) within ${tier.bandLabel}.`,
+        `✓ Rate updated to ${formatCurrencyCents(nextDailyCents)}/day (${formatCurrencyCents(clamped)}/wk).`,
       );
     }
   }
@@ -244,23 +230,21 @@ export function AvailabilityCalendar({
     if (mode === "tenant") {
       if (isBlocked && !newlyBookedDates.includes(isoDate)) {
         setSaveMessage(
-          `${formatReadableDate(isoDate)} is currently reserved. Click any green Available date to set Check-In.`,
+          `${formatReadableDate(isoDate)} is currently reserved. Select any open date for Check-In.`,
         );
         return;
       }
       if (newlyBookedDates.includes(isoDate)) {
-        // Allow picking another check-in date even after a test booking
         setNewlyBookedDates([]);
       }
       onSelectCheckIn(isoDate);
       const nextCheckOut = addDaysIsoUtc(isoDate, stayDays);
       setSaveMessage(
-        `✓ Check-In set to ${formatReadableDate(isoDate)} → Check-Out ${formatReadableDate(nextCheckOut)} (${stayDays} days).`,
+        `✓ Check-In set to ${formatReadableDate(isoDate)} → Check-Out ${formatReadableDate(nextCheckOut)} (${stayDays} nights).`,
       );
       return;
     }
 
-    // Landlord mode: optimistic toggle + immediate POST /api/host/availability persistence
     const willBeBlocked = !localBlocked.includes(isoDate);
     const nextBlocked = willBeBlocked
       ? [...localBlocked, isoDate].sort()
@@ -270,7 +254,7 @@ export function AvailabilityCalendar({
     const statusLabel = willBeBlocked ? "Blocked (Reserved)" : "Available (Open)";
     void persistHostBlockedDates(
       nextBlocked,
-      `✓ Saved: ${formatReadableDate(isoDate)} marked ${statusLabel} (${nextBlocked.length} blocked day${nextBlocked.length === 1 ? "" : "s"}).`,
+      `✓ Saved: ${formatReadableDate(isoDate)} marked ${statusLabel}.`,
     );
   }
 
@@ -284,7 +268,7 @@ export function AvailabilityCalendar({
     setLocalBlocked(merged);
     void persistHostBlockedDates(
       merged,
-      `✓ Saved: Next 7 days blocked for ${tier.label} (${merged.length} total blocked days).`,
+      `✓ Saved: Next 7 days blocked for ${tier.shortLabel}.`,
     );
   }
 
@@ -293,14 +277,14 @@ export function AvailabilityCalendar({
     setNewlyBookedDates([]);
     void persistHostBlockedDates(
       [],
-      `✓ Saved: All dates opened for ${tier.label} (0 blocked days).`,
+      `✓ Saved: All dates opened for ${tier.shortLabel}.`,
     );
   }
 
   async function saveHostAvailability() {
     await persistHostBlockedDates(
       localBlocked,
-      `✓ Saved! ${tier.label} availability is live for renters (${localBlocked.length} blocked day${localBlocked.length === 1 ? "" : "s"}).`,
+      `✓ Saved! ${tier.shortLabel} availability is live for guests.`,
     );
   }
 
@@ -448,7 +432,7 @@ export function AvailabilityCalendar({
 
       setBookingConfirmation(confirmation);
       setSaveMessage(
-        `✓ Vettilo™ Pass Issued! ${formatReadableDate(calendar.checkInIso)} → ${formatReadableDate(validUntil)} (${stayDays} days) marked Booked / Reserved.`,
+        `✓ Reservation confirmed for ${formatReadableDate(calendar.checkInIso)} → ${formatReadableDate(validUntil)} (${stayDays} nights).`,
       );
 
       if (typeof window !== "undefined") {
@@ -466,7 +450,7 @@ export function AvailabilityCalendar({
         onBookingConfirmed(confirmation);
       }
     } catch {
-      setBookingError("Network error while activating stay and issuing Vettilo™ Pass.");
+      setBookingError("Network error while confirming reservation.");
     } finally {
       setBookingBusy(false);
     }
@@ -482,13 +466,13 @@ export function AvailabilityCalendar({
         <div className="vr-calendar-title">
           <strong>
             {mode === "tenant"
-              ? `Interactive Stay Calendar · ${tier.shortLabel} (${formatCurrencyCents(rateComparison.grossDailyRateCents)}/day · ${formatCurrencyCents(effectiveWeeklyCents)}/wk)`
-              : `Landlord Availability & Pricing Setup · ${tier.shortLabel} (Allowed Band: ${tier.bandLabel})`}
+              ? `${tier.shortLabel} Availability (${formatCurrencyCents(rateComparison.grossDailyRateCents)}/day)`
+              : `Host Availability Setup · ${tier.shortLabel}`}
           </strong>
           <span>
             {mode === "tenant"
-              ? `Click any open date to set Check-In: ${formatReadableDate(calendar.checkInIso)} → Check-Out: ${formatReadableDate(calendar.checkOutIso)} (${stayDays} days · ${formatCurrencyCents(rateComparison.netEffectiveDailyRateCents)}/day net)`
-              : `Set your rate between ${tier.bandLabel} (Host 75.5% net: ${formatCurrencyCents(hostWeeklyNetCents)}/wk · ${formatCurrencyCents(hostMonthlyNetCents)}/mo) and click any date to toggle Available or Blocked.`}
+              ? `Check-In: ${formatReadableDate(calendar.checkInIso)} → Check-Out: ${formatReadableDate(calendar.checkOutIso)} (${stayDays} nights · $0 Security Deposit)`
+              : "Click any date to toggle between Available and Blocked."}
           </span>
         </div>
 
@@ -497,9 +481,9 @@ export function AvailabilityCalendar({
             className="vr-cal-btn"
             style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem" }}
           >
-            <span>{mode === "landlord" ? "Host Rate:" : "Tier Rate:"}</span>
+            <span>Rate:</span>
             <select
-              aria-label={`${tier.shortLabel} rate within ${tier.bandLabel}`}
+              aria-label={`${tier.shortLabel} rate`}
               value={effectiveWeeklyCents}
               onChange={(e) => handleRateSelectChange(Number(e.target.value))}
               style={{
@@ -527,10 +511,10 @@ export function AvailabilityCalendar({
               data-available={!calendar.hasConflict ? "true" : "false"}
             >
               {!calendar.hasConflict
-                ? `✓ ${stayDays}-Day Window Available (${formatReadableDate(calendar.checkInIso)} → ${formatReadableDate(calendar.checkOutIso)})`
+                ? `✓ Dates Available (${formatReadableDate(calendar.checkInIso)} → ${formatReadableDate(calendar.checkOutIso)})`
                 : newlyBookedDates.length > 0
-                  ? `✓ Reserved by Your Vettilo™ Pass (${newlyBookedDates.length} days)`
-                  : `⚠ ${calendar.conflictingDates.length} blocked day(s) in range`}
+                  ? `✓ Reserved (${newlyBookedDates.length} nights)`
+                  : `⚠ ${calendar.conflictingDates.length} unavailable day(s) in range`}
             </span>
           ) : (
             <>
@@ -556,7 +540,7 @@ export function AvailabilityCalendar({
                 disabled={saving}
                 onClick={() => void saveHostAvailability()}
               >
-                {saving ? "Persisting..." : "Save Available Days →"}
+                {saving ? "Saving..." : "Save Calendar →"}
               </button>
             </>
           )}
@@ -644,8 +628,8 @@ export function AvailabilityCalendar({
                 mode === "landlord"
                   ? `${cell.isoDate} — Click to toggle Available / Blocked`
                   : cell.isBlocked && !isNewlyBooked
-                    ? `${cell.isoDate} — Booked / Reserved`
-                    : `${cell.isoDate} — Click to set Check-In (${stayDays} days)`
+                    ? `${cell.isoDate} — Reserved`
+                    : `${cell.isoDate} — Click to set Check-In (${stayDays} nights)`
               }
             >
               <span className="vr-calendar-day__dow">{cell.weekdayShort}</span>
@@ -668,16 +652,15 @@ export function AvailabilityCalendar({
               <i className="vr-dot vr-dot--selected" /> Check-In / Check-Out
             </span>
             <span>
-              <i className="vr-dot vr-dot--window" /> Stay Window ({stayDays} Days)
+              <i className="vr-dot vr-dot--window" /> Selected Stay ({stayDays} Nights)
             </span>
           </>
         ) : null}
         <span>
-          <i className="vr-dot vr-dot--blocked" /> Blocked / Booked
+          <i className="vr-dot vr-dot--blocked" /> Reserved
         </span>
       </div>
 
-      {/* LIVE SELECTED STAY BOOKING BAR */}
       {mode === "tenant" ? (
         <div
           className="vr-booking-bar relative z-10"
@@ -688,30 +671,24 @@ export function AvailabilityCalendar({
           <div className="vr-booking-bar__summary">
             <div className="vr-booking-bar__dates">
               <span className="vr-booking-bar__kicker">
-                Selected Stay Window · VettedRent.com · Powered by Vettilo™
+                <strong>$0 Security Deposit</strong> · <strong>No Credit Check</strong> ·{" "}
+                <strong>Instant Bank Link Setup</strong>
               </span>
               <strong>
                 {formatReadableDate(calendar.checkInIso)} →{" "}
                 {formatReadableDate(calendar.checkOutIso)}{" "}
-                <span>
-                  ({stayDays} days / {cyclesLabel})
-                </span>
+                <span>({stayDays} nights)</span>
               </strong>
             </div>
             <div className="vr-booking-bar__tier">
-              <span>Selected Tier ({tier.bandLabel}):</span>{" "}
               <strong>
-                {tierId} {formatCurrencyCents(rateComparison.grossDailyRateCents)}/day ·{" "}
-                {formatCurrencyCents(effectiveWeeklyCents)}/wk (
-                {formatCurrencyCents(rateComparison.netEffectiveDailyRateCents)}/day net)
-              </strong>
-              <span>
-                · Total:{" "}
-                <strong>
-                  {formatCurrencyCents(rateComparison.grossDailyRateCents * stayDays)}
-                </strong>{" "}
-                ($0.00 Security Deposit)
-              </span>
+                {tier.shortLabel} ({formatCurrencyCents(rateComparison.grossDailyRateCents)}/day)
+              </strong>{" "}
+              · Total:{" "}
+              <strong>
+                {formatCurrencyCents(rateComparison.grossDailyRateCents * stayDays)}
+              </strong>{" "}
+              with <strong>$0 Security Deposit</strong>
             </div>
           </div>
 
@@ -719,8 +696,7 @@ export function AvailabilityCalendar({
             {context === "home" ? (
               <>
                 <Link className="button" href={underwritingBookingHref}>
-                  Book Selected Dates ({formatReadableDate(calendar.checkInIso)} →{" "}
-                  {formatReadableDate(calendar.checkOutIso)}) →
+                  Book Selected Dates →
                 </Link>
                 <button
                   type="button"
@@ -728,34 +704,18 @@ export function AvailabilityCalendar({
                   disabled={bookingBusy}
                   onClick={() => void handleInstantBookStay()}
                 >
-                  {bookingBusy
-                    ? "Issuing Vettilo™ Pass..."
-                    : "1-Click Test Book & Issue Vettilo™ Pass"}
+                  {bookingBusy ? "Booking..." : "Instant Reserve"}
                 </button>
               </>
             ) : (
-              <>
-                <button
-                  type="button"
-                  className="button"
-                  disabled={bookingBusy}
-                  onClick={() => void handleInstantBookStay()}
-                >
-                  {bookingBusy
-                    ? "Issuing Vettilo™ Pass..."
-                    : "Confirm Dates & Issue Vettilo™ Pass Now →"}
-                </button>
-                <button
-                  type="button"
-                  className="button button-secondary vr-test-book-btn"
-                  disabled={bookingBusy}
-                  onClick={() => void handleInstantBookStay()}
-                >
-                  {bookingBusy
-                    ? "Booking..."
-                    : "1-Click Test Book & Issue Vettilo™ Pass"}
-                </button>
-              </>
+              <button
+                type="button"
+                className="button"
+                disabled={bookingBusy}
+                onClick={() => void handleInstantBookStay()}
+              >
+                {bookingBusy ? "Confirming..." : "Confirm Reservation Now →"}
+              </button>
             )}
           </div>
         </div>
@@ -767,7 +727,6 @@ export function AvailabilityCalendar({
         </p>
       ) : null}
 
-      {/* INSTANT BOOKING CONFIRMATION CARD */}
       {bookingConfirmation ? (
         <div
           className="vr-booking-confirmation relative z-10"
@@ -777,43 +736,29 @@ export function AvailabilityCalendar({
         >
           <div className="stay-card-head" style={{ flexWrap: "wrap" }}>
             <div>
-              <p className="pass-kicker">
-                Vettilo™ UMI Engine · Instant Booking &amp; Commercial License Confirmed
-              </p>
+              <p className="pass-kicker">Reservation Confirmed</p>
               <h3>
-                Booked: {formatReadableDate(bookingConfirmation.checkInDate)} →{" "}
+                {formatReadableDate(bookingConfirmation.checkInDate)} →{" "}
                 {formatReadableDate(bookingConfirmation.validUntil)} (
-                {bookingConfirmation.stayDays} Days)
+                {bookingConfirmation.stayDays} Nights)
               </h3>
             </div>
             <span className="stay-badge" data-status="active">
-              Active Stays: {bookingConfirmation.activeStaysCount} /{" "}
-              {bookingConfirmation.targetStaysCount} ({bookingConfirmation.progressPercentage}%)
+              $0 Security Deposit
             </span>
           </div>
 
           <div className="vr-booking-confirmation__grid">
             <div>
-              <span>Cryptographic License Token</span>
-              <code>{bookingConfirmation.licenseToken}</code>
-            </div>
-            <div>
-              <span>Agreement ID</span>
-              <code>{bookingConfirmation.agreementId}</code>
-            </div>
-            <div>
-              <span>Tier &amp; Weekly Rate</span>
+              <span>Space Tier</span>
               <strong>
                 {bookingConfirmation.tier} ·{" "}
-                {formatCurrencyCents(bookingConfirmation.dailyRateCents)}/day (
-                {formatCurrencyCents(bookingConfirmation.weeklyRateCents)}/wk)
+                {formatCurrencyCents(bookingConfirmation.dailyRateCents)}/day
               </strong>
             </div>
             <div>
-              <span>Cohort &amp; Jurisdiction</span>
-              <strong>
-                {bookingConfirmation.cohort} · {bookingConfirmation.jurisdiction}
-              </strong>
+              <span>Destination</span>
+              <strong>{bookingConfirmation.jurisdiction}</strong>
             </div>
           </div>
 
@@ -823,17 +768,17 @@ export function AvailabilityCalendar({
               href={bookingConfirmation.passportPdfHref}
               download={`VettedRent-Trust-Passport-${bookingConfirmation.cohort}.pdf`}
             >
-              Download Trust Passport (PDF) ↓
+              Download Stay Passport (PDF) ↓
             </a>
             <a
               className="button button-secondary"
               href={bookingConfirmation.commercialLicensePdfHref}
               download={`VettedRent-Commercial-License-${bookingConfirmation.cohort}-${bookingConfirmation.jurisdiction}.pdf`}
             >
-              Download Commercial License (PDF) ↓
+              Download Stay Agreement (PDF) ↓
             </a>
             <Link className="button button-secondary" href="/dashboard">
-              Open Stay Pass Dashboard →
+              Open Digital Key Dashboard →
             </Link>
           </div>
         </div>

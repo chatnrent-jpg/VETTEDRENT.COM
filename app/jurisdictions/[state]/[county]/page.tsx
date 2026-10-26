@@ -61,18 +61,19 @@ export default async function ProgrammaticJurisdictionPage({ params }: RouteProp
                 Underwritten Medical Staffing & Contractor Lodging in {countyMetadata.countyName}
               </h2>
               <p className="mt-4 text-slate-400 leading-relaxed text-base">
-                Traditional mid-term rentals burden incoming medical professionals with excessive security deposits, arbitrary background friction, and slow approval pipelines. 
-                <strong className="text-emerald-400 font-semibold mx-1">VettedRent dismantles this barrier.</strong> 
-                Our platform interfaces directly with clinical staffing payroll systems to secure placements with zero down-payment requirements.
+                Book move-in ready furnished stays in {countyMetadata.countyName} with{" "}
+                <strong className="text-emerald-400 font-semibold">$0 Security Deposit</strong>,{" "}
+                <strong className="text-emerald-400 font-semibold">No Credit Check</strong>, and{" "}
+                <strong className="text-emerald-400 font-semibold">Instant Bank Link Setup</strong>.
               </p>
             </div>
             <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-900">
-              <h3 className="text-lg font-semibold text-slate-200 mb-3">Direct Clinical Access Corridors</h3>
+              <h3 className="text-lg font-semibold text-slate-200 mb-3">Nearby Medical &amp; Employment Hubs</h3>
               <ul className="space-y-2 text-slate-400 text-sm">
                 {countyMetadata.majorHospitals.map((hospital, index) => (
                   <li key={index} className="flex items-center gap-2">
                     <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
-                    Verified mid-term routes available for contract professionals at <span className="text-slate-200 font-medium">{hospital}</span>
+                    Furnished mid-term stays near <span className="text-slate-200 font-medium">{hospital}</span>
                   </li>
                 ))}
               </ul>
@@ -81,20 +82,20 @@ export default async function ProgrammaticJurisdictionPage({ params }: RouteProp
           <div className="space-y-6">
             <div className="bg-slate-900/80 p-6 rounded-xl border border-emerald-500/10 shadow-xl">
               <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400">
-                {countyMetadata.stateCode} Regional High Velocity Hubs
+                {countyMetadata.stateCode} Popular Neighborhoods
               </h3>
               <div className="mt-4 space-y-4">
                 {countyMetadata.travelNurseDemandHubs.map((hub, index) => (
                   <div key={index} className="pb-3 border-b border-slate-800 last:border-0 last:pb-0">
                     <div className="text-slate-200 font-semibold text-sm">{hub}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">Active underwritten capacity monitored hourly</div>
+                    <div className="text-xs text-slate-500 mt-0.5">Instant online booking available</div>
                   </div>
                 ))}
               </div>
             </div>
             <div className="p-6 rounded-xl border border-slate-900 text-center">
-              <div className="text-2xl font-black text-slate-100">$45.00/day Net</div>
-              <div className="text-xs text-slate-400 mt-1">Guaranteed RoomSanctuary baseline rate vector</div>
+              <div className="text-2xl font-black text-slate-100">From $45/day</div>
+              <div className="text-xs text-slate-400 mt-1">RoomSanctuary ($45/day) · PrivateSuite ($75/day) · ExecutiveTownhome ($106/day)</div>
             </div>
           </div>
         </div>

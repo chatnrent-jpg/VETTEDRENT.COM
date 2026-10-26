@@ -154,6 +154,57 @@ export const DAILY_RATE_TIER_LIST: readonly DailyRateTierPreset[] = [
   DAILY_RATE_PRESET_TIERS.ExecutiveTownhome,
 ];
 
+export interface SpaceTierCardOption {
+  id: DailyRateTierId;
+  title: string;
+  codeLabel: string;
+  dailyPriceLabel: string;
+  weeklyPriceLabel: string;
+  weeklyRateCents: number;
+  badge: string;
+  summary: string;
+  features: readonly string[];
+}
+
+export const SPACE_TIER_CARDS: readonly SpaceTierCardOption[] = [
+  {
+    id: "RoomSanctuary",
+    title: "Room Sanctuary",
+    codeLabel: "RoomSanctuary",
+    dailyPriceLabel: "$45/day",
+    weeklyPriceLabel: "$315/week",
+    weeklyRateCents: 31500,
+    badge: "Best Value · Private Room",
+    summary:
+      "Move-in ready furnished bedroom with keyless smart-lock entry, fast Wi-Fi, and utilities included.",
+    features: ["Private Keyless Room", "All Utilities & Wi-Fi", "$0 Security Deposit"],
+  },
+  {
+    id: "PrivateSuite",
+    title: "Private Suite",
+    codeLabel: "PrivateSuite",
+    dailyPriceLabel: "$75/day",
+    weeklyPriceLabel: "$525/week",
+    weeklyRateCents: 52500,
+    badge: "Most Popular · En-Suite",
+    summary:
+      "Dedicated suite with private en-suite bathroom, ergonomic workspace, and kitchenette access.",
+    features: ["Private En-Suite Bath", "Dedicated Workspace", "No Credit Check"],
+  },
+  {
+    id: "ExecutiveTownhome",
+    title: "Executive Townhome",
+    codeLabel: "ExecutiveTownhome",
+    dailyPriceLabel: "$106/day",
+    weeklyPriceLabel: "$745/week",
+    weeklyRateCents: 74500,
+    badge: "Entire Home · Multi-Bedroom",
+    summary:
+      "Full multi-bedroom townhome with chef's kitchen, living area, in-unit laundry, and parking.",
+    features: ["Entire Multi-Bedroom Home", "Full Kitchen & Laundry", "Instant Bank Link Setup"],
+  },
+] as const;
+
 export type TierRateOption = {
   weeklyRateCents: number;
   grossDailyRateCents: number;

@@ -3,9 +3,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { AvailabilityCalendar } from "@/components/availability-calendar";
-import { ValuationCounter } from "@/components/ValuationCounter";
 import {
-  STAY_DURATION_OPTIONS,
   addDaysIsoUtc,
   formatReadableDate,
   todayIsoUtc,
@@ -15,89 +13,77 @@ import {
   JURISDICTION_RULES,
 } from "@/lib/compliance/jurisdictions";
 import {
-  AGGREGATOR_NIGHTLY_BENCHMARK_CENTS,
   DAILY_RATE_PRESET_TIERS,
-  DAILY_RATE_TIER_LIST,
-  EXTERNAL_OFFER_PRESETS,
-  calculateDailyRateComparison,
+  SPACE_TIER_CARDS,
   clampTierWeeklyRateCents,
-  getTierRateOptions,
   type DailyRateTierId,
+  type SpaceTierCardOption,
 } from "@/lib/daily-rate-comparison";
-import {
-  calculateJurisdictionYield,
-  formatCurrencyCents,
-} from "@/lib/marketing-calculator";
-import {
-  SEASONAL_REMOTE_MIN_DAYS,
-  type PurposeCohortId,
-} from "@/lib/underwriting-contract";
+import type { PurposeCohortId } from "@/lib/underwriting-contract";
 
 export type BrandPerspective = "landlord" | "tenant";
+export { SPACE_TIER_CARDS, type SpaceTierCardOption };
+
+function diffDaysUtc(startIso: string, endIso: string): number {
+  const startMs = Date.parse(`${startIso}T00:00:00Z`);
+  const endMs = Date.parse(`${endIso}T00:00:00Z`);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+    return 30;
+  }
+  const diff = Math.round((endMs - startMs) / (24 * 60 * 60 * 1000));
+  return Math.max(7, Math.min(365, diff));
+}
 
 export function DualBrandHome({
   stay,
-  weeklyRate,
 }: {
   stay: { name: string; weeklyPriceCents: number; geoCompliance: string };
-  weeklyRate: string;
+  weeklyRate?: string;
 }) {
   const [perspective, setPerspective] = useState<BrandPerspective>("tenant");
   const isLandlord = perspective === "landlord";
 
   const [selectedTierId, setSelectedTierId] = useState<DailyRateTierId>("RoomSanctuary");
   const [selectedWeeklyCents, setSelectedWeeklyCents] = useState<number>(31500);
-  const [selectedCohortId, setSelectedCohortId] =
-    useState<PurposeCohortId>("Contract-Assignment");
+  const [selectedCohortId] = useState<PurposeCohortId>("Contract-Assignment");
   const [selectedJurisdictionCode, setSelectedJurisdictionCode] = useState<string>(
     DEFAULT_JURISDICTION_CODE,
   );
-  const [stayDays, setStayDays] = useState<number>(90);
+  const [stayDays, setStayDays] = useState<number>(30);
   const [checkInIso, setCheckInIso] = useState<string>(() => todayIsoUtc());
-  const [showCalendar, setShowCalendar] = useState<boolean>(true);
-  const [externalNightlyDollars, setExternalNightlyDollars] = useState<string>("277");
+  const [showCalendar, setShowCalendar] = useState<boolean>(false);
 
   const [hostEmail, setHostEmail] = useState("");
   const [hostSubmitting, setHostSubmitting] = useState(false);
   const [hostNotice, setHostNotice] = useState<string | null>(null);
 
-  const activeTier = DAILY_RATE_PRESET_TIERS[selectedTierId];
-  const tierRateOptions = getTierRateOptions(selectedTierId);
   const clampedWeeklyCents = clampTierWeeklyRateCents(
     selectedTierId,
     selectedWeeklyCents,
   );
-  const parsedNightlyCents = Math.max(
-    3500,
-    Math.round((Number(externalNightlyDollars) || 277) * 100),
-  );
+  const checkOutIso = addDaysIsoUtc(checkInIso, stayDays);
+  const selectedCard =
+    SPACE_TIER_CARDS.find((card) => card.id === selectedTierId) ?? SPACE_TIER_CARDS[0];
 
   function selectTier(nextTierId: DailyRateTierId) {
     setSelectedTierId(nextTierId);
     setSelectedWeeklyCents(DAILY_RATE_PRESET_TIERS[nextTierId].weeklyRateCents);
   }
 
-  const comparison = calculateDailyRateComparison(
-    clampedWeeklyCents,
-    stayDays,
-    parsedNightlyCents,
-    0,
-  );
+  function handleCheckInChange(nextCheckInIso: string) {
+    if (!nextCheckInIso) {
+      return;
+    }
+    setCheckInIso(nextCheckInIso);
+  }
 
-  const hostYield = calculateJurisdictionYield(
-    selectedJurisdictionCode,
-    clampedWeeklyCents,
-    stayDays,
-  );
-
-  const featuredWeeklyCents = Math.max(stay.weeklyPriceCents, 31500);
-  const featuredComparison = calculateDailyRateComparison(
-    featuredWeeklyCents,
-    90,
-    AGGREGATOR_NIGHTLY_BENCHMARK_CENTS,
-  );
-
-  const checkOutIso = addDaysIsoUtc(checkInIso, comparison.stayDays);
+  function handleCheckOutChange(nextCheckOutIso: string) {
+    if (!nextCheckOutIso) {
+      return;
+    }
+    const nextStayDays = diffDaysUtc(checkInIso, nextCheckOutIso);
+    setStayDays(nextStayDays);
+  }
 
   async function handleQuickHostStart(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -121,7 +107,7 @@ export function DualBrandHome({
       });
       if (res.ok) {
         setHostNotice(
-          "Saved! Open the Availability Calendar below to set your open dates, or click Sign In above.",
+          "Your property inquiry has been saved. Use the calendar below to set your open dates.",
         );
         setShowCalendar(true);
       } else {
@@ -134,7 +120,7 @@ export function DualBrandHome({
     }
   }
 
-  const underwritingHref = `/underwriting?tier=${encodeURIComponent(selectedTierId)}&weeklyCents=${comparison.weeklyRateCents}&days=${comparison.stayDays}&checkIn=${encodeURIComponent(checkInIso)}&cohort=${encodeURIComponent(selectedCohortId)}&jurisdiction=${encodeURIComponent(selectedJurisdictionCode)}`;
+  const underwritingHref = `/underwriting?tier=${encodeURIComponent(selectedTierId)}&weeklyCents=${clampedWeeklyCents}&days=${stayDays}&checkIn=${encodeURIComponent(checkInIso)}&cohort=${encodeURIComponent(selectedCohortId)}&jurisdiction=${encodeURIComponent(selectedJurisdictionCode)}`;
 
   return (
     <main className="google-home" data-perspective={perspective}>
@@ -143,7 +129,8 @@ export function DualBrandHome({
         style={{ pointerEvents: "none" }}
         aria-hidden="true"
       />
-      {/* MINIMAL TOP BAR */}
+
+      {/* CLEAN PUBLIC HEADER */}
       <header
         className="google-topbar relative z-10"
         style={{ position: "relative", zIndex: 10 }}
@@ -151,7 +138,7 @@ export function DualBrandHome({
         <Link href="/" className="google-logo">
           <img
             src="/vettedrent-logo-mark.jpg"
-            alt="VettedRent.Com Crest"
+            alt="VettedRent Crest"
             className="google-logo-badge"
             width={42}
             height={42}
@@ -170,21 +157,14 @@ export function DualBrandHome({
             className="text-button"
             onClick={() => setPerspective("tenant")}
           >
-            Renters
+            Book a Stay
           </button>
           <button
             type="button"
             className="text-button"
             onClick={() => setPerspective("landlord")}
           >
-            Landlords
-          </button>
-          <button
-            type="button"
-            className="text-button"
-            onClick={() => setShowCalendar((prev) => !prev)}
-          >
-            {showCalendar ? "Hide Calendar" : "Availability Calendar"}
+            List Your Property
           </button>
           <Link className="button" href="/dashboard">
             Sign In
@@ -192,249 +172,141 @@ export function DualBrandHome({
         </nav>
       </header>
 
-      {/* CENTERED GOOGLE-STYLE STAGE */}
+      {/* CENTERED AIRBNB / HOTWIRE STYLE HERO & BOOKING STAGE */}
       <section
         className="google-stage relative z-10"
         style={{ position: "relative", zIndex: 10 }}
-        id="daily-rate-calculator"
+        aria-label="Search and book furnished stays"
       >
-        {/* INSTITUTIONAL CO-BRANDING FINTECH BADGE */}
-        <div
-          className="vettilo-fintech-badge"
-          aria-label="VettedRent.com · Powered by Vettilo™ UMI Engine"
-        >
-          <span className="vettilo-fintech-badge__top">
-            <span className="fintech-live-dot" aria-hidden="true" />
-            VettedRent.com · Powered by Vettilo™
-          </span>
-          <span className="vettilo-fintech-badge__sub">
-            Vettilo (vettilo.com) proprietary Underwritten Mid-Term Infrastructure (UMI) engine
-            powering payroll webhooks, the 14.3% GMF Escrow Vault &amp; revocable commercial
-            license tokens
-          </span>
-        </div>
-
-        {/* 1-CLICK AUDIENCE SWITCH */}
-        <div
-          className="audience-pill-switch"
-          role="group"
-          aria-label="Switch between Renter and Landlord"
-        >
-          <button
-            type="button"
-            aria-pressed={!isLandlord}
-            onClick={() => setPerspective("tenant")}
-          >
-            I Need a Place to Stay
-          </button>
-          <button
-            type="button"
-            aria-pressed={isLandlord}
-            onClick={() => setPerspective("landlord")}
-          >
-            I Have a Property to List
-          </button>
-        </div>
-
-        {/* HEADLINE */}
+        {/* CONSUMER VALUE HEADLINE */}
         {!isLandlord ? (
           <div className="google-headline">
-            <h1>
-              {formatCurrencyCents(comparison.grossDailyRateCents)} / day. $0 deposit.
-            </h1>
+            <h1>Move-in ready stays from {selectedCard.dailyPriceLabel}.</h1>
             <p>
-              <strong>{formatCurrencyCents(comparison.weeklyRateCents)}/wk</strong> ·{" "}
-              <strong>{formatCurrencyCents(comparison.grossDailyRateCents)}/day</strong> (
-              <strong>{formatCurrencyCents(comparison.netEffectiveDailyRateCents)}/day net</strong>{" "}
-              after +{formatCurrencyCents(comparison.dailyGmfVaultCreditCents)}/day 14.3% GMF Vault
-              credit) — <strong>{comparison.savingsPercentage}% less</strong> than{" "}
-              <strong>{formatCurrencyCents(comparison.aggregatorNightlyCents)}/night</strong> hotel
-              &amp; aggregator rates.
+              Book verified furnished spaces with <strong>$0 Security Deposit</strong>,{" "}
+              <strong>No Credit Check</strong>, and <strong>Instant Bank Link Setup</strong>.
             </p>
           </div>
         ) : (
           <div className="google-headline">
-            <h1>Unvetted renting is over.</h1>
+            <h1>Host verified mid-term guests with confidence.</h1>
             <p>
-              Get <strong>{formatCurrencyCents(hostYield.hostWeeklyCents)}/wk</strong> (
-              <strong>{formatCurrencyCents(hostYield.hostMonthlyCents)}/mo net</strong>) guaranteed
-              payout from 3x bank-verified guests with zero eviction holdovers.
+              Welcome pre-verified traveling professionals with{" "}
+              <strong>$0 Security Deposit</strong> friction, <strong>No Credit Check</strong>{" "}
+              delays, and <strong>Instant Bank Link Setup</strong>.
             </p>
           </div>
         )}
 
-        {/* THE SINGLE HORIZONTAL SEARCH / ACTION BAR */}
+        {/* CONSUMER VALUE TRUST BAR */}
+        <div className="vr-value-badges" aria-label="Consumer benefits">
+          <div className="vr-value-badge">
+            <span className="vr-value-badge__icon" aria-hidden="true">
+              ✓
+            </span>
+            <div>
+              <strong>$0 Security Deposit</strong>
+              <span>Keep your cash at move-in</span>
+            </div>
+          </div>
+          <div className="vr-value-badge">
+            <span className="vr-value-badge__icon" aria-hidden="true">
+              ✓
+            </span>
+            <div>
+              <strong>No Credit Check</strong>
+              <span>Zero impact on your credit score</span>
+            </div>
+          </div>
+          <div className="vr-value-badge">
+            <span className="vr-value-badge__icon" aria-hidden="true">
+              ✓
+            </span>
+            <div>
+              <strong>Instant Bank Link Setup</strong>
+              <span>60-second verification via Plaid</span>
+            </div>
+          </div>
+        </div>
+
+        {/* MINIMALIST DESTINATION + CHECK-IN / CHECK-OUT SEARCH BAR */}
         {!isLandlord ? (
           <div
-            className="google-search-bar relative z-10"
+            className="google-search-bar vr-clean-booking-bar relative z-10"
             style={{ position: "relative", zIndex: 10 }}
-            role="region"
-            aria-label="Find your stay"
+            role="search"
+            aria-label="Search stays by destination and dates"
           >
-            <label className="google-search-cell">
-              <span>Space</span>
+            <label className="google-search-cell vr-search-cell--destination">
+              <span>Where are you traveling?</span>
               <select
-                value={selectedTierId}
-                onChange={(e) => selectTier(e.target.value as DailyRateTierId)}
-              >
-                {DAILY_RATE_TIER_LIST.map((tier) => (
-                  <option key={tier.id} value={tier.id}>
-                    {tier.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="google-search-cell">
-              <span>Daily / Weekly Rate ({activeTier.bandLabel})</span>
-              <select
-                value={clampedWeeklyCents}
-                onChange={(e) =>
-                  setSelectedWeeklyCents(
-                    clampTierWeeklyRateCents(selectedTierId, Number(e.target.value)),
-                  )
-                }
-              >
-                {tierRateOptions.map((opt) => (
-                  <option key={opt.weeklyRateCents} value={opt.weeklyRateCents}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="google-search-cell">
-              <span>Stay Length (7 to 90 Days)</span>
-              <select
-                value={stayDays}
-                onChange={(e) => {
-                  const nextDays = Number(e.target.value) || 90;
-                  if (
-                    selectedCohortId === "Seasonal-Remote" &&
-                    nextDays < SEASONAL_REMOTE_MIN_DAYS
-                  ) {
-                    setStayDays(SEASONAL_REMOTE_MIN_DAYS);
-                  } else {
-                    setStayDays(nextDays);
-                  }
-                }}
-              >
-                {STAY_DURATION_OPTIONS.map((opt) => (
-                  <option
-                    key={opt.days}
-                    value={opt.days}
-                    disabled={
-                      selectedCohortId === "Seasonal-Remote" &&
-                      opt.days < SEASONAL_REMOTE_MIN_DAYS
-                    }
-                  >
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="google-search-cell">
-              <span>Check-In Date</span>
-              <input
-                type="date"
-                value={checkInIso}
-                onFocus={() => setShowCalendar(true)}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setCheckInIso(e.target.value);
-                    setShowCalendar(true);
-                  }
-                }}
-              />
-            </label>
-
-            <label className="google-search-cell">
-              <span>Reason</span>
-              <select
-                value={selectedCohortId}
-                onChange={(e) => {
-                  const next = e.target.value as PurposeCohortId;
-                  setSelectedCohortId(next);
-                  if (next === "Seasonal-Remote" && stayDays < SEASONAL_REMOTE_MIN_DAYS) {
-                    setStayDays(SEASONAL_REMOTE_MIN_DAYS);
-                  }
-                }}
-              >
-                <option value="Contract-Assignment">Work Assignment (7d+)</option>
-                <option value="Academic-Enrollment">Student / Intern (7d+)</option>
-                <option value="Seasonal-Remote">Remote / Seasonal (14d+)</option>
-                <option value="Insurance-Relocation">Insurance / Relocation (7d+)</option>
-              </select>
-            </label>
-
-            <label className="google-search-cell">
-              <span>Location</span>
-              <select
+                aria-label="Where are you traveling?"
                 value={selectedJurisdictionCode}
                 onChange={(e) => setSelectedJurisdictionCode(e.target.value)}
               >
                 {JURISDICTION_RULES.map((rule) => (
                   <option key={rule.code} value={rule.code}>
-                    {rule.name} ({rule.code})
+                    {rule.name}
                   </option>
                 ))}
               </select>
             </label>
 
+            <label className="google-search-cell">
+              <span>Check-In</span>
+              <input
+                type="date"
+                aria-label="Check-In date"
+                value={checkInIso}
+                onChange={(e) => handleCheckInChange(e.target.value)}
+              />
+            </label>
+
+            <label className="google-search-cell">
+              <span>Check-Out</span>
+              <input
+                type="date"
+                aria-label="Check-Out date"
+                min={addDaysIsoUtc(checkInIso, 7)}
+                value={checkOutIso}
+                onChange={(e) => handleCheckOutChange(e.target.value)}
+              />
+            </label>
+
             <Link className="button google-search-cta" href={underwritingHref}>
-              Lock In {formatCurrencyCents(comparison.grossDailyRateCents)}/Day ($0 Security
-              Deposit) →
+              Book {selectedCard.title} ({selectedCard.dailyPriceLabel}) →
             </Link>
           </div>
         ) : (
           <form
-            className="google-search-bar relative z-10"
+            className="google-search-bar vr-clean-booking-bar relative z-10"
             style={{ position: "relative", zIndex: 10 }}
             onSubmit={(e) => void handleQuickHostStart(e)}
             aria-label="List your property"
           >
             <label className="google-search-cell">
-              <span>Property Type</span>
-              <select
-                value={selectedTierId}
-                onChange={(e) => selectTier(e.target.value as DailyRateTierId)}
-              >
-                {DAILY_RATE_TIER_LIST.map((tier) => (
-                  <option key={tier.id} value={tier.id}>
-                    {tier.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="google-search-cell">
-              <span>Host Rate ({activeTier.bandLabel})</span>
-              <select
-                value={clampedWeeklyCents}
-                onChange={(e) =>
-                  setSelectedWeeklyCents(
-                    clampTierWeeklyRateCents(selectedTierId, Number(e.target.value)),
-                  )
-                }
-              >
-                {tierRateOptions.map((opt) => (
-                  <option key={opt.weeklyRateCents} value={opt.weeklyRateCents}>
-                    {opt.label} → {formatCurrencyCents(opt.hostWeeklyNetCents)}/wk net
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="google-search-cell">
-              <span>Location</span>
+              <span>Where is your property?</span>
               <select
                 value={selectedJurisdictionCode}
                 onChange={(e) => setSelectedJurisdictionCode(e.target.value)}
               >
                 {JURISDICTION_RULES.map((rule) => (
                   <option key={rule.code} value={rule.code}>
-                    {rule.name} ({rule.code})
+                    {rule.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="google-search-cell">
+              <span>Space Tier</span>
+              <select
+                value={selectedTierId}
+                onChange={(e) => selectTier(e.target.value as DailyRateTierId)}
+              >
+                {SPACE_TIER_CARDS.map((tier) => (
+                  <option key={tier.id} value={tier.id}>
+                    {tier.title} ({tier.dailyPriceLabel})
                   </option>
                 ))}
               </select>
@@ -452,14 +324,6 @@ export function DualBrandHome({
             </label>
 
             <button
-              type="button"
-              className="button button-secondary google-search-cta"
-              onClick={() => setShowCalendar((prev) => !prev)}
-            >
-              {showCalendar ? "Hide Calendar" : "Set Available Days"}
-            </button>
-
-            <button
               type="submit"
               className="button google-search-cta"
               disabled={hostSubmitting}
@@ -471,84 +335,102 @@ export function DualBrandHome({
 
         {hostNotice ? <p className="payload">{hostNotice}</p> : null}
 
-        {/* 3 SIMPLE PILLS + 1-CLICK AVAILABILITY CALENDAR TOGGLE */}
-        {!isLandlord ? (
-          <div className="google-pill-row" aria-label="Key benefits">
-            <div className="google-info-pill">
-              <strong>
-                {formatCurrencyCents(comparison.weeklyRateCents)}/wk ·{" "}
-                {formatCurrencyCents(comparison.grossDailyRateCents)}/day
-              </strong>
-              <span>
-                ({formatCurrencyCents(comparison.netEffectiveDailyRateCents)}/day net after +
-                {formatCurrencyCents(comparison.dailyGmfVaultCreditCents)}/day 14.3% GMF Vault
-                credit)
-              </span>
-            </div>
-            <div className="google-info-pill">
-              <strong>$0.00 Deposit</strong>
-              <span>No credit check · 60-second bank check</span>
-            </div>
-            <div className="google-info-pill">
-              <strong>Save {formatCurrencyCents(comparison.totalSavingsVsAggregatorCents)}</strong>
-              <span>
-                ({comparison.savingsPercentage}% less than{" "}
-                {formatCurrencyCents(comparison.aggregatorNightlyCents)}/night over{" "}
-                {comparison.stayDays} days)
-              </span>
-            </div>
-            <button
-              type="button"
-              className="google-info-pill google-calendar-trigger"
-              onClick={() => setShowCalendar((prev) => !prev)}
-            >
-              <strong>{showCalendar ? "Hide Calendar ▲" : "View Available Dates ▼"}</strong>
-              <span>
-                {formatReadableDate(checkInIso)} → {formatReadableDate(checkOutIso)}
-              </span>
-            </button>
+        {/* SINGLE PREMIUM TIER SELECTOR: 3 VISUAL CARDS */}
+        <div
+          className="vr-tier-selector-section"
+          role="region"
+          aria-label="Choose your space tier"
+        >
+          <div className="vr-tier-selector-header">
+            <h2>Select Your Space</h2>
+            <span>
+              {formatReadableDate(checkInIso)} → {formatReadableDate(checkOutIso)} ({stayDays}{" "}
+              nights) · Featured: {stay.name}
+            </span>
           </div>
-        ) : (
-          <div className="google-pill-row" aria-label="Landlord benefits">
-            <div className="google-info-pill">
-              <strong>
-                {formatCurrencyCents(hostYield.hostWeeklyCents)}/wk (
-                {formatCurrencyCents(hostYield.hostMonthlyCents)}/mo net)
-              </strong>
-              <span>
-                Guaranteed payout · {formatCurrencyCents(hostYield.hostTotalCents)} over{" "}
-                {hostYield.estimatedWeeks} weeks
-              </span>
-            </div>
-            <div className="google-info-pill">
-              <strong>3.00x Verified Guests</strong>
-              <span>90-day bank deposits + work/school ID</span>
-            </div>
-            <div className="google-info-pill">
-              <strong>$0 Eviction Holdovers</strong>
-              <span>Revocable License + {formatCurrencyCents(hostYield.vaultTotalCents)} reserve</span>
-            </div>
-            <button
-              type="button"
-              className="google-info-pill google-calendar-trigger"
-              onClick={() => setShowCalendar((prev) => !prev)}
-            >
-              <strong>
-                {showCalendar ? "Hide Availability Calendar ▲" : "Setup Available Days ▼"}
-              </strong>
-              <span>Click dates to open or block</span>
-            </button>
-          </div>
-        )}
 
-        {/* INTERACTIVE AVAILABILITY CALENDAR (TENANT CHECK-IN OR LANDLORD SETUP) */}
+          <div className="vr-tier-cards-grid" role="radiogroup" aria-label="Space tiers">
+            {SPACE_TIER_CARDS.map((card) => {
+              const isSelected = selectedTierId === card.id;
+              const cardHref = `/underwriting?tier=${encodeURIComponent(card.id)}&weeklyCents=${card.weeklyRateCents}&days=${stayDays}&checkIn=${encodeURIComponent(checkInIso)}&cohort=${encodeURIComponent(selectedCohortId)}&jurisdiction=${encodeURIComponent(selectedJurisdictionCode)}`;
+
+              return (
+                <div
+                  key={card.id}
+                  role="radio"
+                  aria-checked={isSelected}
+                  tabIndex={0}
+                  className={`vr-tier-card${isSelected ? " vr-tier-card--selected" : ""}`}
+                  onClick={() => selectTier(card.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      selectTier(card.id);
+                    }
+                  }}
+                >
+                  <div className="vr-tier-card__top">
+                    <span className="vr-tier-card__badge">{card.badge}</span>
+                    <span className="vr-tier-card__code">{card.codeLabel}</span>
+                  </div>
+
+                  <div className="vr-tier-card__title-row">
+                    <h3>{card.title}</h3>
+                    <div className="vr-tier-card__price">
+                      <strong>{card.dailyPriceLabel}</strong>
+                      <span>{card.weeklyPriceLabel}</span>
+                    </div>
+                  </div>
+
+                  <p className="vr-tier-card__summary">{card.summary}</p>
+
+                  <ul className="vr-tier-card__features">
+                    {card.features.map((feat) => (
+                      <li key={feat}>
+                        <span aria-hidden="true">•</span> <strong>{feat}</strong>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="vr-tier-card__footer">
+                    <span className="vr-tier-card__select-indicator">
+                      {isSelected ? "✓ Selected" : "Click to Select"}
+                    </span>
+                    <Link
+                      className={isSelected ? "button" : "button button-secondary"}
+                      href={cardHref}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Book {card.dailyPriceLabel} →
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* OPTIONAL INTERACTIVE CALENDAR TOGGLE */}
+        <div className="google-pill-row">
+          <button
+            type="button"
+            className="google-info-pill google-calendar-trigger"
+            onClick={() => setShowCalendar((prev) => !prev)}
+          >
+            <strong>{showCalendar ? "Hide Date Calendar ▲" : "Browse Open Dates on Calendar ▼"}</strong>
+            <span>
+              {formatReadableDate(checkInIso)} → {formatReadableDate(checkOutIso)}
+            </span>
+          </button>
+        </div>
+
         {showCalendar ? (
           <AvailabilityCalendar
             mode={isLandlord ? "landlord" : "tenant"}
             tierId={selectedTierId}
             weeklyRateCents={clampedWeeklyCents}
             onChangeWeeklyRateCents={(next) => setSelectedWeeklyCents(next)}
-            stayDays={comparison.stayDays}
+            stayDays={stayDays}
             checkInIso={checkInIso}
             onSelectCheckIn={(iso) => {
               setCheckInIso(iso);
@@ -560,63 +442,20 @@ export function DualBrandHome({
             context="home"
           />
         ) : null}
-
-        <ValuationCounter variant="compact" />
-
-        {/* SUBTLE EXPANDABLE COMPARE LINK */}
-        <details className="google-compare-drawer">
-          <summary>
-            Compare {formatCurrencyCents(featuredComparison.weeklyRateCents)}/wk ·{" "}
-            {formatCurrencyCents(featuredComparison.grossDailyRateCents)}/day (
-            {formatCurrencyCents(featuredComparison.netEffectiveDailyRateCents)}/day net) against
-            $277/night hotel &amp; aggregator rates ({weeklyRate}/wk listing)
-          </summary>
-          <div className="google-compare-drawer__body">
-            <div className="actions" style={{ justifyContent: "center", marginTop: 0 }}>
-              {EXTERNAL_OFFER_PRESETS.map((preset) => {
-                const dollars = String(Math.round(preset.nightlyRateCents / 100));
-                return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    className={
-                      externalNightlyDollars === dollars ? "button" : "button button-secondary"
-                    }
-                    onClick={() => setExternalNightlyDollars(dollars)}
-                  >
-                    {preset.providerLabel}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="note" style={{ marginTop: "0.5rem" }}>
-              {stay.name}: {formatCurrencyCents(featuredComparison.weeklyRateCents)}/wk ·{" "}
-              {formatCurrencyCents(featuredComparison.grossDailyRateCents)}/day (
-              {formatCurrencyCents(featuredComparison.netEffectiveDailyRateCents)}/day net after +
-              {formatCurrencyCents(featuredComparison.dailyGmfVaultCreditCents)}/day 14.3% GMF Vault
-              credit) · {featuredComparison.savingsPercentage}% less than{" "}
-              {formatCurrencyCents(AGGREGATOR_NIGHTLY_BENCHMARK_CENTS)}/night hotel &amp;
-              aggregator rates · Landlord guaranteed payout: $237.83/wk ($1,030.58/mo net). The
-              unvetted rental market forces you to settle for risk. It’s time to be great to
-              yourself.
-            </p>
-          </div>
-        </details>
       </section>
 
-      {/* MINIMAL BOTTOM FOOTER */}
+      {/* CLEAN PUBLIC FOOTER */}
       <footer
         className="google-footer relative z-10"
         style={{ position: "relative", zIndex: 10 }}
       >
         <span>
-          VettedRent.com · Powered by Vettilo™ (vettilo.com UMI Engine) · MD-PG, MD, FL, TX, CA
-          &amp; NY
+          VettedRent · <strong>$0 Security Deposit</strong> · <strong>No Credit Check</strong> ·{" "}
+          <strong>Instant Bank Link Setup</strong>
         </span>
         <div className="google-footer__links">
-          <Link href="/underwriting">Renter Approval</Link>
-          <Link href="/dashboard">Host &amp; Renter Sign In</Link>
-          <Link href="/marketing">Partner Tools</Link>
+          <Link href="/underwriting">Book a Stay</Link>
+          <Link href="/dashboard">Sign In</Link>
         </div>
       </footer>
     </main>

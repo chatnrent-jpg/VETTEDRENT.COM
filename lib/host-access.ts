@@ -32,6 +32,10 @@ export function isHostRole(role: string | null): boolean {
   return role === "host";
 }
 
+export function isAdminRole(role: string | null): boolean {
+  return role === "admin" || role === "host";
+}
+
 function readRole(value: unknown): string | null {
   if (!value || typeof value !== "object") {
     return null;

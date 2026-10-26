@@ -50,9 +50,11 @@ export default function HostScannerPage() {
       {gate !== "host" ? (
         <AccessDenied checking={gate === "checking"} />
       ) : (
-        <HostScanner onDenied={() => setGate("denied")} />
+        <>
+          <HostScanner onDenied={() => setGate("denied")} />
+          <UmiPayrollDisconnectSimulator />
+        </>
       )}
-      <UmiPayrollDisconnectSimulator />
     </>
   );
 }
@@ -60,20 +62,6 @@ export default function HostScannerPage() {
 function AccessDenied({ checking }: { checking: boolean }) {
   return (
     <main className="gate-screen">
-      <div
-        className="vettilo-fintech-badge"
-        aria-label="VettedRent.com · Powered by Vettilo™ UMI Engine"
-      >
-        <span className="vettilo-fintech-badge__top">
-          <span className="fintech-live-dot" aria-hidden="true" />
-          VettedRent.com · Powered by Vettilo™
-        </span>
-        <span className="vettilo-fintech-badge__sub">
-          Vettilo (vettilo.com) proprietary Underwritten Mid-Term Infrastructure (UMI) engine
-          powering payroll webhooks, the 14.3% GMF Escrow Vault &amp; revocable commercial license
-          tokens
-        </span>
-      </div>
       <h1>{checking ? "Checking access" : "Hosts only"}</h1>
       <p className="lede">
         {checking
