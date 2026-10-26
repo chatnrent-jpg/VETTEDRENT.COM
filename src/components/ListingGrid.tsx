@@ -335,73 +335,80 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
 
   return (
     <div className="vr-swipe-marketplace w-full">
-      {/* SWIPE & SORT TOOLBAR: PRICE vs. CONVENIENCE */}
+      {/* CENTERED SWIPE & SORT DOCK RIGHT IN THE MIDDLE */}
       <div className="vr-swipe-toolbar">
-        <div className="vr-swipe-toolbar__left">
-          <span className="vr-swipe-toolbar__count">
-            <strong>{filteredListings.length} Verified Spaces</strong> · Swipe by Price &amp;
-            Hospital Convenience
-          </span>
-          <div className="vr-swipe-sort-pills" role="group" aria-label="Sort spaces by price or convenience">
-            <button
-              type="button"
-              aria-pressed={sortMode === "convenience"}
-              onClick={() => setSortMode("convenience")}
-              className={`vr-swipe-pill${sortMode === "convenience" ? " vr-swipe-pill--active" : ""}`}
-            >
-              ⚡ Closest to Hospital (2–6 mins)
-            </button>
-            <button
-              type="button"
-              aria-pressed={sortMode === "price-asc"}
-              onClick={() => setSortMode("price-asc")}
-              className={`vr-swipe-pill${sortMode === "price-asc" ? " vr-swipe-pill--active" : ""}`}
-            >
-              💲 Lowest Price ($45/day first)
-            </button>
-            <button
-              type="button"
-              aria-pressed={under5MinOnly}
-              onClick={() => setUnder5MinOnly((prev) => !prev)}
-              className={`vr-swipe-pill${under5MinOnly ? " vr-swipe-pill--active" : ""}`}
-            >
-              🏥 Under 5 Mins Only
-            </button>
-          </div>
+        {/* ROW 1: CENTERED PRICE & CONVENIENCE SORT PILLS */}
+        <div
+          className="vr-swipe-sort-pills"
+          role="group"
+          aria-label="Sort spaces by price or convenience"
+        >
+          <button
+            type="button"
+            aria-pressed={sortMode === "convenience"}
+            onClick={() => setSortMode("convenience")}
+            className={`vr-swipe-pill${sortMode === "convenience" ? " vr-swipe-pill--active" : ""}`}
+          >
+            ★ Closest to Hospital (2–6 mins)
+          </button>
+          <button
+            type="button"
+            aria-pressed={sortMode === "price-asc"}
+            onClick={() => setSortMode("price-asc")}
+            className={`vr-swipe-pill${sortMode === "price-asc" ? " vr-swipe-pill--active" : ""}`}
+          >
+            $ Lowest Price ($45/day first)
+          </button>
+          <button
+            type="button"
+            aria-pressed={under5MinOnly}
+            onClick={() => setUnder5MinOnly((prev) => !prev)}
+            className={`vr-swipe-pill${under5MinOnly ? " vr-swipe-pill--active" : ""}`}
+          >
+            ✦ Under 5 Mins Only
+          </button>
         </div>
 
-        <div className="vr-swipe-toolbar__right">
+        {/* ROW 2: PROMINENT CENTERED SWIPE CONTROLS RIGHT IN THE MIDDLE */}
+        <div className="vr-swipe-center-dock">
+          {viewMode === "carousel" ? (
+            <button
+              type="button"
+              onClick={() => scrollCarousel("left")}
+              className="vr-swipe-arrow-btn vr-swipe-arrow-btn--gold-outline"
+              aria-label="Swipe left to previous spaces"
+            >
+              ← Swipe Left
+            </button>
+          ) : null}
+
+          <span className="vr-swipe-toolbar__count">
+            <strong>{filteredListings.length} Verified Spaces</strong> · Swipe by Price &amp;
+            Convenience
+          </span>
+
+          {viewMode === "carousel" ? (
+            <button
+              type="button"
+              onClick={() => scrollCarousel("right")}
+              className="vr-swipe-arrow-btn vr-swipe-arrow-btn--gold"
+              aria-label="Swipe right to more spaces"
+            >
+              Swipe Right →
+            </button>
+          ) : null}
+
           <button
             type="button"
             onClick={() => setViewMode((prev) => (prev === "carousel" ? "grid" : "carousel"))}
-            className="vr-cal-btn"
+            className="vr-swipe-arrow-btn vr-swipe-arrow-btn--gold-outline"
           >
             {viewMode === "carousel" ? "⊞ View All Grid" : "↔ Swipe Carousel"}
           </button>
-          {viewMode === "carousel" ? (
-            <div className="vr-swipe-nav-btns">
-              <button
-                type="button"
-                onClick={() => scrollCarousel("left")}
-                className="vr-swipe-arrow-btn"
-                aria-label="Swipe left to previous spaces"
-              >
-                ← Swipe
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollCarousel("right")}
-                className="vr-swipe-arrow-btn vr-swipe-arrow-btn--gold"
-                aria-label="Swipe right to more spaces"
-              >
-                Swipe →
-              </button>
-            </div>
-          ) : null}
         </div>
       </div>
 
-      {/* HORIZONTAL SNAP-SWIPE CAROUSEL OR EXPANDED GRID */}
+      {/* CENTERED HORIZONTAL SNAP-SWIPE CAROUSEL OR EXPANDED GRID */}
       <div
         ref={carouselRef}
         className={
@@ -466,7 +473,7 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
 
                 {/* Top Convenience Tag */}
                 <div className="absolute top-4 left-4 bg-slate-950/80 backdrop-blur-md text-emerald-400 text-xs font-bold px-2.5 py-1 rounded-md border border-emerald-500/10 relative z-10">
-                  ⚡ {property.hospitalTag}
+                  ★ {property.hospitalTag}
                 </div>
 
                 {/* In-Card Photo Swipe Controls */}
@@ -519,7 +526,7 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
                     }}
                     className="text-slate-100 text-xs font-semibold px-3 py-1 rounded-full bg-slate-950/80 border border-slate-800 hover:border-emerald-500/30"
                   >
-                    📷 {activePhotoIdx + 1}/{property.galleryPhotos.length}
+                    Photos {activePhotoIdx + 1}/{property.galleryPhotos.length}
                   </button>
                 </div>
               </div>

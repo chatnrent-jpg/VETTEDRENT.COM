@@ -2658,31 +2658,41 @@ h2 {
 .vr-swipe-marketplace {
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  align-items: center;
+  gap: 1rem;
 }
 
 .vr-swipe-toolbar {
+  width: 100%;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 0.75rem;
-  padding: 0.7rem 0.95rem;
-  border-radius: 16px;
-  background: rgba(15, 21, 32, 0.85);
-  border: 1px solid rgba(229, 184, 105, 0.28);
+  padding: 0.9rem 1.15rem;
+  border-radius: 18px;
+  background: rgba(15, 21, 32, 0.92);
+  border: 1px solid rgba(229, 184, 105, 0.42);
+  box-shadow: 0 14px 32px -12px rgba(0, 0, 0, 0.65);
+  text-align: center;
 }
 
-.vr-swipe-toolbar__left {
+.vr-swipe-center-dock {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 0.65rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.65);
+  border: 1px solid rgba(229, 184, 105, 0.35);
 }
 
 .vr-swipe-toolbar__count {
-  font-size: 0.82rem;
-  color: rgba(248, 250, 252, 0.85);
+  font-size: 0.85rem;
+  padding: 0 0.4rem;
+  color: rgba(248, 250, 252, 0.92);
 }
 
 .vr-swipe-toolbar__count strong {
@@ -2692,17 +2702,18 @@ h2 {
 .vr-swipe-sort-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .vr-swipe-pill {
-  padding: 0.32rem 0.75rem;
+  padding: 0.42rem 0.95rem;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(229, 184, 105, 0.32);
+  background: rgba(255, 255, 255, 0.05);
   color: #f8fafc;
   font: inherit;
-  font-size: 0.76rem;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 140ms ease;
@@ -2710,35 +2721,26 @@ h2 {
 
 .vr-swipe-pill:hover {
   border-color: var(--accent-bright);
+  color: var(--accent-bright);
 }
 
 .vr-swipe-pill--active {
-  background: rgba(229, 184, 105, 0.22);
-  border-color: var(--accent-bright);
-  color: var(--accent-bright);
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-ink);
   font-weight: 700;
-}
-
-.vr-swipe-toolbar__right {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.vr-swipe-nav-btns {
-  display: inline-flex;
-  gap: 0.35rem;
+  box-shadow: 0 4px 14px rgba(229, 184, 105, 0.4);
 }
 
 .vr-swipe-arrow-btn {
-  min-height: 2.15rem;
-  padding: 0.32rem 0.85rem;
+  min-height: 2.35rem;
+  padding: 0.4rem 1.05rem;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.06);
-  color: #ffffff;
+  border: 1px solid rgba(229, 184, 105, 0.45);
+  background: rgba(229, 184, 105, 0.12);
+  color: var(--accent-bright);
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 140ms ease;
@@ -2746,34 +2748,47 @@ h2 {
 
 .vr-swipe-arrow-btn:hover {
   border-color: var(--accent-bright);
+  background: rgba(229, 184, 105, 0.24);
+  color: #ffffff;
+}
+
+.vr-swipe-arrow-btn--gold-outline {
+  border-color: rgba(229, 184, 105, 0.55);
+  background: rgba(229, 184, 105, 0.14);
+  color: var(--accent-bright);
 }
 
 .vr-swipe-arrow-btn--gold {
   background: var(--accent);
   color: var(--accent-ink);
   border-color: transparent;
+  box-shadow: 0 6px 18px -4px rgba(229, 184, 105, 0.5);
 }
 
 .vr-swipe-arrow-btn--gold:hover {
   background: var(--accent-bright);
+  color: var(--accent-ink);
 }
 
 .vr-swipe-carousel {
+  width: 100%;
   display: flex;
   gap: 1.15rem;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
-  padding: 0.25rem 0.15rem 0.75rem;
+  padding: 0.25rem 0.25rem 0.85rem;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: rgba(229, 184, 105, 0.45) rgba(15, 23, 42, 0.5);
+  scrollbar-color: rgba(229, 184, 105, 0.55) rgba(15, 23, 42, 0.5);
   text-align: left;
 }
 
 .vr-swipe-carousel .vr-swipe-card {
   flex: 0 0 min(21.5rem, 84vw);
-  scroll-snap-align: start;
+  scroll-snap-align: center;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .vr-card-photo-arrow {
