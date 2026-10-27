@@ -958,7 +958,7 @@ export function AvailabilityCalendar({
         />
       ) : null}
 
-      {bookingError ? (
+      {bookingError && mode !== "tenant" ? (
         <p className="error relative z-10" role="alert">
           {bookingError}
         </p>
