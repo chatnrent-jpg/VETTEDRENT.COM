@@ -27,6 +27,7 @@ import {
 import { intendedStayLengthDays } from "@/lib/geo-compliance";
 import { divideIntegerCentsHalfUp } from "@/lib/marketing-calculator";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import type { PropertyCardProps } from "@/src/components/ListingGrid";
 import {
   PURPOSE_COHORTS,
   SEASONAL_REMOTE_MIN_DAYS,
@@ -38,11 +39,50 @@ import {
 
 const DEFAULT_WEEKLY_STAY_CENTS = 31500;
 
-export function PlaidLinkScreen() {
+type CalendarState = "idle" | "loading" | "ready" | "error";
+
+/** First check-in on or after `fromIso` whose whole stay is clear of `taken`, within a year. */
+function nextOpenCheckIn(fromIso: string, stayDays: number, taken: ReadonlySet<string>): string | null {
+  for (let offset = 0; offset < 365; offset++) {
+    const start = addDaysIsoUtc(fromIso, offset);
+    let clear = true;
+    for (let i = 0; i < stayDays; i++) {
+      if (taken.has(addDaysIsoUtc(start, i))) {
+        clear = false;
+        break;
+      }
+    }
+    if (clear) {
+      return start;
+    }
+  }
+  return null;
+}
+
+export function PlaidLinkScreen({
+  liveListing = null,
+  listingRequested = false,
+  catalogIsLive = false,
+}: {
+  /** The published listing named in the URL, resolved on the server. It sets tier and price. */
+  liveListing?: PropertyCardProps | null;
+  /** True when the URL named a listing (even one that is no longer available). */
+  listingRequested?: boolean;
+  /** True once any real listing is published; generic bookings then need a listing. */
+  catalogIsLive?: boolean;
+}) {
   const router = useRouter();
   const initial = defaultContractTerm();
-  const [selectedTierId, setSelectedTierId] = useState<DailyRateTierId>("RoomSanctuary");
-  const [weeklyStayCents, setWeeklyStayCents] = useState<number>(DEFAULT_WEEKLY_STAY_CENTS);
+  const [selectedTierId, setSelectedTierId] = useState<DailyRateTierId>(
+    liveListing?.tier ?? "RoomSanctuary",
+  );
+  const [weeklyStayCents, setWeeklyStayCents] = useState<number>(
+    liveListing ? liveListing.weeklyRate * 100 : DEFAULT_WEEKLY_STAY_CENTS,
+  );
+  const [takenDates, setTakenDates] = useState<Set<string>>(new Set());
+  const [calendarState, setCalendarState] = useState<CalendarState>(
+    liveListing ? "loading" : "idle",
+  );
   const [contract, setContract] = useState<ContractTerm>(initial);
   const [jurisdictionCode, setJurisdictionCode] = useState(DEFAULT_JURISDICTION_CODE);
   const [guestFullName, setGuestFullName] = useState<string>("");
@@ -99,13 +139,16 @@ export function PlaidLinkScreen() {
       }
     }
 
-    setSelectedTierId(resolvedTier);
-    setWeeklyStayCents(
-      clampTierWeeklyRateCents(
-        resolvedTier,
-        Number.isFinite(parsedWeekly) ? parsedWeekly : undefined,
-      ),
-    );
+    // A real listing sets its own tier and price; the URL must not override them.
+    if (!liveListing) {
+      setSelectedTierId(resolvedTier);
+      setWeeklyStayCents(
+        clampTierWeeklyRateCents(
+          resolvedTier,
+          Number.isFinite(parsedWeekly) ? parsedWeekly : undefined,
+        ),
+      );
+    }
 
     const startIso =
       checkInParam && /^\d{4}-\d{2}-\d{2}$/.test(checkInParam)
@@ -143,7 +186,47 @@ export function PlaidLinkScreen() {
     if (emailParam && emailParam.trim() !== "") {
       setPrefilledLeadEmail(emailParam.trim());
     }
-  }, []);
+  }, [liveListing]);
+
+  // A real listing owns its calendar: load which days are taken so guests only pick open dates.
+  const liveListingId = liveListing?.id ?? null;
+  useEffect(() => {
+    if (!liveListingId) {
+      return;
+    }
+    let cancelled = false;
+    setCalendarState("loading");
+    async function loadTakenDates() {
+      try {
+        const res = await fetch(
+          `/api/listings/availability?listingId=${encodeURIComponent(liveListingId ?? "")}`,
+          { cache: "no-store" },
+        );
+        const body: unknown = await res.json();
+        const dates =
+          body && typeof body === "object"
+            ? (body as { unavailableDates?: unknown }).unavailableDates
+            : undefined;
+        if (cancelled) {
+          return;
+        }
+        if (!res.ok || !Array.isArray(dates)) {
+          setCalendarState("error");
+          return;
+        }
+        setTakenDates(new Set(dates.filter((d): d is string => typeof d === "string")));
+        setCalendarState("ready");
+      } catch {
+        if (!cancelled) {
+          setCalendarState("error");
+        }
+      }
+    }
+    void loadTakenDates();
+    return () => {
+      cancelled = true;
+    };
+  }, [liveListingId]);
 
   const clampedWeeklyStayCents = clampTierWeeklyRateCents(
     selectedTierId,
@@ -164,6 +247,26 @@ export function PlaidLinkScreen() {
   const checkOutIso = addDaysIsoUtc(checkInIso, selectedStayDays);
   const selectedCard =
     SPACE_TIER_CARDS.find((card) => card.id === selectedTierId) ?? SPACE_TIER_CARDS[0];
+
+  const today = todayIsoUtc();
+  const conflictingDays: string[] = [];
+  if (liveListing && calendarState === "ready") {
+    for (let i = 0; i < selectedStayDays; i++) {
+      const day = addDaysIsoUtc(checkInIso, i);
+      if (takenDates.has(day)) {
+        conflictingDays.push(day);
+      }
+    }
+  }
+  const datesTaken = conflictingDays.length > 0;
+  const suggestedCheckIn =
+    datesTaken && liveListing
+      ? nextOpenCheckIn(checkInIso < today ? today : checkInIso, selectedStayDays, takenDates)
+      : null;
+  const listingBlocking = Boolean(liveListing) && calendarState !== "ready";
+  const priceLabel = liveListing
+    ? `$${liveListing.weeklyRate.toLocaleString("en-US")} / week`
+    : selectedCard.weeklyPriceLabel;
 
   function selectTier(nextTierId: DailyRateTierId) {
     setSelectedTierId(nextTierId);
@@ -226,6 +329,24 @@ export function PlaidLinkScreen() {
       );
       return;
     }
+    if (liveListing) {
+      if (calendarState !== "ready") {
+        setActivationError(
+          calendarState === "error"
+            ? "We couldn't load this stay's open dates. Refresh the page and try again."
+            : "Still loading this stay's open dates. Try again in a moment.",
+        );
+        return;
+      }
+      if (checkInIso < todayIsoUtc()) {
+        setActivationError("Pick a check-in date that isn't in the past.");
+        return;
+      }
+      if (datesTaken) {
+        setActivationError("Some of those dates are already taken. Pick different dates.");
+        return;
+      }
+    }
 
     setActivatingPass(true);
     setActivationMessage(null);
@@ -258,6 +379,7 @@ export function PlaidLinkScreen() {
           cohort: contract.credentialType,
           jurisdiction: jurisdictionCode,
           tier: selectedTierId,
+          ...(liveListing ? { listingId: liveListing.id } : {}),
           weeklyRateCents: clampedWeeklyStayCents,
           stayDays: selectedStayDays,
           checkInDate: checkInIso,
@@ -440,13 +562,31 @@ export function PlaidLinkScreen() {
       <div className="vr-page" aria-label="Book your stay">
         {confirmedBooking ? (
           <BookingConfirmation confirmation={confirmedBooking} />
+        ) : listingRequested && !liveListing ? (
+          <div className="vr-card vr-card--center" role="alert">
+            <h2>This stay is no longer available</h2>
+            <p>It may have been taken down. Pick another stay to continue.</p>
+            <Link className="button" href="/">
+              Browse stays
+            </Link>
+          </div>
+        ) : !liveListing && catalogIsLive ? (
+          <div className="vr-card vr-card--center">
+            <h2>Pick a stay to book</h2>
+            <p>Choose a place first, then come back here to sign and get your stay pass.</p>
+            <Link className="button" href="/">
+              Browse stays
+            </Link>
+          </div>
         ) : (
           <>
             <div className="vr-page__head">
               <h1>Book your stay</h1>
               <p>
-                {selectedCard.title} · {selectedCard.dailyPriceLabel} · $0 deposit · No credit
-                check
+                {liveListing
+                  ? `${liveListing.title} · ${liveListing.location} · $${liveListing.dailyRate} / day`
+                  : `${selectedCard.title} · ${selectedCard.dailyPriceLabel}`}{" "}
+                · $0 deposit · No credit check
               </p>
             </div>
 
@@ -528,6 +668,7 @@ export function PlaidLinkScreen() {
                   <span>Check-in</span>
                   <input
                     type="date"
+                    min={today}
                     value={checkInIso}
                     onChange={(e) => {
                       if (e.target.value) {
@@ -542,12 +683,50 @@ export function PlaidLinkScreen() {
                   {formatReadableDate(checkInIso)} to {formatReadableDate(checkOutIso)} ({nights}{" "}
                   days)
                 </span>
-                <strong>{selectedCard.weeklyPriceLabel}</strong>
+                <strong>{priceLabel}</strong>
               </div>
-              <p className="vr-help">
-                Want to see which days are open? <Link href="/">Browse stays</Link> and pick your
-                dates there.
-              </p>
+              {liveListing && calendarState === "loading" ? (
+                <p className="vr-help" role="status">
+                  Checking which days are open...
+                </p>
+              ) : null}
+              {liveListing && calendarState === "error" ? (
+                <p className="error" role="alert">
+                  We couldn&apos;t load this stay&apos;s open dates. Refresh the page to try again.
+                </p>
+              ) : null}
+              {liveListing && calendarState === "ready" && !datesTaken ? (
+                <p>
+                  <span className="vr-pill">Dates open</span> Those days are free.
+                </p>
+              ) : null}
+              {datesTaken ? (
+                <div role="alert">
+                  <p className="error">
+                    Some of those days are already taken ({formatReadableDate(conflictingDays[0])}
+                    {conflictingDays.length > 1 ? ` and ${conflictingDays.length - 1} more` : ""}).
+                  </p>
+                  {suggestedCheckIn ? (
+                    <div className="vr-cta-row">
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        onClick={() => updateCheckInDate(suggestedCheckIn)}
+                      >
+                        Use {formatReadableDate(suggestedCheckIn)} instead
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="vr-help">No open dates found in the next year for this length of stay.</p>
+                  )}
+                </div>
+              ) : null}
+              {!liveListing ? (
+                <p className="vr-help">
+                  Want to see which days are open? <Link href="/">Browse stays</Link> and pick your
+                  dates there.
+                </p>
+              ) : null}
             </section>
 
             <section className="vr-card vr-step" aria-label="Step 3: Sign and book">
@@ -574,7 +753,7 @@ export function PlaidLinkScreen() {
                 <button
                   type="button"
                   className="button"
-                  disabled={activatingPass}
+                  disabled={activatingPass || listingBlocking || datesTaken}
                   onClick={() => void handleActivateWeeklyBillingAndPass()}
                 >
                   {activatingPass ? "Booking..." : "Sign and get my stay pass"}

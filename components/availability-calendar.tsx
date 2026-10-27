@@ -256,7 +256,7 @@ export function AvailabilityCalendar({
     blockedDates: localBlocked,
   });
 
-  const underwritingBookingHref = `/underwriting?tier=${encodeURIComponent(tierId)}&weeklyCents=${effectiveWeeklyCents}&days=${effectiveStayDays}&checkIn=${encodeURIComponent(calendar.checkInIso)}&cohort=${encodeURIComponent(cohortRule.id)}&jurisdiction=${encodeURIComponent(jurisdictionCode)}${guestFullName.trim() ? `&fullName=${encodeURIComponent(guestFullName.trim())}` : ""}${guestEmail.trim() ? `&email=${encodeURIComponent(guestEmail.trim())}` : ""}`;
+  const underwritingBookingHref = `/underwriting?tier=${encodeURIComponent(tierId)}&weeklyCents=${effectiveWeeklyCents}&days=${effectiveStayDays}&checkIn=${encodeURIComponent(calendar.checkInIso)}&cohort=${encodeURIComponent(cohortRule.id)}&jurisdiction=${encodeURIComponent(jurisdictionCode)}${listingId ? `&listing=${encodeURIComponent(listingId)}` : ""}${guestFullName.trim() ? `&fullName=${encodeURIComponent(guestFullName.trim())}` : ""}${guestEmail.trim() ? `&email=${encodeURIComponent(guestEmail.trim())}` : ""}`;
 
   function handleDurationChange(nextDaysRaw: number) {
     const minDays =
