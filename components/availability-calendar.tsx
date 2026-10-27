@@ -60,6 +60,7 @@ export type InstantBookingConfirmation = {
 
 export function AvailabilityCalendar({
   mode,
+  listingId,
   tierId,
   weeklyRateCents,
   onChangeWeeklyRateCents,
@@ -78,6 +79,8 @@ export function AvailabilityCalendar({
   onBookingConfirmed,
 }: {
   mode: "tenant" | "landlord";
+  /** Published listing being booked. The server re-checks its tier and price. */
+  listingId?: string;
   tierId: DailyRateTierId;
   weeklyRateCents?: number;
   onChangeWeeklyRateCents?: (weeklyRateCents: number) => void;
@@ -411,6 +414,7 @@ export function AvailabilityCalendar({
           cohort: cohortRule.id,
           jurisdiction: jurisdictionCode,
           tier: tierId,
+          ...(listingId ? { listingId } : {}),
           weeklyRateCents: effectiveWeeklyCents,
           stayDays: targetStayDays,
           checkInDate: targetCheckInIso,

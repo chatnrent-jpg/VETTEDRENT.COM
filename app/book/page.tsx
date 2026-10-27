@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { BookStay } from "@/components/book-stay";
+import { loadPublishedListings } from "@/lib/public-listings";
+import { getSupabaseServerClient } from "@/lib/supabase";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Book your stay · VettedRent",
@@ -20,11 +24,26 @@ export default async function BookPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
+  const listingId = first(params, "listing");
+
+  // Published listings are the source of truth for tier and price; the URL is not trusted.
+  let published: Awaited<ReturnType<typeof loadPublishedListings>> = [];
+  try {
+    published = await loadPublishedListings(getSupabaseServerClient());
+  } catch {
+    published = [];
+  }
+  const liveListing = listingId
+    ? (published.find((card) => card.id === listingId) ?? null)
+    : null;
+
   return (
     <BookStay
+      liveListing={liveListing}
+      catalogIsLive={published.length > 0}
       initial={{
         tier: first(params, "tier"),
-        listing: first(params, "listing"),
+        listing: listingId,
         weeklyCents: first(params, "weeklyCents"),
         days: first(params, "days"),
         checkIn: first(params, "checkIn"),

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { AvailabilityCalendar } from "@/components/availability-calendar";
-import { SAMPLE_LISTINGS } from "@/src/components/ListingGrid";
+import { SAMPLE_LISTINGS, type PropertyCardProps } from "@/src/components/ListingGrid";
 import { todayIsoUtc } from "@/lib/availability-calendar";
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/compliance/jurisdictions";
 import {
@@ -47,11 +47,24 @@ function parseCheckIn(value?: string): string {
   return value && ISO_DATE_RE.test(value) && value >= today ? value : today;
 }
 
-export function BookStay({ initial }: { initial: BookStayInitial }) {
-  const tierId = parseTier(initial.tier);
-  const listing = SAMPLE_LISTINGS.find(
-    (property) => property.id === initial.listing && property.tier === tierId,
-  );
+export function BookStay({
+  initial,
+  liveListing = null,
+  catalogIsLive = false,
+}: {
+  initial: BookStayInitial;
+  /** The published listing named in the URL, resolved on the server. */
+  liveListing?: PropertyCardProps | null;
+  /** True once any real listing is published; sample stays stop being bookable. */
+  catalogIsLive?: boolean;
+}) {
+  const sampleListing = catalogIsLive
+    ? undefined
+    : SAMPLE_LISTINGS.find((property) => property.id === initial.listing);
+  const listing = liveListing ?? sampleListing;
+  // A listing named in the URL that is no longer available must not turn into a generic booking.
+  const listingUnavailable = Boolean(initial.listing) && !listing;
+  const tierId = listing ? listing.tier : parseTier(initial.tier);
   const jurisdictionCode =
     initial.jurisdiction && JURISDICTION_RE.test(initial.jurisdiction)
       ? initial.jurisdiction
@@ -61,7 +74,9 @@ export function BookStay({ initial }: { initial: BookStayInitial }) {
     () => resolvePurposeCohort(initial.cohort).id,
   );
   const [weeklyCents, setWeeklyCents] = useState<number>(() =>
-    clampTierWeeklyRateCents(tierId, Number(initial.weeklyCents)),
+    liveListing
+      ? liveListing.weeklyRate * 100
+      : clampTierWeeklyRateCents(tierId, Number(initial.weeklyCents)),
   );
   const [stayDays, setStayDays] = useState<number>(() =>
     parseStayDays(
@@ -161,8 +176,20 @@ export function BookStay({ initial }: { initial: BookStayInitial }) {
           ) : null}
         </div>
 
+        {listingUnavailable ? (
+          <div className="vr-book-stay__card" role="alert">
+            <div className="vr-book-stay__text">
+              <strong>This stay is no longer available</strong>
+              <span>It may have been taken down. Pick another stay to continue.</span>
+            </div>
+            <Link href="/" className="button">
+              Browse stays
+            </Link>
+          </div>
+        ) : (
         <AvailabilityCalendar
           mode="tenant"
+          listingId={liveListing?.id}
           tierId={tierId}
           weeklyRateCents={weeklyCents}
           onChangeWeeklyRateCents={setWeeklyCents}
@@ -179,6 +206,7 @@ export function BookStay({ initial }: { initial: BookStayInitial }) {
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
         />
+        )}
       </section>
 
       <footer

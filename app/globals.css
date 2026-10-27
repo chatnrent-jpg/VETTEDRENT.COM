@@ -3343,6 +3343,19 @@ h2 {
   color: #34d399;
 }
 
+/* Fewer than three categories published: keep the cards centered instead of left-stuck. */
+@media (min-width: 801px) {
+  .vr-simple-spaces:has(> .vr-simple-space:only-child) {
+    grid-template-columns: minmax(0, 340px);
+    justify-content: center;
+  }
+  .vr-simple-spaces:has(> .vr-simple-space:nth-child(2):last-child) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 68%;
+    margin-inline: auto;
+  }
+}
+
 @media (max-width: 800px) {
   .vr-simple-spaces,
   .vr-simple-book__when {
@@ -4215,3 +4228,63 @@ h2 {
     aspect-ratio: 4 / 3;
   }
 }
+
+/* ---- Host listing manager (/host/listing) ---- */
+.vr-host-listing {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 4rem;
+  display: grid;
+  gap: 1rem;
+  color: #f1f5f9;
+}
+.vr-host-listing h1 { margin: 0.5rem 0 0; font-size: 1.8rem; }
+.vr-host-listing h2 { margin: 0; font-size: 1.1rem; }
+.vr-host-listing__top { display: flex; justify-content: space-between; align-items: center; }
+.vr-host-listing__brand { color: #f8fafc; font-weight: 800; text-decoration: none; }
+.vr-host-listing__brand em { color: #34d399; font-style: normal; }
+.vr-host-listing__sub { margin: 0; color: rgba(226, 232, 240, 0.65); font-size: 0.92rem; line-height: 1.5; }
+.vr-host-listing__tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.vr-host-listing__tabs button {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 0.9rem; border-radius: 999px; cursor: pointer;
+  background: #131a26; color: #e2e8f0; border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.vr-host-listing__tabs button[data-active="true"] { border-color: #10b981; color: #34d399; }
+.vr-host-listing__tabs small { color: rgba(226, 232, 240, 0.5); }
+.vr-host-listing__panel {
+  display: grid; gap: 0.9rem; padding: 1.1rem; border-radius: 18px;
+  background: #131a26; border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.vr-host-listing__panel label { display: grid; gap: 0.35rem; font-size: 0.85rem; color: rgba(226, 232, 240, 0.8); }
+.vr-host-listing__panel input,
+.vr-host-listing__panel select,
+.vr-host-listing__panel textarea {
+  width: 100%; padding: 0.65rem 0.75rem; border-radius: 12px; font: inherit;
+  background: #0d121c; color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.vr-host-listing__panel input:focus,
+.vr-host-listing__panel select:focus,
+.vr-host-listing__panel textarea:focus { outline: none; border-color: #10b981; }
+.vr-host-listing__panel small { color: rgba(226, 232, 240, 0.5); }
+.vr-host-listing__row { display: grid; gap: 0.9rem; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.vr-host-listing__notice { margin: 0; padding: 0.7rem 0.9rem; border-radius: 12px; font-size: 0.92rem; }
+.vr-host-listing__notice[data-tone="ok"] { background: rgba(16, 185, 129, 0.14); color: #6ee7b7; }
+.vr-host-listing__notice[data-tone="error"] { background: rgba(248, 113, 113, 0.14); color: #fca5a5; }
+.vr-host-listing__photos { display: grid; gap: 0.7rem; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.vr-host-listing__photos figure { position: relative; margin: 0; border-radius: 14px; overflow: hidden; background: #0d121c; }
+.vr-host-listing__photos img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.vr-host-listing__photos span {
+  position: absolute; top: 0.4rem; left: 0.4rem; padding: 0.15rem 0.5rem; border-radius: 999px;
+  background: #10b981; color: #052e22; font-size: 0.72rem; font-weight: 800;
+}
+.vr-host-listing__photos button {
+  position: absolute; right: 0.4rem; bottom: 0.4rem; padding: 0.2rem 0.6rem; border-radius: 999px; cursor: pointer;
+  background: rgba(11, 15, 23, 0.85); color: #fca5a5; border: 1px solid rgba(255, 255, 255, 0.18); font-size: 0.78rem;
+}
+.vr-host-listing__upload {
+  display: grid; place-items: center; padding: 1rem; border-radius: 14px; cursor: pointer;
+  border: 1px dashed rgba(52, 211, 153, 0.5); color: #34d399; font-weight: 700;
+}
+.vr-host-listing__upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.vr-host-listing__checks { margin: 0; padding-left: 1.2rem; color: #fcd34d; font-size: 0.92rem; display: grid; gap: 0.25rem; }

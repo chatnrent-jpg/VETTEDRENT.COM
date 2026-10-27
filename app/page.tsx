@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DualBrandHome } from "@/components/dual-brand-home";
 import { defaultGeoStatusLabel } from "@/lib/geo-compliance";
 import { getFeaturedStay } from "@/lib/host-listing";
+import { loadPublishedListings } from "@/lib/public-listings";
 import { getSupabaseServerClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +44,11 @@ export default async function HomePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [stay, params] = await Promise.all([loadFeaturedStay(), searchParams]);
+  const [stay, params, listings] = await Promise.all([
+    loadFeaturedStay(),
+    searchParams,
+    loadListings(),
+  ]);
   const weeklyRate = formatCents(stay.weeklyPriceCents);
   const rawQuery = Array.isArray(params.q) ? params.q[0] : params.q;
   const initialQuery = typeof rawQuery === "string" ? rawQuery.trim().slice(0, 80) : "";
@@ -54,9 +59,22 @@ export default async function HomePage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION_JSON_LD) }}
       />
-      <DualBrandHome stay={stay} weeklyRate={weeklyRate} initialQuery={initialQuery} />
+      <DualBrandHome
+        stay={stay}
+        weeklyRate={weeklyRate}
+        initialQuery={initialQuery}
+        listings={listings}
+      />
     </>
   );
+}
+
+async function loadListings() {
+  try {
+    return await loadPublishedListings(getSupabaseServerClient());
+  } catch {
+    return [];
+  }
 }
 
 async function loadFeaturedStay(): Promise<{

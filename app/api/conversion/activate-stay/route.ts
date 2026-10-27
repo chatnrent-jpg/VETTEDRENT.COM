@@ -9,6 +9,8 @@ import {
   getValuationMilestoneSnapshot,
   type ActivateStayPayload,
 } from "@/lib/conversion-engine";
+import { loadPublishedListing } from "@/lib/public-listings";
+import { getSupabaseServerClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -95,6 +97,27 @@ export async function POST(request: Request): Promise<NextResponse> {
       coverageRatio:
         typeof body.coverageRatio === "number" ? body.coverageRatio : undefined,
     };
+
+    // A real listing is authoritative for tier and price. The client is only told what to book,
+    // never what it costs. The client sends listingId only for published listings, so a miss
+    // means it was taken down (or could not be verified) and the booking is refused.
+    const listingId = typeof body.listingId === "string" ? body.listingId.trim() : "";
+    if (listingId) {
+      let listing = null;
+      try {
+        listing = await loadPublishedListing(getSupabaseServerClient(), listingId);
+      } catch {
+        listing = null;
+      }
+      if (!listing) {
+        return NextResponse.json(
+          { ok: false, error: "This stay is no longer available." },
+          { status: 409 },
+        );
+      }
+      payload.tier = listing.tier;
+      payload.weeklyRateCents = listing.weeklyRate * 100;
+    }
 
     const result = await activateStayFromUnderwriting(payload);
 

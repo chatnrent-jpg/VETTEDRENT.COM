@@ -388,6 +388,8 @@ export interface ListingDiscoveryGridProps {
   stayDays?: number;
   jurisdictionCode?: string;
   simple?: boolean;
+  /** Published listings from the database. When omitted, the sample stays are shown. */
+  listings?: PropertyCardProps[];
   onSelectTier?: (tier: "RoomSanctuary" | "PrivateSuite" | "ExecutiveTownhome") => void;
   /** Fired when a tenant picks a specific property from the gallery ("Select this stay"). */
   onSelectListing?: (selection: {
@@ -415,10 +417,13 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
   stayDays = 30,
   jurisdictionCode = "MD-PG",
   simple = false,
+  listings,
   onSelectTier,
   onSelectListing,
   onResetFilters,
 }) => {
+  const usingSamples = listings === undefined;
+  const catalog = listings ?? SAMPLE_LISTINGS;
   const carouselRef = useRef<HTMLDivElement | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("convenience");
   const [viewMode, setViewMode] = useState<ViewMode>("carousel");
@@ -465,7 +470,7 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
   const resolvedMdPlace = resolveMarylandStatewideSearch(trimmedQuery);
 
   // Filter by tier, audience cohort, family toggle, and statewide search
-  const baseListings = SAMPLE_LISTINGS.filter((property) => {
+  const baseListings = catalog.filter((property) => {
     if (activeTierFilter !== "ALL" && property.tier !== activeTierFilter) {
       return false;
     }
@@ -528,8 +533,9 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
   }
 
   function leadPhotoUrl(property: PropertyCardProps, photoIdx: number): string {
-    const isTierLead = SAMPLE_LISTINGS.find((p) => p.tier === property.tier) === property;
-    if (photoIdx === 0 && isTierLead && hostPhotosByTier[property.tier]) {
+    const isTierLead = catalog.find((p) => p.tier === property.tier) === property;
+    // The host tier-photo override only applies to the sample stays, never to real listings.
+    if (usingSamples && photoIdx === 0 && isTierLead && hostPhotosByTier[property.tier]) {
       return hostPhotosByTier[property.tier];
     }
     return property.galleryPhotos[photoIdx]?.url ?? property.defaultImageUrl;

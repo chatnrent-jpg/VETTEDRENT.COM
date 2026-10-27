@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { ListingDiscoveryGrid } from "@/src/components/ListingGrid";
+import { ListingDiscoveryGrid, type PropertyCardProps } from "@/src/components/ListingGrid";
 import { todayIsoUtc } from "@/lib/availability-calendar";
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/compliance/jurisdictions";
 import { MARYLAND_SEO_REGISTRY } from "@/lib/seo-registry";
@@ -47,10 +47,13 @@ const AUDIENCE_PURPOSE_FILTERS: readonly {
 export function DualBrandHome({
   stay,
   initialQuery = "",
+  listings,
 }: {
   stay: { name: string; weeklyPriceCents: number; geoCompliance: string };
   weeklyRate?: string;
   initialQuery?: string;
+  /** Published database listings. Empty or absent means the sample stays are shown. */
+  listings?: PropertyCardProps[];
 }) {
   const [perspective, setPerspective] = useState<BrandPerspective>("tenant");
   const isLandlord = perspective === "landlord";
@@ -307,6 +310,7 @@ export function DualBrandHome({
         {/* SWIPEABLE MARKETPLACE FOR PROFESSIONALS, STUDENTS & FAMILIES IN TRANSITION */}
         <ListingDiscoveryGrid
           simple
+          listings={listings && listings.length > 0 ? listings : undefined}
           searchQuery={searchQuery}
           activeTierFilter={activeTierFilter}
           activeCohortFilter={activeCohortFilter}
