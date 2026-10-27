@@ -72,6 +72,9 @@ export function BookingConfirmation({
       </div>
 
       <p className="vr-confirmed__note">
+        {confirmation.emailed && confirmation.applicantEmail
+          ? `We emailed a copy to ${confirmation.applicantEmail}. `
+          : ""}
         Save both documents now. They are your proof of booking and your entry credentials.
       </p>
 

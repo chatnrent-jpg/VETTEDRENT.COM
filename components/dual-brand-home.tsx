@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 import { ListingDiscoveryGrid } from "@/src/components/ListingGrid";
 import { todayIsoUtc } from "@/lib/availability-calendar";
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/compliance/jurisdictions";
+import { MARYLAND_SEO_REGISTRY } from "@/lib/seo-registry";
 import {
   DAILY_RATE_PRESET_TIERS,
   SPACE_TIER_CARDS,
@@ -17,6 +18,17 @@ import {
   SEASONAL_REMOTE_MIN_DAYS,
   type PurposeCohortId,
 } from "@/lib/underwriting-contract";
+
+const FOOTER_AREA_SLUGS = [
+  "baltimore-city",
+  "montgomery",
+  "prince-georges",
+  "anne-arundel",
+  "howard",
+  "baltimore-county",
+  "frederick",
+  "harford",
+] as const;
 
 export type BrandPerspective = "landlord" | "tenant";
 export { SPACE_TIER_CARDS, type SpaceTierCardOption };
@@ -34,14 +46,16 @@ const AUDIENCE_PURPOSE_FILTERS: readonly {
 
 export function DualBrandHome({
   stay,
+  initialQuery = "",
 }: {
   stay: { name: string; weeklyPriceCents: number; geoCompliance: string };
   weeklyRate?: string;
+  initialQuery?: string;
 }) {
   const [perspective, setPerspective] = useState<BrandPerspective>("tenant");
   const isLandlord = perspective === "landlord";
 
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>(initialQuery);
   const [activeTierFilter, setActiveTierFilter] = useState<string>("ALL");
   const [activeCohortFilter, setActiveCohortFilter] = useState<PurposeCohortId | "ALL">("ALL");
   const [selectedTierId, setSelectedTierId] = useState<DailyRateTierId>("RoomSanctuary");
@@ -309,7 +323,26 @@ export function DualBrandHome({
           }}
         />
 
+        {!isLandlord ? (
+          <p className="vr-trust-line">
+            <span>$0 deposit</span>
+            <span>No credit check</span>
+            <span>$250,000 guarantee fund</span>
+          </p>
+        ) : null}
       </section>
+
+      {/* STAYS BY AREA: internal links into the county pages (local search) */}
+      <nav className="vr-area-links relative z-10" aria-label="Stays by area in Maryland">
+        <span>Stays by area</span>
+        {FOOTER_AREA_SLUGS.map((slug) => (
+          <Link key={slug} href={`/jurisdictions/md/${slug}`}>
+            {slug === "baltimore-county"
+              ? "Baltimore County"
+              : (MARYLAND_SEO_REGISTRY[slug]?.countyName.replace(/ County$/, "") ?? slug)}
+          </Link>
+        ))}
+      </nav>
 
       {/* CLEAN FOOTER */}
       <footer

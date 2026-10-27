@@ -198,6 +198,45 @@ a {
   }
 }
 
+.vr-trust-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem 1.1rem;
+  width: 100%;
+  margin: 0.25rem 0 0;
+  color: rgba(226, 232, 240, 0.6);
+  font-size: 0.82rem;
+}
+
+.vr-trust-line span::before {
+  content: "✓";
+  margin-right: 0.4rem;
+  color: #34d399;
+}
+
+.vr-area-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem 1rem;
+  padding: 0.5rem 1rem 0;
+  font-size: 0.8rem;
+}
+
+.vr-area-links span {
+  color: rgba(226, 232, 240, 0.45);
+}
+
+.vr-area-links a {
+  color: rgba(226, 232, 240, 0.7);
+  text-decoration: none;
+}
+
+.vr-area-links a:hover {
+  color: #34d399;
+}
+
 .vr-confirmed {
   display: grid;
   justify-items: center;

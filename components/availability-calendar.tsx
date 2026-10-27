@@ -23,6 +23,7 @@ import {
   divideIntegerCentsHalfUp,
   formatCurrencyCents,
 } from "@/lib/marketing-calculator";
+import { buildLicenseHref, buildPassportHref } from "@/lib/stay-documents";
 import { BookingConfirmation } from "@/components/booking-confirmation";
 import { PremiumCheckoutCard } from "@/components/premium-checkout-card";
 import {
@@ -53,6 +54,8 @@ export type InstantBookingConfirmation = {
   reservedDatesCount: number;
   passportPdfHref: string;
   commercialLicensePdfHref: string;
+  /** True only when the confirmation email was actually accepted for delivery. */
+  emailed?: boolean;
 };
 
 export function AvailabilityCalendar({
@@ -413,6 +416,8 @@ export function AvailabilityCalendar({
           checkInDate: targetCheckInIso,
           credentialIdentifier: effectiveCredential,
           coverageRatio: 3.25,
+          guestName: trimmedName,
+          guestEmail: trimmedEmail,
         }),
       });
 
@@ -482,37 +487,21 @@ export function AvailabilityCalendar({
           ? record.progressPercentage
           : Math.round((activeStaysCount / targetStaysCount) * 100);
 
-      const passportQuery = new URLSearchParams({
+      const documentInput = {
         cohort: cohortRule.id,
         jurisdiction: jurisdictionCode,
-        days: String(targetStayDays),
-        weeklyCents: String(effectiveWeeklyCents),
+        stayDays: targetStayDays,
+        weeklyRateCents: effectiveWeeklyCents,
         credentialId: effectiveCredential,
-        ratio: "3.25",
-        contractEnd: validUntil,
-        stayEnd: validUntil,
+        validUntil,
         fullName: trimmedName,
         email: trimmedEmail,
         applicant: effectiveApplicant,
-      });
-      const passportPdfHref = `/api/underwriting/trust-passport?${passportQuery.toString()}`;
-
-      const licenseQuery = new URLSearchParams({
-        format: "pdf",
         agreementId,
-        cohort: cohortRule.id,
-        jurisdiction: jurisdictionCode,
-        days: String(targetStayDays),
-        credentialId: effectiveCredential,
-        ratio: "3.25",
-        weeklyFeeCents: String(effectiveWeeklyCents),
-        purposeEnd: validUntil,
-        stayEnd: validUntil,
-        fullName: trimmedName,
-        email: trimmedEmail,
-        licensee: effectiveApplicant,
-      });
-      const commercialLicensePdfHref = `/api/agreements/license?${licenseQuery.toString()}`;
+      };
+      const passportPdfHref = buildPassportHref(documentInput);
+      const commercialLicensePdfHref = buildLicenseHref(documentInput);
+      const emailed = record.emailStatus === "sent";
 
       const confirmation: InstantBookingConfirmation = {
         licenseId,
@@ -536,6 +525,7 @@ export function AvailabilityCalendar({
         reservedDatesCount: reserved.length || targetStayDays,
         passportPdfHref,
         commercialLicensePdfHref,
+        emailed,
       };
 
       setBookingConfirmation(confirmation);

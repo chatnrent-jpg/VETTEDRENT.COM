@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import {
+  isDeliverableEmail,
+  sendBookingConfirmationEmail,
+  type BookingEmailStatus,
+} from "@/lib/booking-email";
+import {
   activateStayFromUnderwriting,
   getValuationMilestoneSnapshot,
   type ActivateStayPayload,
@@ -93,8 +98,39 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const result = await activateStayFromUnderwriting(payload);
 
+    // Email is best-effort and reported honestly: the booking above is already complete.
+    const guestEmail = typeof body.guestEmail === "string" ? body.guestEmail.trim() : "";
+    const guestName =
+      typeof body.guestName === "string" ? body.guestName.trim().slice(0, 120) : "";
+    let emailStatus: BookingEmailStatus | "not_requested" = "not_requested";
+    if (
+      isDeliverableEmail(guestEmail) &&
+      guestName.length >= 2 &&
+      typeof payload.weeklyRateCents === "number" &&
+      payload.credentialIdentifier
+    ) {
+      emailStatus = await sendBookingConfirmationEmail({
+        guestName,
+        checkInDate: result.license.check_in_date,
+        licenseId: result.license.license_id,
+        stay: {
+          cohort: result.license.cohort,
+          jurisdiction: result.license.jurisdiction,
+          stayDays: payload.stayDays ?? 7,
+          weeklyRateCents: payload.weeklyRateCents,
+          credentialId: payload.credentialIdentifier,
+          validUntil: result.license.valid_until,
+          fullName: guestName,
+          email: guestEmail,
+          applicant: payload.applicant ?? `${guestName} (${guestEmail})`,
+          agreementId: result.license.agreement_id,
+        },
+      });
+    }
+
     return NextResponse.json({
       ok: true,
+      emailStatus,
       coBranding: result.milestone.coBranding,
       activeStaysCount: result.milestone.activeStaysCount,
       targetStaysCount: result.milestone.targetStaysCount,

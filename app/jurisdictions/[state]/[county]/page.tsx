@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { MARYLAND_SEO_REGISTRY } from '../../../../lib/seo-registry';
 import { ProductLedHero } from '../../../../components/Hero';
@@ -25,6 +26,7 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
   return {
     title: titleStr,
     description: descStr,
+    alternates: { canonical: `/jurisdictions/md/${countyMetadata.slug}` },
     openGraph: {
       title: titleStr,
       description: descStr,
@@ -65,6 +67,18 @@ export default async function ProgrammaticJurisdictionPage({ params }: RouteProp
                 <strong className="text-emerald-400 font-semibold">$0 Security Deposit</strong>,{" "}
                 <strong className="text-emerald-400 font-semibold">No Credit Check</strong>, and{" "}
                 <strong className="text-emerald-400 font-semibold">Instant Bank Link Setup</strong>.
+              </p>
+            </div>
+            <Link
+              href={`/?q=${encodeURIComponent(countyMetadata.countyName)}`}
+              className="inline-flex items-center rounded-full bg-emerald-500 px-6 py-3 text-sm font-bold text-emerald-950 hover:bg-emerald-400"
+            >
+              Find a stay in {countyMetadata.countyName} →
+            </Link>
+            <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-900">
+              <h3 className="text-lg font-semibold text-slate-200 mb-3">Cities &amp; Towns We Serve</h3>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                {countyMetadata.cities.join(" · ")}
               </p>
             </div>
             <div className="bg-slate-900/40 p-6 rounded-xl border border-slate-900">
