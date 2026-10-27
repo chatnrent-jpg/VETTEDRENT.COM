@@ -220,6 +220,157 @@ export const SAMPLE_LISTINGS: PropertyCardProps[] = [
       "$0 Security Deposit · No Credit Check",
     ],
   },
+  // ---- Additional sample stays so every category has several to swipe through ----
+  {
+    id: "md-statewide-room-sanctuary-3",
+    title: "Maryland RoomSanctuary · Quiet Corridor Room",
+    tier: "RoomSanctuary",
+    location: "Statewide MD (Montgomery, Prince George's & Howard)",
+    zipCode: "All MD ZIPs",
+    dailyRate: 55,
+    weeklyRate: 385,
+    commuteMinutes: 4,
+    convenienceBadge: "Private Entrance · Desk · Streaming-Ready Wi-Fi",
+    proximityTag: "Near Metro, Federal Employers & Campuses",
+    idealForLabel: "Federal Contractors, Grad Students & Interns",
+    cohorts: ["Contract-Assignment", "Academic-Enrollment", "Seasonal-Remote"],
+    imagePlaceholder: "bg-gradient-to-br from-slate-800 to-emerald-950",
+    defaultImageUrl: "/vettedrent-hero-landlord.jpg",
+    galleryPhotos: [
+      { url: "/vettedrent-hero-landlord.jpg", caption: "Quiet Furnished Room with Private Entrance" },
+      { url: "/vettedrent-hero-renter.jpg", caption: "Work Desk & Natural Light" },
+    ],
+    features: [
+      "Private Entrance & Keyless Smart Lock",
+      "All Utilities & Fast Wi-Fi Included",
+      "$0 Security Deposit · No Credit Check",
+    ],
+  },
+  {
+    id: "md-statewide-room-sanctuary-4",
+    title: "Maryland RoomSanctuary · Premium Corner Room",
+    tier: "RoomSanctuary",
+    location: "Statewide MD (Annapolis, Columbia & Towson)",
+    zipCode: "All MD ZIPs",
+    dailyRate: 62,
+    weeklyRate: 434,
+    commuteMinutes: 3,
+    convenienceBadge: "Corner Room · Mini-Fridge · Ensuite Sink",
+    proximityTag: "Near Hospitals, Campuses & Business Parks",
+    idealForLabel: "Travel Nurses, Residents & Visiting Professionals",
+    cohorts: ["Contract-Assignment", "Seasonal-Remote", "Academic-Enrollment"],
+    imagePlaceholder: "bg-gradient-to-br from-slate-800 to-slate-900",
+    defaultImageUrl: "/vettedrent-hero-renter.jpg",
+    galleryPhotos: [
+      { url: "/vettedrent-hero-renter.jpg", caption: "Corner Room with Extra Windows" },
+      { url: "/vettedrent-hero-landlord.jpg", caption: "Work Nook & Mini-Fridge" },
+    ],
+    features: [
+      "Larger Corner Room with Extra Light",
+      "Mini-Fridge & Ensuite Sink",
+      "$0 Security Deposit · No Credit Check",
+    ],
+  },
+  {
+    id: "md-statewide-private-suite-3",
+    title: "Maryland PrivateSuite · Garden-Level Suite",
+    tier: "PrivateSuite",
+    location: "Statewide MD (Baltimore County, Harford & Cecil)",
+    zipCode: "All MD ZIPs",
+    dailyRate: 85,
+    weeklyRate: 595,
+    commuteMinutes: 4,
+    convenienceBadge: "Private Entrance · En-Suite Bath · Kitchenette",
+    proximityTag: "Near I-95, Aberdeen & Regional Employers",
+    idealForLabel: "Defense & Aerospace Contractors, Visiting Faculty",
+    cohorts: ["Contract-Assignment", "Seasonal-Remote", "Academic-Enrollment"],
+    imagePlaceholder: "bg-gradient-to-br from-slate-800 to-blue-950",
+    defaultImageUrl: "/vettedrent-hero-landlord.jpg",
+    galleryPhotos: [
+      { url: "/vettedrent-hero-landlord.jpg", caption: "Garden-Level Suite Living Area" },
+      { url: "/vettedrent-hero-renter.jpg", caption: "Bedroom & Private En-Suite Bath" },
+    ],
+    features: [
+      "Separate Private Entrance",
+      "En-Suite Bath & Kitchenette",
+      "$0 Security Deposit · No Credit Check",
+    ],
+  },
+  {
+    id: "md-statewide-private-suite-4",
+    title: "Maryland PrivateSuite · Executive Loft Suite",
+    tier: "PrivateSuite",
+    location: "Statewide MD (Bethesda, Rockville & Silver Spring)",
+    zipCode: "All MD ZIPs",
+    dailyRate: 95,
+    weeklyRate: 665,
+    commuteMinutes: 3,
+    convenienceBadge: "Loft Layout · Dual Monitors · Reserved Parking",
+    proximityTag: "Near Metro, NIH & Federal Hubs",
+    idealForLabel: "Executives, Researchers & Corporate Mobility",
+    cohorts: ["Contract-Assignment", "Seasonal-Remote"],
+    imagePlaceholder: "bg-gradient-to-br from-slate-800 to-emerald-950",
+    defaultImageUrl: "/vettedrent-hero-renter.jpg",
+    galleryPhotos: [
+      { url: "/vettedrent-hero-renter.jpg", caption: "Executive Loft Suite" },
+      { url: "/vettedrent-hero-landlord.jpg", caption: "Dual-Monitor Workspace" },
+    ],
+    features: [
+      "Loft Layout with Dedicated Workspace",
+      "Reserved Parking & Private Bath",
+      "$0 Security Deposit · No Credit Check",
+    ],
+  },
+  {
+    id: "md-statewide-executive-townhome-3",
+    title: "Maryland ExecutiveTownhome · 3BR Family Home",
+    tier: "ExecutiveTownhome",
+    location: "Statewide MD (Frederick, Carroll & Washington Counties)",
+    zipCode: "All MD ZIPs",
+    dailyRate: 129,
+    weeklyRate: 903,
+    commuteMinutes: 5,
+    convenienceBadge: "3BR Townhome · Garage · Fenced Yard",
+    proximityTag: "Near Schools, Parks & Regional Highways",
+    idealForLabel: "Families in Transition, ALE Insurance & Relocations",
+    cohorts: ["Insurance-Relocation", "Contract-Assignment", "Seasonal-Remote"],
+    imagePlaceholder: "bg-gradient-to-br from-slate-800 to-slate-900",
+    defaultImageUrl: "/vettedrent-hero-landlord.jpg",
+    galleryPhotos: [
+      { url: "/vettedrent-hero-landlord.jpg", caption: "Open Living Room & Dining" },
+      { url: "/vettedrent-hero-renter.jpg", caption: "Primary Bedroom & Second Bedrooms" },
+    ],
+    features: [
+      "3 Bedrooms with Garage Parking",
+      "Full Kitchen, Laundry & Fenced Yard",
+      "$0 Security Deposit · No Credit Check",
+    ],
+  },
+  {
+    id: "md-statewide-executive-townhome-4",
+    title: "Maryland ExecutiveTownhome · 4BR Executive Residence",
+    tier: "ExecutiveTownhome",
+    location: "Statewide MD (Howard, Anne Arundel & Montgomery)",
+    zipCode: "All MD ZIPs",
+    dailyRate: 145,
+    weeklyRate: 1015,
+    commuteMinutes: 4,
+    convenienceBadge: "4BR Residence · Home Office · Two-Car Garage",
+    proximityTag: "Near Top Schools, Shopping & Commuter Rail",
+    idealForLabel: "Relocating Executives & Larger Families",
+    cohorts: ["Insurance-Relocation", "Contract-Assignment"],
+    imagePlaceholder: "bg-gradient-to-br from-slate-800 to-blue-950",
+    defaultImageUrl: "/vettedrent-hero-renter.jpg",
+    galleryPhotos: [
+      { url: "/vettedrent-hero-renter.jpg", caption: "Executive Residence Living Space" },
+      { url: "/vettedrent-hero-landlord.jpg", caption: "Home Office & Primary Suite" },
+    ],
+    features: [
+      "4 Bedrooms with Dedicated Home Office",
+      "Two-Car Garage & Chef's Kitchen",
+      "$0 Security Deposit · No Credit Check",
+    ],
+  },
 ];
 
 const SIMPLE_TIER_LABELS: Record<PropertyCardProps["tier"], string> = {
@@ -238,8 +389,22 @@ export interface ListingDiscoveryGridProps {
   jurisdictionCode?: string;
   simple?: boolean;
   onSelectTier?: (tier: "RoomSanctuary" | "PrivateSuite" | "ExecutiveTownhome") => void;
+  /** Fired when a tenant picks a specific property from the gallery ("Select this stay"). */
+  onSelectListing?: (selection: {
+    tier: PropertyCardProps["tier"];
+    weeklyRateCents: number;
+    listingId: string;
+  }) => void;
   onResetFilters?: () => void;
 }
+
+const TIER_ORDER: readonly PropertyCardProps["tier"][] = [
+  "RoomSanctuary",
+  "PrivateSuite",
+  "ExecutiveTownhome",
+];
+
+type SimpleGalleryState = { tier: PropertyCardProps["tier"]; index: number; photo: number };
 
 export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
   searchQuery = "",
@@ -251,6 +416,7 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
   jurisdictionCode = "MD-PG",
   simple = false,
   onSelectTier,
+  onSelectListing,
   onResetFilters,
 }) => {
   const carouselRef = useRef<HTMLDivElement | null>(null);
@@ -261,6 +427,8 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
   const [hostPhotosByTier, setHostPhotosByTier] = useState<Record<string, string>>({});
   const [lightboxProperty, setLightboxProperty] = useState<PropertyCardProps | null>(null);
   const [lightboxPhotoIdx, setLightboxPhotoIdx] = useState<number>(0);
+  const [simpleGallery, setSimpleGallery] = useState<SimpleGalleryState | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -337,6 +505,88 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
     return a.commuteMinutes - b.commuteMinutes || a.dailyRate - b.dailyRate;
   });
 
+  // ---- Simple (home) mode: one card per category, lowest price first, swipe gallery ----
+  const tierGroups = TIER_ORDER.map((tier) => ({
+    tier,
+    listings: baseListings
+      .filter((property) => property.tier === tier)
+      .slice()
+      .sort((a, b) => a.dailyRate - b.dailyRate || a.id.localeCompare(b.id)),
+  })).filter((group) => group.listings.length > 0);
+
+  const galleryGroup = simpleGallery
+    ? (tierGroups.find((group) => group.tier === simpleGallery.tier) ?? null)
+    : null;
+  const galleryCount = galleryGroup?.listings.length ?? 0;
+  const galleryOpen = simpleGallery !== null;
+
+  function stepGalleryProperty(delta: number) {
+    setSimpleGallery((prev) => {
+      if (!prev || galleryCount === 0) return prev;
+      return { ...prev, index: (prev.index + delta + galleryCount) % galleryCount, photo: 0 };
+    });
+  }
+
+  function leadPhotoUrl(property: PropertyCardProps, photoIdx: number): string {
+    const isTierLead = SAMPLE_LISTINGS.find((p) => p.tier === property.tier) === property;
+    if (photoIdx === 0 && isTierLead && hostPhotosByTier[property.tier]) {
+      return hostPhotosByTier[property.tier];
+    }
+    return property.galleryPhotos[photoIdx]?.url ?? property.defaultImageUrl;
+  }
+
+  function openSimpleGallery(tier: PropertyCardProps["tier"]) {
+    onSelectTier?.(tier);
+    setSimpleGallery({ tier, index: 0, photo: 0 });
+  }
+
+  function selectGalleryProperty(property: PropertyCardProps) {
+    if (onSelectListing) {
+      onSelectListing({
+        tier: property.tier,
+        weeklyRateCents: property.weeklyRate * 100,
+        listingId: property.id,
+      });
+    } else {
+      onSelectTier?.(property.tier);
+    }
+    setSimpleGallery(null);
+    window.setTimeout(() => {
+      const target =
+        document.querySelector(".vr-simple-book") ??
+        document.querySelector(".vettedrent-premium-checkout");
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+  }
+
+  useEffect(() => {
+    if (!galleryOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setSimpleGallery(null);
+      } else if (event.key === "ArrowLeft") {
+        stepGalleryProperty(-1);
+      } else if (event.key === "ArrowRight") {
+        stepGalleryProperty(1);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [galleryOpen, galleryCount]);
+
+  useEffect(() => {
+    // Close the gallery if the active filters remove its whole category.
+    if (galleryOpen && galleryCount === 0) {
+      setSimpleGallery(null);
+    }
+  }, [galleryOpen, galleryCount]);
+
   function scrollCarousel(direction: "left" | "right") {
     const node = carouselRef.current;
     if (!node) return;
@@ -381,35 +631,194 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
   const effectiveCohort: PurposeCohortId =
     activeCohortFilter === "ALL" ? "Contract-Assignment" : activeCohortFilter;
 
-  const displayListings = simple
-    ? baseListings.filter((property, index, all) =>
-        all.findIndex((item) => item.tier === property.tier) === index,
-      )
-    : baseListings;
-
   if (simple) {
+    const gallerySafeIndex = galleryGroup ? Math.min(simpleGallery?.index ?? 0, galleryCount - 1) : 0;
+    const galleryProperty = galleryGroup?.listings[gallerySafeIndex] ?? null;
+    const galleryPhotoIdx =
+      galleryProperty && simpleGallery
+        ? Math.min(simpleGallery.photo, galleryProperty.galleryPhotos.length - 1)
+        : 0;
+
     return (
-      <div className="vr-simple-spaces" role="list" aria-label="Available spaces">
-        {displayListings.map((property) => {
-          const isSelected = selectedTierId === property.tier;
-          const photoUrl = hostPhotosByTier[property.tier] || property.defaultImageUrl;
-          return (
-            <button
-              key={property.id}
-              type="button"
-              role="listitem"
-              className={`vr-simple-space${isSelected ? " vr-simple-space--selected" : ""}`}
-              onClick={() => onSelectTier?.(property.tier)}
-            >
-              <img src={photoUrl} alt="" className="vr-simple-space__photo" />
-              <div className="vr-simple-space__meta">
-                <strong>{SIMPLE_TIER_LABELS[property.tier]}</strong>
-                <span>${property.dailyRate} / day</span>
+      <>
+        <div className="vr-simple-spaces" role="list" aria-label="Available spaces">
+          {tierGroups.map((group) => {
+            const lowest = group.listings[0];
+            const isSelected = selectedTierId === group.tier;
+            const label = SIMPLE_TIER_LABELS[group.tier];
+            return (
+              <button
+                key={group.tier}
+                type="button"
+                role="listitem"
+                aria-haspopup="dialog"
+                aria-label={`${label}, from $${lowest.dailyRate} per day. ${group.listings.length} stays. View photos.`}
+                className={`vr-simple-space${isSelected ? " vr-simple-space--selected" : ""}`}
+                onClick={() => openSimpleGallery(group.tier)}
+              >
+                <span className="vr-simple-space__count">
+                  {group.listings.length} {group.listings.length === 1 ? "stay" : "stays"}
+                </span>
+                <img src={leadPhotoUrl(lowest, 0)} alt="" className="vr-simple-space__photo" />
+                <div className="vr-simple-space__meta">
+                  <strong>{label}</strong>
+                  <span>
+                    <small>from</small> ${lowest.dailyRate} / day
+                  </span>
+                </div>
+                <span className="vr-simple-space__hint">View photos &amp; swipe ›</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {galleryGroup && galleryProperty ? (
+          <div
+            className="vr-gallery-scrim"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${SIMPLE_TIER_LABELS[galleryGroup.tier]} stays`}
+            onClick={() => setSimpleGallery(null)}
+          >
+            <div className="vr-gallery" onClick={(event) => event.stopPropagation()}>
+              <div className="vr-gallery__top">
+                <div>
+                  <p className="vr-gallery__kicker">
+                    {SIMPLE_TIER_LABELS[galleryGroup.tier]} · Stay {gallerySafeIndex + 1} of{" "}
+                    {galleryCount}
+                  </p>
+                  <h3 className="vr-gallery__title">{galleryProperty.title}</h3>
+                </div>
+                <button
+                  type="button"
+                  className="vr-gallery__close"
+                  aria-label="Close gallery"
+                  onClick={() => setSimpleGallery(null)}
+                >
+                  ✕
+                </button>
               </div>
-            </button>
-          );
-        })}
-      </div>
+
+              <div
+                className="vr-gallery__stage"
+                onPointerDown={(event) => {
+                  touchStartRef.current = { x: event.clientX, y: event.clientY };
+                }}
+                onPointerUp={(event) => {
+                  const start = touchStartRef.current;
+                  touchStartRef.current = null;
+                  if (!start) return;
+                  const dx = event.clientX - start.x;
+                  const dy = event.clientY - start.y;
+                  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+                    stepGalleryProperty(dx < 0 ? 1 : -1);
+                  }
+                }}
+                onPointerCancel={() => {
+                  touchStartRef.current = null;
+                }}
+              >
+                <img
+                  key={`${galleryProperty.id}-${galleryPhotoIdx}`}
+                  src={leadPhotoUrl(galleryProperty, galleryPhotoIdx)}
+                  alt={galleryProperty.galleryPhotos[galleryPhotoIdx]?.caption ?? galleryProperty.title}
+                  className="vr-gallery__photo"
+                  draggable={false}
+                />
+                {galleryCount > 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      className="vr-gallery__nav vr-gallery__nav--prev"
+                      aria-label="Previous stay"
+                      onClick={() => stepGalleryProperty(-1)}
+                    >
+                      ‹
+                    </button>
+                    <button
+                      type="button"
+                      className="vr-gallery__nav vr-gallery__nav--next"
+                      aria-label="Next stay"
+                      onClick={() => stepGalleryProperty(1)}
+                    >
+                      ›
+                    </button>
+                  </>
+                ) : null}
+                {gallerySafeIndex === 0 && galleryCount > 1 ? (
+                  <span className="vr-gallery__badge">Lowest price</span>
+                ) : null}
+                <span className="vr-gallery__caption">
+                  {galleryProperty.galleryPhotos[galleryPhotoIdx]?.caption}
+                </span>
+              </div>
+
+              <div className="vr-gallery__thumbs" role="group" aria-label="Photos of this stay">
+                {galleryProperty.galleryPhotos.map((photo, photoIdx) => (
+                  <button
+                    key={`${galleryProperty.id}-thumb-${photoIdx}`}
+                    type="button"
+                    aria-label={`Photo ${photoIdx + 1}: ${photo.caption}`}
+                    aria-pressed={photoIdx === galleryPhotoIdx}
+                    className={`vr-gallery__thumb${photoIdx === galleryPhotoIdx ? " vr-gallery__thumb--active" : ""}`}
+                    onClick={() =>
+                      setSimpleGallery((prev) => (prev ? { ...prev, photo: photoIdx } : prev))
+                    }
+                  >
+                    <img src={leadPhotoUrl(galleryProperty, photoIdx)} alt="" draggable={false} />
+                  </button>
+                ))}
+              </div>
+
+              <div className="vr-gallery__info">
+                <div className="vr-gallery__price">
+                  <strong>${galleryProperty.dailyRate}</strong>
+                  <span>/ day · ${galleryProperty.weeklyRate}/wk</span>
+                </div>
+                <p className="vr-gallery__where">
+                  {galleryProperty.location} · {galleryProperty.idealForLabel}
+                </p>
+                <ul className="vr-gallery__features">
+                  {galleryProperty.features.map((feature) => (
+                    <li key={feature}>
+                      <span aria-hidden="true">✓</span> {feature}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="vr-gallery__footer">
+                {galleryCount > 1 ? (
+                  <div className="vr-gallery__dots" role="group" aria-label="Stays in this category">
+                    {galleryGroup.listings.map((listing, listingIdx) => (
+                      <button
+                        key={listing.id}
+                        type="button"
+                        aria-label={`Stay ${listingIdx + 1}, $${listing.dailyRate} per day`}
+                        aria-current={listingIdx === gallerySafeIndex}
+                        className={`vr-gallery__dot${listingIdx === gallerySafeIndex ? " vr-gallery__dot--active" : ""}`}
+                        onClick={() =>
+                          setSimpleGallery((prev) =>
+                            prev ? { ...prev, index: listingIdx, photo: 0 } : prev,
+                          )
+                        }
+                      />
+                    ))}
+                    <span className="vr-gallery__swipe-hint">Swipe or use ← → for more stays</span>
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  className="vr-gallery__select"
+                  onClick={() => selectGalleryProperty(galleryProperty)}
+                >
+                  Select this stay · ${galleryProperty.dailyRate}/day →
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </>
     );
   }
 

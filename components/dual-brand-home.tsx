@@ -67,6 +67,11 @@ export function DualBrandHome({
     setSelectedWeeklyCents(DAILY_RATE_PRESET_TIERS[nextTierId].weeklyRateCents);
   }
 
+  function selectListing(selection: { tier: DailyRateTierId; weeklyRateCents: number }) {
+    setSelectedTierId(selection.tier);
+    setSelectedWeeklyCents(selection.weeklyRateCents);
+  }
+
   function handleSelectAudienceFilter(nextCohort: PurposeCohortId | "ALL") {
     setActiveCohortFilter(nextCohort);
     if (nextCohort !== "ALL") {
@@ -286,6 +291,7 @@ export function DualBrandHome({
           stayDays={stayDays}
           jurisdictionCode={selectedJurisdictionCode}
           onSelectTier={(tier) => selectTier(tier)}
+          onSelectListing={selectListing}
           onResetFilters={() => {
             setSearchQuery("");
             setActiveTierFilter("ALL");
