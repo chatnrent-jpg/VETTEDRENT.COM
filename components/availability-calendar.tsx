@@ -157,7 +157,52 @@ export function AvailabilityCalendar({
     }
   }, [initialApplicantEmail]);
 
+  // A real listing has its own calendar. Show only that listing's days, never the shared sample one.
+  const [listingCalendarState, setListingCalendarState] = useState<"loading" | "ready" | "error">(
+    "loading",
+  );
   useEffect(() => {
+    if (!listingId) {
+      return;
+    }
+    let cancelled = false;
+    setListingCalendarState("loading");
+    async function loadListingCalendar() {
+      try {
+        const res = await fetch(
+          `/api/listings/availability?listingId=${encodeURIComponent(listingId ?? "")}`,
+          { cache: "no-store" },
+        );
+        const body: unknown = await res.json();
+        const dates =
+          body && typeof body === "object"
+            ? (body as { unavailableDates?: unknown }).unavailableDates
+            : undefined;
+        if (cancelled) {
+          return;
+        }
+        if (!res.ok || !Array.isArray(dates)) {
+          setListingCalendarState("error");
+          return;
+        }
+        setLocalBlocked(dates.filter((d): d is string => typeof d === "string"));
+        setListingCalendarState("ready");
+      } catch {
+        if (!cancelled) {
+          setListingCalendarState("error");
+        }
+      }
+    }
+    void loadListingCalendar();
+    return () => {
+      cancelled = true;
+    };
+  }, [listingId]);
+
+  useEffect(() => {
+    if (listingId) {
+      return;
+    }
     let cancelled = false;
     async function loadSchedules() {
       try {
@@ -187,9 +232,12 @@ export function AvailabilityCalendar({
     return () => {
       cancelled = true;
     };
-  }, [tierId, weeklyRateCents]);
+  }, [tierId, weeklyRateCents, listingId]);
 
   useEffect(() => {
+    if (listingId) {
+      return;
+    }
     if (schedules && schedules[tierId]) {
       setLocalBlocked(schedules[tierId].blockedDates);
       const savedWeekly = schedules[tierId].weeklyRateCents;
@@ -197,7 +245,7 @@ export function AvailabilityCalendar({
         setLocalWeeklyCents(clampTierWeeklyRateCents(tierId, savedWeekly));
       }
     }
-  }, [schedules, tierId, weeklyRateCents]);
+  }, [schedules, tierId, weeklyRateCents, listingId]);
 
   const windowStartIso = addDaysIsoUtc(todayIsoUtc(), windowOffsetDays);
   const calendar = buildCalendarWindow({
@@ -286,8 +334,18 @@ export function AvailabilityCalendar({
     }
   }
 
+  const listingCalendarBlocking = Boolean(listingId) && listingCalendarState !== "ready";
+  const listingCalendarMessage =
+    listingCalendarState === "error"
+      ? "We couldn't load this stay's open dates. Refresh the page to try again."
+      : "Loading open dates...";
+
   function handleCellClick(isoDate: string, isBlocked: boolean) {
     setBookingError(null);
+    if (mode === "tenant" && listingCalendarBlocking) {
+      setBookingError(listingCalendarMessage);
+      return;
+    }
     if (mode === "tenant") {
       if (isBlocked && !newlyBookedDates.includes(isoDate)) {
         setSaveMessage(
@@ -380,6 +438,10 @@ export function AvailabilityCalendar({
     const trimmedName = guestFullName.trim();
     const trimmedEmail = guestEmail.trim();
 
+    if (listingCalendarBlocking) {
+      setBookingError(listingCalendarMessage);
+      return;
+    }
     if (trimmedName.length < 2) {
       setBookingError(
         "Please input your full legal name to affirm documentation execution.",
@@ -910,6 +972,12 @@ export function AvailabilityCalendar({
           <i className="vr-dot vr-dot--blocked" /> Booked
         </span>
       </div>
+
+      {mode === "tenant" && listingCalendarBlocking ? (
+        <p className={listingCalendarState === "error" ? "error" : "vr-help"} role="status">
+          {listingCalendarMessage}
+        </p>
+      ) : null}
 
       {mode === "tenant" ? (
         <PremiumCheckoutCard

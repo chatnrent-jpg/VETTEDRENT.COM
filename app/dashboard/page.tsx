@@ -3,28 +3,31 @@
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState, type FormEvent } from "react";
-import { AvailabilityCalendar } from "@/components/availability-calendar";
-import { JurisdictionSelect } from "@/components/jurisdiction-select";
+import { HostListingCalendar } from "@/components/host-listing-calendar";
 import { SimpleShell } from "@/components/simple-shell";
 import { Progress } from "@/components/ui/progress";
-import { todayIsoUtc } from "@/lib/availability-calendar";
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/compliance/jurisdictions";
+import { DAILY_RATE_PRESET_TIERS, type DailyRateTierId } from "@/lib/daily-rate-comparison";
 import { resolveCallerRole } from "@/lib/host-access";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 type Gate = "checking" | "signed-out" | "host" | "lodger" | "unknown";
 
-type HostListingView =
+type HostProperty = {
+  id: string;
+  name: string;
+  city: string;
+  spaceType: string | null;
+  weeklyRateCents: number | null;
+  isPublished: boolean;
+  blockers: string[];
+};
+
+type HostPropertiesView =
   | { kind: "loading" }
-  | { kind: "error" }
+  | { kind: "error"; message: string }
   | { kind: "empty" }
-  | {
-      kind: "ready";
-      name: string;
-      lockConnected: boolean;
-      weeklyPriceCents: number | null;
-      jurisdictionCode: string;
-    };
+  | { kind: "ready"; properties: HostProperty[] };
 
 export default function DashboardPage() {
   const [gate, setGate] = useState<Gate>("checking");
@@ -283,15 +286,23 @@ async function readSessionGate(): Promise<Gate> {
 }
 
 function HostPanel() {
-  const [listing, setListing] = useState<HostListingView>({ kind: "loading" });
-  const [savingLocation, setSavingLocation] = useState(false);
-  const [locationNote, setLocationNote] = useState<string | null>(null);
+  const [view, setView] = useState<HostPropertiesView>({ kind: "loading" });
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    void loadHostListing().then((next) => {
-      if (!cancelled) {
-        setListing(next);
+    void loadHostProperties().then((next) => {
+      if (cancelled) {
+        return;
+      }
+      setView(next);
+      if (next.kind === "ready") {
+        // Keep the host's pick across refreshes; otherwise start on their first property.
+        setSelectedId((current) =>
+          next.properties.some((property) => property.id === current)
+            ? current
+            : (next.properties[0]?.id ?? null),
+        );
       }
     });
     return () => {
@@ -299,11 +310,15 @@ function HostPanel() {
     };
   }, []);
 
+  const properties = view.kind === "ready" ? view.properties : [];
+  const selected = properties.find((property) => property.id === selectedId) ?? null;
+  const several = properties.length > 1;
+
   return (
     <div className="vr-page" aria-label="Host dashboard">
       <div className="vr-page__head">
         <h1>Welcome back</h1>
-        <p>Manage your listings, check in guests, and keep your dates up to date.</p>
+        <p>Manage your properties, check in guests, and keep your dates up to date.</p>
       </div>
 
       <div className="vr-tiles">
@@ -322,14 +337,14 @@ function HostPanel() {
       </div>
 
       <article className="vr-card">
-        <h2>Your property</h2>
-        {listing.kind === "loading" ? <p>Loading your property...</p> : null}
-        {listing.kind === "error" ? (
+        <h2>{several ? "Your properties" : "Your property"}</h2>
+        {view.kind === "loading" ? <p>Loading your properties...</p> : null}
+        {view.kind === "error" ? (
           <p className="error" role="alert">
-            We couldn&apos;t load your property. Refresh the page to try again.
+            {view.message}
           </p>
         ) : null}
-        {listing.kind === "empty" ? (
+        {view.kind === "empty" ? (
           <>
             <p>You haven&apos;t added a property yet.</p>
             <div className="vr-cta-row">
@@ -339,66 +354,61 @@ function HostPanel() {
             </div>
           </>
         ) : null}
-        {listing.kind === "ready" ? (
+        {view.kind === "ready" ? (
           <>
-            <dl className="vr-facts">
-              <div>
-                <dt>Name</dt>
-                <dd>{listing.name}</dd>
-              </div>
-              <div>
-                <dt>Weekly rate</dt>
-                <dd>
-                  {listing.weeklyPriceCents !== null
-                    ? `${formatCentsAsDollars(listing.weeklyPriceCents)} / week`
-                    : "Not set yet"}
-                </dd>
-              </div>
-              <div>
-                <dt>Smart lock</dt>
-                <dd>
-                  <span className={listing.lockConnected ? "vr-pill" : "vr-pill vr-pill--warn"}>
-                    {listing.lockConnected ? "Connected" : "Not connected yet"}
+            {several ? (
+              <p className="vr-help">
+                Each property has its own dates. Pick one to see and change its calendar.
+              </p>
+            ) : null}
+            <div className="vr-props">
+              {properties.map((property) => (
+                <button
+                  key={property.id}
+                  type="button"
+                  className="vr-prop"
+                  aria-pressed={property.id === selectedId}
+                  onClick={() => setSelectedId(property.id)}
+                >
+                  <span className="vr-prop__top">
+                    <strong>{property.name}</strong>
+                    <span className={property.isPublished ? "vr-pill" : "vr-pill vr-pill--warn"}>
+                      {property.isPublished ? "Live" : "Not live yet"}
+                    </span>
                   </span>
-                </dd>
-              </div>
-            </dl>
-            <JurisdictionSelect
-              value={listing.jurisdictionCode}
-              disabled={savingLocation}
-              onChange={(code) =>
-                void saveHostLocation(code, setListing, setSavingLocation, setLocationNote)
-              }
-            />
-            {locationNote ? <p>{locationNote}</p> : null}
-            <div className="vr-cta-row">
-              <a
-                className="button button-secondary"
-                href={`/api/agreements/license?format=pdf&jurisdiction=${encodeURIComponent(listing.jurisdictionCode)}&weeklyFeeCents=${listing.weeklyPriceCents ?? 31500}&propertyTitle=${encodeURIComponent(listing.name)}`}
-                download={`VettedRent-Stay-Agreement-${listing.jurisdictionCode}.pdf`}
-              >
-                Download stay agreement (PDF)
-              </a>
+                  <span>{propertySubtitle(property)}</span>
+                </button>
+              ))}
             </div>
+            {selected ? (
+              <>
+                {!selected.isPublished && selected.blockers[0] ? (
+                  <p className="vr-help">To go live: {selected.blockers[0]}</p>
+                ) : null}
+                <div className="vr-cta-row">
+                  <Link className="button button-secondary" href="/host/listing">
+                    Edit details and photos
+                  </Link>
+                  <a
+                    className="button button-secondary"
+                    href={`/api/agreements/license?format=pdf&jurisdiction=${encodeURIComponent(DEFAULT_JURISDICTION_CODE)}&weeklyFeeCents=${selected.weeklyRateCents ?? 31500}&propertyTitle=${encodeURIComponent(selected.name)}`}
+                    download={`VettedRent-Stay-Agreement-${DEFAULT_JURISDICTION_CODE}.pdf`}
+                  >
+                    Download stay agreement (PDF)
+                  </a>
+                </div>
+              </>
+            ) : null}
           </>
         ) : null}
       </article>
 
-      <details className="vr-card vr-fold">
-        <summary>Open dates and calendar</summary>
-        <div className="vr-fold__body">
-          <p className="vr-help">
-            Pick the days your place is open. Guests can book any open day.
-          </p>
-          <AvailabilityCalendar
-            mode="landlord"
-            tierId="RoomSanctuary"
-            stayDays={90}
-            checkInIso={todayIsoUtc()}
-            onSelectCheckIn={() => {}}
-          />
-        </div>
-      </details>
+      {selected ? (
+        <article className="vr-card" aria-label={`Open dates for ${selected.name}`}>
+          <h2>Open dates for {selected.name}</h2>
+          <HostListingCalendar key={selected.id} listingId={selected.id} listingName={selected.name} />
+        </article>
+      ) : null}
 
       <p className="vr-help" style={{ textAlign: "center" }}>
         Team member? <Link href="/admin">Open the admin console</Link>
@@ -407,66 +417,89 @@ function HostPanel() {
   );
 }
 
-async function loadHostListing(): Promise<HostListingView> {
+function propertySubtitle(property: HostProperty): string {
+  const parts: string[] = [];
+  if (property.city !== "") {
+    parts.push(property.city);
+  }
+  if (property.spaceType !== null) {
+    parts.push(property.spaceType);
+  }
+  parts.push(
+    property.weeklyRateCents !== null
+      ? `${formatCentsAsDollars(property.weeklyRateCents)} / week`
+      : "Price not set",
+  );
+  return parts.join(" · ");
+}
+
+const PROPERTIES_LOAD_ERROR = "We couldn't load your properties. Refresh the page to try again.";
+
+async function loadHostProperties(): Promise<HostPropertiesView> {
   try {
     const supabase = getSupabaseBrowserClient();
     const { data, error } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     if (error || !token) {
-      return { kind: "error" };
+      return { kind: "error", message: "Please sign in again to see your properties." };
     }
-    const response = await fetch("/api/host/listing", {
+    const response = await fetch("/api/host/catalog", {
       method: "GET",
       credentials: "same-origin",
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!response.ok) {
-      return { kind: "error" };
-    }
     const body: unknown = await response.json();
-    return hostListingFromBody(body);
+    if (!response.ok) {
+      const serverMessage =
+        body && typeof body === "object" ? optionalText((body as { error?: unknown }).error) : null;
+      return { kind: "error", message: serverMessage ?? PROPERTIES_LOAD_ERROR };
+    }
+    const properties = hostPropertiesFromBody(body);
+    if (properties === null) {
+      return { kind: "error", message: PROPERTIES_LOAD_ERROR };
+    }
+    return properties.length === 0 ? { kind: "empty" } : { kind: "ready", properties };
   } catch {
-    return { kind: "error" };
+    return { kind: "error", message: PROPERTIES_LOAD_ERROR };
   }
 }
 
-function hostListingFromBody(body: unknown): HostListingView {
+function hostPropertiesFromBody(body: unknown): HostProperty[] | null {
   if (!body || typeof body !== "object") {
-    return { kind: "error" };
+    return null;
   }
-  const listing = (body as { listing?: unknown }).listing;
-  if (listing === null) {
-    return { kind: "empty" };
+  const listings = (body as { listings?: unknown }).listings;
+  if (!Array.isArray(listings)) {
+    return null;
   }
-  if (!listing || typeof listing !== "object") {
-    return { kind: "error" };
+  const properties: HostProperty[] = [];
+  for (const item of listings) {
+    if (!item || typeof item !== "object") {
+      return null;
+    }
+    const record = item as Record<string, unknown>;
+    const id = optionalText(record.id);
+    if (id === null) {
+      return null;
+    }
+    const tier = optionalText(record.tier);
+    const spaceType =
+      tier !== null && tier in DAILY_RATE_PRESET_TIERS
+        ? DAILY_RATE_PRESET_TIERS[tier as DailyRateTierId].shortLabel
+        : null;
+    properties.push({
+      id,
+      name: optionalText(record.title) ?? "Untitled property",
+      city: optionalText(record.city) ?? "",
+      spaceType,
+      weeklyRateCents: positiveInteger(record.weeklyRateCents),
+      isPublished: record.isPublished === true,
+      blockers: Array.isArray(record.blockers)
+        ? record.blockers.filter((b): b is string => typeof b === "string" && b.trim() !== "")
+        : [],
+    });
   }
-  const record = listing as Record<string, unknown>;
-  const name = typeof record.name === "string" ? record.name.trim() : "";
-  if (name === "" || typeof record.lockConnected !== "boolean") {
-    return { kind: "error" };
-  }
-  const jurisdictionCode = textValue(record.jurisdictionCode) ?? DEFAULT_JURISDICTION_CODE;
-  if (record.weeklyPriceCents === null) {
-    return {
-      kind: "ready",
-      name,
-      lockConnected: record.lockConnected,
-      weeklyPriceCents: null,
-      jurisdictionCode,
-    };
-  }
-  const weeklyPriceCents = positiveInteger(record.weeklyPriceCents);
-  if (weeklyPriceCents === null) {
-    return { kind: "error" };
-  }
-  return {
-    kind: "ready",
-    name,
-    lockConnected: record.lockConnected,
-    weeklyPriceCents,
-    jurisdictionCode,
-  };
+  return properties;
 }
 
 type StayStatus = {
@@ -760,72 +793,12 @@ function stayFromPass(record: Record<string, unknown>): StayStatus {
   };
 }
 
-async function saveHostLocation(
-  code: string,
-  setListing: (update: (current: HostListingView) => HostListingView) => void,
-  setSaving: (saving: boolean) => void,
-  setNote: (note: string | null) => void,
-): Promise<void> {
-  setSaving(true);
-  setNote(null);
-  const saved = await postJurisdiction(code);
-  setSaving(false);
-  if (!saved) {
-    setNote("Could not save the location. Try again.");
-    return;
-  }
-  setListing((current) =>
-    current.kind === "ready" ? { ...current, jurisdictionCode: saved.jurisdictionCode } : current,
-  );
-  setNote(saved.blockReason);
-}
-
-async function postJurisdiction(
-  code: string,
-): Promise<{ jurisdictionCode: string; blockReason: string | null } | null> {
-  try {
-    const supabase = getSupabaseBrowserClient();
-    const session = await supabase.auth.getSession();
-    const token = session.data.session?.access_token;
-    if (session.error || !token) {
-      return null;
-    }
-    const response = await fetch("/api/compliance/jurisdiction", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ jurisdictionCode: code }),
-    });
-    const body: unknown = await response.json();
-    if (!response.ok || !body || typeof body !== "object") {
-      return null;
-    }
-    const record = body as Record<string, unknown>;
-    if (record.ok !== true || typeof record.jurisdictionCode !== "string") {
-      return null;
-    }
-    return {
-      jurisdictionCode: record.jurisdictionCode,
-      blockReason: typeof record.blockReason === "string" ? record.blockReason : null,
-    };
-  } catch {
-    return null;
-  }
-}
-
 function optionalText(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
   }
   const trimmed = value.trim();
   return trimmed === "" ? null : trimmed;
-}
-
-function textValue(value: unknown): string | null {
-  return optionalText(value);
 }
 
 function positiveInteger(value: unknown): number | null {

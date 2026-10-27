@@ -23,6 +23,7 @@ import {
   allocateIntegerSplitCents,
   divideIntegerCentsHalfUp,
 } from "@/lib/marketing-calculator";
+import { ListingBookingError, reserveListingStay } from "@/lib/listing-availability";
 import { getSupabaseServerClient } from "@/lib/supabase";
 import {
   SEASONAL_REMOTE_MIN_DAYS,
@@ -42,6 +43,8 @@ export type ActivateStayPayload = {
   applicant?: string;
   tenantId?: string;
   propertyId?: string;
+  /** A published listing. When set, its own calendar is reserved (atomically) instead of the shared tier calendar. */
+  listingId?: string;
   cohort?: PurposeCohortId | string;
   jurisdiction?: string;
   tier?: DailyRateTierId | string;
@@ -648,6 +651,29 @@ export async function activateStayFromUnderwriting(
 
   const validUntil = addDaysIsoUtc(checkInDate, stayDays);
 
+  // A real listing owns its calendar. Reserve the days first, atomically, so a refused or
+  // double-booked stay never produces a license. Nothing below runs unless the days are ours.
+  const bookedListingId =
+    typeof payload.listingId === "string" && payload.listingId.trim() !== ""
+      ? payload.listingId.trim()
+      : null;
+  let listingReservedDates: string[] | null = null;
+  if (bookedListingId) {
+    if (checkInDate < todayIsoUtc()) {
+      throw new ListingBookingError("conflict");
+    }
+    const reservation = await reserveListingStay(
+      getSupabaseServerClient(),
+      bookedListingId,
+      checkInDate,
+      stayDays,
+    );
+    if (!reservation.ok) {
+      throw new ListingBookingError(reservation.reason);
+    }
+    listingReservedDates = reservation.reservedDates;
+  }
+
   const applicant =
     typeof payload.applicant === "string" && payload.applicant.trim() !== ""
       ? payload.applicant.trim().slice(0, 120)
@@ -694,7 +720,7 @@ export async function activateStayFromUnderwriting(
     credential_identifier: credentialIdentifier,
     jurisdiction: jurisdictionRule.code,
     tier: tierId,
-    listing_id: listingIdForTier(tierId),
+    listing_id: bookedListingId ?? listingIdForTier(tierId),
     weekly_rate_cents: split.grossCents,
     weekly_host_share_cents: split.hostShareCents,
     weekly_gmf_share_cents: split.gmfShareCents,
@@ -770,20 +796,26 @@ export async function activateStayFromUnderwriting(
   // 3. Mark the booked date range as reserved in public.host_tier_availability
   let reservedDates: string[] = [];
   let availabilityReserved = false;
-  try {
-    const reservation = await reserveStayDatesInAvailability({
-      tierId: licenseRecord.tier,
-      propertyId: licenseRecord.property_id,
-      checkInDate: licenseRecord.check_in_date,
-      stayDays: licenseRecord.stay_days,
-      applicantEmail: licenseRecord.applicant,
-      weeklyRateCents: licenseRecord.weekly_rate_cents,
-      configuredDailyRateCents: licenseRecord.daily_rate_cents,
-    });
-    reservedDates = reservation.reservedDates;
+  if (listingReservedDates) {
+    // Real listing: its own calendar was already reserved above.
+    reservedDates = listingReservedDates;
     availabilityReserved = true;
-  } catch {
-    availabilityReserved = false;
+  } else {
+    try {
+      const reservation = await reserveStayDatesInAvailability({
+        tierId: licenseRecord.tier,
+        propertyId: licenseRecord.property_id,
+        checkInDate: licenseRecord.check_in_date,
+        stayDays: licenseRecord.stay_days,
+        applicantEmail: licenseRecord.applicant,
+        weeklyRateCents: licenseRecord.weekly_rate_cents,
+        configuredDailyRateCents: licenseRecord.daily_rate_cents,
+      });
+      reservedDates = reservation.reservedDates;
+      availabilityReserved = true;
+    } catch {
+      availabilityReserved = false;
+    }
   }
 
   const milestone = await getValuationMilestoneSnapshot();

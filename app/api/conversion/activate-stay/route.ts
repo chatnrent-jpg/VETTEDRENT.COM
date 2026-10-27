@@ -9,6 +9,7 @@ import {
   getValuationMilestoneSnapshot,
   type ActivateStayPayload,
 } from "@/lib/conversion-engine";
+import { ListingBookingError } from "@/lib/listing-availability";
 import { loadPublishedListing } from "@/lib/public-listings";
 import { getSupabaseServerClient } from "@/lib/supabase";
 
@@ -117,9 +118,37 @@ export async function POST(request: Request): Promise<NextResponse> {
       }
       payload.tier = listing.tier;
       payload.weeklyRateCents = listing.weeklyRate * 100;
+      // The engine reserves this listing's own calendar before it creates anything.
+      payload.listingId = listing.id;
     }
 
-    const result = await activateStayFromUnderwriting(payload);
+    let result: Awaited<ReturnType<typeof activateStayFromUnderwriting>>;
+    try {
+      result = await activateStayFromUnderwriting(payload);
+    } catch (error) {
+      if (error instanceof ListingBookingError) {
+        if (error.reason === "conflict") {
+          return NextResponse.json(
+            {
+              ok: false,
+              error: "Some of those dates were just taken. Pick different dates and try again.",
+            },
+            { status: 409 },
+          );
+        }
+        if (error.reason === "not_found") {
+          return NextResponse.json(
+            { ok: false, error: "This stay is no longer available." },
+            { status: 409 },
+          );
+        }
+        return NextResponse.json(
+          { ok: false, error: "Booking is briefly unavailable. Please try again soon." },
+          { status: 503 },
+        );
+      }
+      throw error;
+    }
 
     // Email is best-effort and reported honestly: the booking above is already complete.
     const guestEmail = typeof body.guestEmail === "string" ? body.guestEmail.trim() : "";

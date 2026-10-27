@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { authenticateHost, unauthorized } from "@/lib/host-catalog-store";
 import {
   hydrateAvailabilitySchedules,
   parseAvailabilityTierId,
@@ -20,6 +21,11 @@ export async function GET(): Promise<NextResponse> {
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
+    // This shared per-room-type calendar used to accept writes from anyone. Hosts now manage
+    // dates per property through /api/host/catalog/availability; this stays host-only.
+    const auth = await authenticateHost(request);
+    if (!auth) return unauthorized();
+
     let body: Record<string, unknown> = {};
     try {
       const parsed: unknown = await request.json();
