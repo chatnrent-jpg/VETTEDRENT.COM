@@ -72,6 +72,7 @@ export function BookStay({ initial }: { initial: BookStayInitial }) {
     ),
   );
   const [checkInIso, setCheckInIso] = useState<string>(() => parseCheckIn(initial.checkIn));
+  const [booked, setBooked] = useState(false);
 
   function handleStayDaysChange(nextDays: number) {
     const minDays = cohortId === "Seasonal-Remote" ? SEASONAL_REMOTE_MIN_DAYS : 7;
@@ -124,18 +125,22 @@ export function BookStay({ initial }: { initial: BookStayInitial }) {
       </header>
 
       <section className="vr-unified-marketplace relative z-10" aria-label="Book your stay">
-        <div className="vr-unified-marketplace__head">
-          <h1 className="vr-unified-marketplace__title">Complete your stay</h1>
-          <p className="vr-unified-marketplace__sub">
-            Pick your dates, sign, and get your Stay Passport. $0 deposit.
-          </p>
-        </div>
+        {!booked ? (
+          <div className="vr-unified-marketplace__head">
+            <h1 className="vr-unified-marketplace__title">Complete your stay</h1>
+            <p className="vr-unified-marketplace__sub">
+              Pick your dates, sign, and get your Stay Passport. $0 deposit.
+            </p>
+          </div>
+        ) : null}
 
         <div className="vr-book-stay">
-          <Link href="/" className="vr-book-stay__back">
-            ← Change stay
-          </Link>
-          {listing ? (
+          {!booked ? (
+            <Link href="/" className="vr-book-stay__back">
+              ← Change stay
+            </Link>
+          ) : null}
+          {listing && !booked ? (
             <div className="vr-book-stay__card">
               <img
                 src={listing.defaultImageUrl}
@@ -169,6 +174,10 @@ export function BookStay({ initial }: { initial: BookStayInitial }) {
           jurisdictionCode={jurisdictionCode}
           context="home"
           onChangeCohort={handleCohortChange}
+          onBookingConfirmed={() => {
+            setBooked(true);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
         />
       </section>
 

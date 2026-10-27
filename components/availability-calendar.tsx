@@ -23,6 +23,7 @@ import {
   divideIntegerCentsHalfUp,
   formatCurrencyCents,
 } from "@/lib/marketing-calculator";
+import { BookingConfirmation } from "@/components/booking-confirmation";
 import { PremiumCheckoutCard } from "@/components/premium-checkout-card";
 import {
   SEASONAL_REMOTE_MIN_DAYS,
@@ -565,6 +566,10 @@ export function AvailabilityCalendar({
 
   const isSimpleGuestHome = mode === "tenant" && context === "home";
 
+  if (isSimpleGuestHome && bookingConfirmation) {
+    return <BookingConfirmation confirmation={bookingConfirmation} />;
+  }
+
   if (isSimpleGuestHome) {
     return (
       <div className="vr-simple-book" aria-label="Book your stay">
@@ -640,13 +645,6 @@ export function AvailabilityCalendar({
             void handleInstantBookStay();
           }}
         />
-        {bookingConfirmation ? (
-          <p className="vr-simple-book__done" role="status">
-            Booked {formatReadableDate(bookingConfirmation.checkInDate)} →{" "}
-            {formatReadableDate(bookingConfirmation.validUntil)}. Check your email for the Stay
-            Passport.
-          </p>
-        ) : null}
       </div>
     );
   }

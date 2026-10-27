@@ -168,7 +168,7 @@ export function DualBrandHome({
         <nav className="google-nav" aria-label="Main navigation">
           <button
             type="button"
-            className="text-button"
+            className="text-button google-nav__hide-mobile"
             onClick={() => setPerspective("tenant")}
           >
             Book a Stay
