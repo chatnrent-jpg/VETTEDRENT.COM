@@ -3,13 +3,12 @@
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState, type FormEvent } from "react";
-import { ActiveStayCard } from "@/components/active-stay-card";
 import { AvailabilityCalendar } from "@/components/availability-calendar";
 import { JurisdictionSelect } from "@/components/jurisdiction-select";
+import { SimpleShell } from "@/components/simple-shell";
 import { Progress } from "@/components/ui/progress";
 import { todayIsoUtc } from "@/lib/availability-calendar";
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/compliance/jurisdictions";
-import { defaultGeoStatusLabel } from "@/lib/geo-compliance";
 import { resolveCallerRole } from "@/lib/host-access";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 
@@ -25,7 +24,6 @@ type HostListingView =
       lockConnected: boolean;
       weeklyPriceCents: number | null;
       jurisdictionCode: string;
-      geoCompliance: string;
     };
 
 export default function DashboardPage() {
@@ -60,68 +58,49 @@ export default function DashboardPage() {
     };
   }, []);
 
+  const signedIn = gate === "host" || gate === "lodger" || gate === "unknown";
+
   return (
-    <main className="google-home" data-perspective={gate === "host" ? "landlord" : "tenant"}>
-      <div className="google-hero-backdrop" aria-hidden="true" />
-      <header className="google-topbar">
-        <Link href="/" className="google-logo">
-          <img
-            src="/vettedrent-logo-mark.jpg"
-            alt="VettedRent.Com Crest"
-            className="google-logo-badge"
-            width={42}
-            height={42}
-          />
-          <div className="google-logo-lockup">
-            <strong>
-              VettedRent<em className="google-logo-domain">.Com</em>
-            </strong>
-            <span>Be Great to Yourself.</span>
-          </div>
-        </Link>
-        <nav className="google-nav">
+    <SimpleShell
+      perspective={gate === "host" ? "landlord" : "tenant"}
+      nav={
+        <>
           <Link className="text-button" href="/">
-            ← Home
+            Find a Stay
           </Link>
-          <Link className="button button-secondary" href="/underwriting">
-            $0 Deposit Approval
-          </Link>
-          {gate === "host" || gate === "lodger" ? <SignOutButton /> : null}
-        </nav>
-      </header>
-
-      <section className="google-stage" style={{ width: "100%" }}>
-        {gate === "checking" ? <p className="note">Checking your session...</p> : null}
-        {gate === "signed-out" ? <SignInPanel linkError={linkError} /> : null}
-        {gate === "unknown" ? (
-          <article className="panel" style={{ width: "min(36rem, 100%)" }}>
-            <h2>Account not assigned</h2>
-            <p className="note">This account is not a host or a lodger yet.</p>
-          </article>
-        ) : null}
-        {gate === "host" ? (
-          <div style={{ width: "100%", textAlign: "left" }}>
-            <HostPanel />
-          </div>
-        ) : null}
-        {gate === "lodger" ? (
-          <div style={{ width: "100%", textAlign: "left" }}>
-            <LodgerPanel />
-          </div>
-        ) : null}
-      </section>
-
-      <footer className="google-footer">
-        <span>
-          VettedRent · <strong>$0 Security Deposit</strong> · <strong>No Credit Check</strong> ·{" "}
-          <strong>Instant Bank Link Setup</strong>
-        </span>
-        <div className="google-footer__links">
-          <Link href="/">Explore Stays</Link>
-          <Link href="/underwriting">Book Now</Link>
+          {signedIn ? <SignOutButton /> : null}
+        </>
+      }
+    >
+      {gate === "checking" ? (
+        <div className="vr-page vr-page--narrow">
+          <p className="vr-help" style={{ textAlign: "center" }}>
+            One moment...
+          </p>
         </div>
-      </footer>
-    </main>
+      ) : null}
+      {gate === "signed-out" ? <SignInPanel linkError={linkError} /> : null}
+      {gate === "unknown" ? (
+        <div className="vr-page vr-page--narrow">
+          <div className="vr-page__head">
+            <h1>Let&apos;s get you started</h1>
+            <p>We don&apos;t see a stay or a property on this account yet.</p>
+          </div>
+          <div className="vr-tiles">
+            <Link className="vr-tile" href="/">
+              <strong>Find a stay</strong>
+              <span>Browse furnished rooms, suites, and homes in Maryland.</span>
+            </Link>
+            <Link className="vr-tile" href="/host/onboard">
+              <strong>List your property</strong>
+              <span>Welcome guests. We handle verification.</span>
+            </Link>
+          </div>
+        </div>
+      ) : null}
+      {gate === "host" ? <HostPanel /> : null}
+      {gate === "lodger" ? <LodgerPanel /> : null}
+    </SimpleShell>
   );
 }
 
@@ -195,51 +174,70 @@ function SignInPanel({ linkError = null }: { linkError?: string | null }) {
 
   if (sent) {
     return (
-      <div className="google-headline">
-        <h1>Check your email.</h1>
-        <p>Open the magic sign-in link we just sent to {email} to enter your dashboard.</p>
+      <div className="vr-page vr-page--narrow">
+        <div className="vr-card vr-card--center">
+          <h2>Check your email</h2>
+          <p>
+            We sent a sign-in link to <strong>{email.trim()}</strong>. Tap it on this device and
+            you&apos;re in.
+          </p>
+          <p className="vr-help">
+            Don&apos;t see it? Look in spam or promotions. It can take a minute.
+          </p>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => {
+              setSent(false);
+              setError(null);
+            }}
+          >
+            Use a different email
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ width: "min(40rem, 100%)", display: "grid", gap: "1.15rem" }}>
-      <div className="google-headline">
-        <h1>Sign in to VettedRent.Com</h1>
-        <p>
-          Access your <strong>QR Stay Pass</strong>, <strong>Move-Out Vault</strong>, or{" "}
-          <strong>Host Payout Dashboard</strong> with a 1-click email link.
-        </p>
+    <div className="vr-page vr-page--narrow">
+      <div className="vr-page__head">
+        <h1>Welcome back</h1>
+        <p>Sign in with your email. No password needed.</p>
       </div>
 
       {linkError ? (
-        <p className="note" role="alert">
+        <p className="error" role="alert">
           {linkError}
         </p>
       ) : null}
 
-      <form className="google-search-bar" onSubmit={submit}>
-        <label className="google-search-cell" style={{ flex: "1 1 16rem" }}>
-          <span>Your Email Address</span>
+      <form className="vr-card" onSubmit={submit}>
+        <label className="field">
+          <span>Your email</span>
           <input
             type="email"
             name="email"
             autoComplete="email"
-            placeholder="you@domain.com"
+            placeholder="you@example.com"
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
         </label>
-        <button className="button google-search-cta" type="submit" disabled={busy}>
-          {busy ? "Sending..." : "Email Me a Sign-In Link →"}
+        <button className="button" type="submit" disabled={busy}>
+          {busy ? "Sending..." : "Email me a sign-in link"}
         </button>
-      </form>
-      {error ? (
-        <p className="error" role="alert">
-          {error}
+        {error ? (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <p className="vr-help">
+          We&apos;ll email you a secure link. Use it to see your stay pass, or to manage your
+          property.
         </p>
-      ) : null}
+      </form>
     </div>
   );
 }
@@ -286,11 +284,8 @@ async function readSessionGate(): Promise<Gate> {
 
 function HostPanel() {
   const [listing, setListing] = useState<HostListingView>({ kind: "loading" });
-  const [billingNote, setBillingNote] = useState<string | null>(null);
-  const [billing, setBilling] = useState(false);
   const [savingLocation, setSavingLocation] = useState(false);
   const [locationNote, setLocationNote] = useState<string | null>(null);
-  const [locationVersion, setLocationVersion] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -305,90 +300,110 @@ function HostPanel() {
   }, []);
 
   return (
-    <section className="stack" aria-label="Host">
-      <article className="panel">
-        <h2>Property</h2>
-        {listing.kind === "loading" ? <p className="note">Checking your listing.</p> : null}
+    <div className="vr-page" aria-label="Host dashboard">
+      <div className="vr-page__head">
+        <h1>Welcome back</h1>
+        <p>Manage your listings, check in guests, and keep your dates up to date.</p>
+      </div>
+
+      <div className="vr-tiles">
+        <Link className="vr-tile" href="/host/listing">
+          <strong>My listings</strong>
+          <span>Add photos, set your price, and publish.</span>
+        </Link>
+        <Link className="vr-tile" href="/host/scanner">
+          <strong>Check in a guest</strong>
+          <span>Scan a guest&apos;s stay pass at the door.</span>
+        </Link>
+        <Link className="vr-tile" href="/host/onboard">
+          <strong>Add a property</strong>
+          <span>List another room, suite, or home.</span>
+        </Link>
+      </div>
+
+      <article className="vr-card">
+        <h2>Your property</h2>
+        {listing.kind === "loading" ? <p>Loading your property...</p> : null}
         {listing.kind === "error" ? (
           <p className="error" role="alert">
-            Could not load the property.
+            We couldn&apos;t load your property. Refresh the page to try again.
           </p>
         ) : null}
         {listing.kind === "empty" ? (
-          <p className="note">No listing is tied to this host yet.</p>
+          <>
+            <p>You haven&apos;t added a property yet.</p>
+            <div className="vr-cta-row">
+              <Link className="button" href="/host/onboard">
+                List your property
+              </Link>
+            </div>
+          </>
         ) : null}
         {listing.kind === "ready" ? (
           <>
-            <div className="row">
-              <span>Name</span>
-              <strong>{listing.name}</strong>
-            </div>
-            <div className="row">
-              <span>Lock</span>
-              <strong>{listing.lockConnected ? "Connected" : "Not connected"}</strong>
-            </div>
+            <dl className="vr-facts">
+              <div>
+                <dt>Name</dt>
+                <dd>{listing.name}</dd>
+              </div>
+              <div>
+                <dt>Weekly rate</dt>
+                <dd>
+                  {listing.weeklyPriceCents !== null
+                    ? `${formatCentsAsDollars(listing.weeklyPriceCents)} / week`
+                    : "Not set yet"}
+                </dd>
+              </div>
+              <div>
+                <dt>Smart lock</dt>
+                <dd>
+                  <span className={listing.lockConnected ? "vr-pill" : "vr-pill vr-pill--warn"}>
+                    {listing.lockConnected ? "Connected" : "Not connected yet"}
+                  </span>
+                </dd>
+              </div>
+            </dl>
             <JurisdictionSelect
               value={listing.jurisdictionCode}
               disabled={savingLocation}
-              onChange={(code) => void saveHostLocation(code, setListing, setSavingLocation, setLocationNote, setLocationVersion)}
+              onChange={(code) =>
+                void saveHostLocation(code, setListing, setSavingLocation, setLocationNote)
+              }
             />
-            <p className="note">{listing.geoCompliance}</p>
-            {locationNote ? <p className="note">{locationNote}</p> : null}
+            {locationNote ? <p>{locationNote}</p> : null}
+            <div className="vr-cta-row">
+              <a
+                className="button button-secondary"
+                href={`/api/agreements/license?format=pdf&jurisdiction=${encodeURIComponent(listing.jurisdictionCode)}&weeklyFeeCents=${listing.weeklyPriceCents ?? 31500}&propertyTitle=${encodeURIComponent(listing.name)}`}
+                download={`VettedRent-Stay-Agreement-${listing.jurisdictionCode}.pdf`}
+              >
+                Download stay agreement (PDF)
+              </a>
+            </div>
           </>
         ) : null}
       </article>
-      <article className="panel">
-        <h2>Weekly billing</h2>
-        <div className="row">
-          <span>Rate</span>
-          {listing.kind === "ready" && listing.weeklyPriceCents !== null ? (
-            <span className="chip">{formatCentsAsDollars(listing.weeklyPriceCents)}</span>
-          ) : (
-            <strong>{listing.kind === "loading" ? "Checking" : "$45/day ($315/wk)"}</strong>
-          )}
+
+      <details className="vr-card vr-fold">
+        <summary>Open dates and calendar</summary>
+        <div className="vr-fold__body">
+          <p className="vr-help">
+            Pick the days your place is open. Guests can book any open day.
+          </p>
+          <AvailabilityCalendar
+            mode="landlord"
+            tierId="RoomSanctuary"
+            stayDays={90}
+            checkInIso={todayIsoUtc()}
+            onSelectCheckIn={() => {}}
+          />
         </div>
-        <p className="note">
-          Verified guest stays include <strong>$0 Security Deposit</strong>,{" "}
-          <strong>No Credit Check</strong>, and <strong>Instant Bank Link Setup</strong>.
-        </p>
-        <div className="actions" style={{ flexWrap: "wrap" }}>
-          <button
-            type="button"
-            className="button"
-            disabled={billing}
-            onClick={() => void runHostWeeklyBilling(setBilling, setBillingNote)}
-          >
-            Run weekly billing
-          </button>
-          <Link className="button button-secondary" href="/admin">
-            Open Protected Admin Console →
-          </Link>
-        </div>
-        {billingNote ? <p className="note">{billingNote}</p> : null}
-      </article>
-      <ActiveStayCard key={locationVersion} />
-      <AvailabilityCalendar
-        mode="landlord"
-        tierId="RoomSanctuary"
-        stayDays={90}
-        checkInIso={todayIsoUtc()}
-        onSelectCheckIn={() => {}}
-      />
-      <div className="actions" style={{ flexWrap: "wrap" }}>
-        {listing.kind === "ready" ? (
-          <a
-            className="button button-secondary"
-            href={`/api/agreements/license?format=pdf&jurisdiction=${encodeURIComponent(listing.jurisdictionCode)}&weeklyFeeCents=${listing.weeklyPriceCents ?? 31500}&propertyTitle=${encodeURIComponent(listing.name)}`}
-            download={`VettedRent-Commercial-License-${listing.jurisdictionCode}.pdf`}
-          >
-            Download Revocable Commercial License (PDF) ↓
-          </a>
-        ) : null}
-        <Link className="button" href="/host/scanner">
-          Open scanner
-        </Link>
-      </div>
-    </section>
+      </details>
+
+      <p className="vr-help" style={{ textAlign: "center" }}>
+        Team member? <Link href="/admin">Open the admin console</Link>
+      </p>
+    </div>
   );
 }
 
@@ -431,7 +446,6 @@ function hostListingFromBody(body: unknown): HostListingView {
   if (name === "" || typeof record.lockConnected !== "boolean") {
     return { kind: "error" };
   }
-  const geoCompliance = textValue(record.geoCompliance) ?? defaultGeoStatusLabel();
   const jurisdictionCode = textValue(record.jurisdictionCode) ?? DEFAULT_JURISDICTION_CODE;
   if (record.weeklyPriceCents === null) {
     return {
@@ -440,7 +454,6 @@ function hostListingFromBody(body: unknown): HostListingView {
       lockConnected: record.lockConnected,
       weeklyPriceCents: null,
       jurisdictionCode,
-      geoCompliance,
     };
   }
   const weeklyPriceCents = positiveInteger(record.weeklyPriceCents);
@@ -453,7 +466,6 @@ function hostListingFromBody(body: unknown): HostListingView {
     lockConnected: record.lockConnected,
     weeklyPriceCents,
     jurisdictionCode,
-    geoCompliance,
   };
 }
 
@@ -464,7 +476,6 @@ type StayStatus = {
   seamAccessCodeId: string | null;
   listingId: string | null;
   jurisdictionCode: string;
-  geoCompliance: string;
   systemMessage: string;
 };
 
@@ -483,10 +494,6 @@ type LodgerView =
 
 function LodgerPanel() {
   const [view, setView] = useState<LodgerView>({ kind: "loading" });
-  const [billingNote, setBillingNote] = useState<string | null>(null);
-  const [billing, setBilling] = useState(false);
-  const [savingLocation, setSavingLocation] = useState(false);
-  const [locationNote, setLocationNote] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -502,152 +509,142 @@ function LodgerPanel() {
 
   if (view.kind === "loading") {
     return (
-      <section className="stack" aria-label="Lodger">
-        <p className="note">Checking your session.</p>
-      </section>
+      <div className="vr-page vr-page--narrow">
+        <p className="vr-help" style={{ textAlign: "center" }}>
+          Loading your stay...
+        </p>
+      </div>
     );
   }
 
   if (view.kind === "denied") {
     return (
-      <section className="stack" aria-label="Lodger">
-        <article className="panel">
-          <h2>Lodgers only</h2>
-          <p className="note">This stay pass is limited to lodger accounts.</p>
-        </article>
-      </section>
+      <div className="vr-page vr-page--narrow">
+        <div className="vr-card vr-card--center">
+          <h2>Guest accounts only</h2>
+          <p>This page is for guests with a booked stay.</p>
+        </div>
+      </div>
     );
   }
 
   if (view.kind === "error") {
     return (
-      <section className="stack" aria-label="Lodger">
+      <div className="vr-page vr-page--narrow">
         <p className="error" role="alert">
-          Could not load your stay.
+          We couldn&apos;t load your stay. Refresh the page to try again.
         </p>
-      </section>
+      </div>
     );
   }
 
+  const payment = paymentLabel(view.paymentStatus, view.riskLevel);
+
   return (
-    <section className="stack lodger-screen" aria-label="Lodger">
+    <div className="vr-page vr-page--narrow" aria-label="Your stay">
+      <div className="vr-page__head">
+        <h1>Your stay</h1>
+        <p>Show your code at check-in. Everything for your stay is here.</p>
+      </div>
+
       {view.kind === "ready" ? (
-        <div className="lodger-qr">
-          <QRCodeSVG
-            value={agreementQrValue(view.tenantId, view.agreementId)}
-            size={232}
-            bgColor="#ffffff"
-            fgColor="#14181f"
-            level="M"
-            marginSize={4}
-            title="Agreement code"
-          />
-        </div>
+        <article className="vr-card vr-card--center">
+          <div className="vr-qr">
+            <QRCodeSVG
+              value={agreementQrValue(view.tenantId, view.agreementId)}
+              size={232}
+              bgColor="#ffffff"
+              fgColor="#14181f"
+              level="M"
+              marginSize={2}
+              title="Your check-in code"
+            />
+          </div>
+          <p>
+            <strong>Show this code to your host at check-in.</strong>
+          </p>
+        </article>
       ) : (
-        <article className="panel">
-          <h2>No active agreement</h2>
-          <p className="note">A stay code appears here when an agreement is active.</p>
+        <article className="vr-card vr-card--center">
+          <h2>No active stay yet</h2>
+          <p>Once you book, your check-in code shows up here.</p>
+          <Link className="button" href="/">
+            Find a stay
+          </Link>
         </article>
       )}
+
       {view.kind === "ready" ? (
-        <StayPanel
-          view={view}
-          savingLocation={savingLocation}
-          locationNote={locationNote}
-          onLocation={(code) => void saveLodgerLocation(code, setView, setSavingLocation, setLocationNote)}
-        />
+        <article className="vr-card">
+          <h2>Stay details</h2>
+          <dl className="vr-facts">
+            <div>
+              <dt>Payments</dt>
+              <dd>
+                <span className={payment.warn ? "vr-pill vr-pill--warn" : "vr-pill"}>
+                  {payment.text}
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt>Digital key</dt>
+              <dd>{view.seamAccessCodeId ? "Ready" : "Set up after check-in"}</dd>
+            </div>
+            <div>
+              <dt>Security deposit</dt>
+              <dd>$0</dd>
+            </div>
+          </dl>
+          <div className="vr-cta-row">
+            <a
+              className="button button-secondary"
+              href={`/api/agreements/license?format=pdf&agreementId=${encodeURIComponent(view.agreementId)}&listingId=${encodeURIComponent(view.listingId ?? "vr-weekly-room")}&jurisdiction=${encodeURIComponent(view.jurisdictionCode)}&vaultBalanceCents=${view.vaultBalanceCents}&seamAccessCodeId=${encodeURIComponent(view.seamAccessCodeId ?? "access_code_mock_12345")}&status=${view.paymentStatus === "delinquent" || view.riskLevel === "critical" ? "License_Revoked" : "License_Active"}`}
+              download={`VettedRent-Stay-Agreement-${view.jurisdictionCode}.pdf`}
+            >
+              Download stay agreement (PDF)
+            </a>
+            <Link className="button button-secondary" href="/underwriting">
+              Set up payment
+            </Link>
+          </div>
+        </article>
       ) : null}
-      <VaultProgress
-        balanceCents={view.balanceCents}
-        savingsGoalCents={view.savingsGoalCents}
-        systemMessage={view.systemMessage}
-      />
-      {view.kind === "ready" ? (
-        <div className="actions" style={{ flexWrap: "wrap" }}>
-          <button
-            type="button"
-            className="button"
-            disabled={billing}
-            onClick={() => void runWeeklyBilling(setView, setBilling, setBillingNote)}
-          >
-            Run weekly billing
-          </button>
-          <a
-            className="button button-secondary"
-            href={`/api/agreements/license?format=pdf&agreementId=${encodeURIComponent(view.agreementId)}&listingId=${encodeURIComponent(view.listingId ?? "vr-weekly-room")}&jurisdiction=${encodeURIComponent(view.jurisdictionCode)}&vaultBalanceCents=${view.vaultBalanceCents}&seamAccessCodeId=${encodeURIComponent(view.seamAccessCodeId ?? "access_code_mock_12345")}&status=${view.paymentStatus === "delinquent" || view.riskLevel === "critical" ? "License_Revoked" : "License_Active"}`}
-            download={`VettedRent-Commercial-License-${view.jurisdictionCode}.pdf`}
-          >
-            Download Revocable Commercial License (PDF) ↓
-          </a>
-        </div>
-      ) : null}
-      {billingNote ? <p className="note">{billingNote}</p> : null}
-      <Link className="button" href="/underwriting">
-        Connect a bank
-      </Link>
-    </section>
+
+      <MoveOutSavings balanceCents={view.balanceCents} savingsGoalCents={view.savingsGoalCents} />
+    </div>
   );
 }
 
-function StayPanel({
-  view,
-  savingLocation,
-  locationNote,
-  onLocation,
-}: {
-  view: StayStatus;
-  savingLocation: boolean;
-  locationNote: string | null;
-  onLocation: (code: string) => void;
-}) {
-  return (
-    <article className="panel">
-      <h2>Stay</h2>
-      {view.listingId ? (
-        <JurisdictionSelect value={view.jurisdictionCode} disabled={savingLocation} onChange={onLocation} />
-      ) : null}
-      <p className="note">{view.geoCompliance}</p>
-      {locationNote ? <p className="note">{locationNote}</p> : null}
-      <div className="row">
-        <span>Payment</span>
-        <strong>{view.paymentStatus ?? "Unknown"}</strong>
-      </div>
-      <div className="row">
-        <span>Risk</span>
-        <strong>{view.riskLevel ?? "Unknown"}</strong>
-      </div>
-      <div className="row">
-        <span>Agreement escrow</span>
-        <strong>{formatCentsAsDollars(view.vaultBalanceCents)}</strong>
-      </div>
-      <div className="row">
-        <span>Door code</span>
-        <strong>{view.seamAccessCodeId ?? "Not provisioned"}</strong>
-      </div>
-      <div className="row">
-        <span>System message</span>
-        <span className="chip">{view.systemMessage}</span>
-      </div>
-    </article>
-  );
+function paymentLabel(
+  paymentStatus: string | null,
+  riskLevel: string | null,
+): { text: string; warn: boolean } {
+  if (paymentStatus === "delinquent" || riskLevel === "critical") {
+    return { text: "Payment needed", warn: true };
+  }
+  if (!paymentStatus) {
+    return { text: "Not set up yet", warn: true };
+  }
+  const readable = paymentStatus.replace(/_/g, " ");
+  return { text: readable.charAt(0).toUpperCase() + readable.slice(1), warn: false };
 }
 
-function VaultProgress({
+function MoveOutSavings({
   balanceCents,
   savingsGoalCents,
-  systemMessage,
 }: {
   balanceCents: number;
   savingsGoalCents: number | null;
-  systemMessage: string;
 }) {
   const percent = vaultCompletionPercent(balanceCents, savingsGoalCents);
-  const label = `Vault Balance: ${formatCentsAsDollars(balanceCents)} / $1,500.00 — Building your path to independence. ${systemMessage}`;
+  const goalCents = savingsGoalCents ?? 150000;
+  const label = `Move-out savings: ${formatCentsAsDollars(balanceCents)} of ${formatCentsAsDollars(goalCents)}`;
   return (
-    <div className="vault-progress">
+    <article className="vr-card">
+      <h2>Move-out savings</h2>
       <Progress value={percent} aria-label={label} />
-      <p className="vault-label">{label}</p>
-    </div>
+      <p>{label}. Every on-time week brings you closer to your next place.</p>
+    </article>
   );
 }
 
@@ -683,88 +680,6 @@ function formatCentsAsDollars(cents: number): string {
   const remainder = abs % 100;
   const grouped = String(dollars).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   return `${negative ? "-" : ""}$${grouped}.${String(remainder).padStart(2, "0")}`;
-}
-
-async function runHostWeeklyBilling(
-  setBilling: (billing: boolean) => void,
-  setBillingNote: (note: string | null) => void,
-): Promise<void> {
-  setBilling(true);
-  setBillingNote(null);
-  const billed = await postWeeklyCycle();
-  setBilling(false);
-  setBillingNote(billed ?? "Weekly billing failed.");
-}
-
-async function runWeeklyBilling(
-  setView: (view: LodgerView) => void,
-  setBilling: (billing: boolean) => void,
-  setBillingNote: (note: string | null) => void,
-): Promise<void> {
-  setBilling(true);
-  setBillingNote(null);
-  const billed = await postWeeklyCycle();
-  if (!billed) {
-    setBilling(false);
-    setBillingNote("Weekly billing failed.");
-    return;
-  }
-  setBillingNote(billed);
-  setView(await loadLodgerView());
-  setBilling(false);
-}
-
-async function postWeeklyCycle(): Promise<string | null> {
-  try {
-    const supabase = getSupabaseBrowserClient();
-    const session = await supabase.auth.getSession();
-    const token = session.data.session?.access_token;
-    if (session.error || !token) {
-      return "Sign in to run weekly billing.";
-    }
-    const response = await fetch("/api/billing/weekly-cycle", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const body: unknown = await response.json();
-    if (!response.ok) {
-      return null;
-    }
-    const billed = weeklyBillingFromBody(body);
-    if (!billed) {
-      const message = body && typeof body === "object" ? (body as { error?: unknown }).error : null;
-      return typeof message === "string" && message.trim() !== "" ? message : null;
-    }
-    return `Simulated weekly billing. Host ${formatCentsAsDollars(billed.hostCents)}. GMF Vault ${formatCentsAsDollars(billed.vaultCents)}. Platform ${formatCentsAsDollars(billed.platformCents)}. GMF Vault balance ${formatCentsAsDollars(billed.vaultBalanceCents)}.`;
-  } catch {
-    return null;
-  }
-}
-
-function weeklyBillingFromBody(body: unknown): {
-  hostCents: number;
-  vaultCents: number;
-  platformCents: number;
-  vaultBalanceCents: number;
-} | null {
-  if (!body || typeof body !== "object") {
-    return null;
-  }
-  const record = body as Record<string, unknown>;
-  const split = record.split;
-  if (!split || typeof split !== "object") {
-    return null;
-  }
-  const parts = split as Record<string, unknown>;
-  const hostCents = integerValue(parts.hostCents);
-  const vaultCents = integerValue(parts.vaultCents);
-  const platformCents = integerValue(parts.platformCents);
-  const vaultBalanceCents = integerValue(record.vaultBalanceCents);
-  if (hostCents === null || vaultCents === null || platformCents === null || vaultBalanceCents === null) {
-    return null;
-  }
-  return { hostCents, vaultCents, platformCents, vaultBalanceCents };
 }
 
 async function loadLodgerView(): Promise<LodgerView> {
@@ -841,7 +756,6 @@ function stayFromPass(record: Record<string, unknown>): StayStatus {
     seamAccessCodeId: optionalText(record.seamAccessCodeId),
     listingId: optionalText(record.listingId),
     jurisdictionCode: optionalText(record.jurisdictionCode) ?? DEFAULT_JURISDICTION_CODE,
-    geoCompliance: optionalText(record.geoCompliance) ?? defaultGeoStatusLabel(),
     systemMessage: optionalText(record.systemMessage) ?? "Be Great to Yourself.",
   };
 }
@@ -851,50 +765,24 @@ async function saveHostLocation(
   setListing: (update: (current: HostListingView) => HostListingView) => void,
   setSaving: (saving: boolean) => void,
   setNote: (note: string | null) => void,
-  setLocationVersion: (update: (current: number) => number) => void,
 ): Promise<void> {
   setSaving(true);
   setNote(null);
   const saved = await postJurisdiction(code);
   setSaving(false);
   if (!saved) {
-    setNote("Could not save the listing location.");
+    setNote("Could not save the location. Try again.");
     return;
   }
   setListing((current) =>
-    current.kind === "ready"
-      ? { ...current, jurisdictionCode: saved.jurisdictionCode, geoCompliance: saved.geoCompliance }
-      : current,
-  );
-  setNote(saved.blockReason);
-  setLocationVersion((current) => current + 1);
-}
-
-async function saveLodgerLocation(
-  code: string,
-  setView: (update: (current: LodgerView) => LodgerView) => void,
-  setSaving: (saving: boolean) => void,
-  setNote: (note: string | null) => void,
-): Promise<void> {
-  setSaving(true);
-  setNote(null);
-  const saved = await postJurisdiction(code);
-  setSaving(false);
-  if (!saved) {
-    setNote("Could not save the listing location.");
-    return;
-  }
-  setView((current) =>
-    current.kind === "ready" || current.kind === "empty"
-      ? { ...current, jurisdictionCode: saved.jurisdictionCode, geoCompliance: saved.geoCompliance }
-      : current,
+    current.kind === "ready" ? { ...current, jurisdictionCode: saved.jurisdictionCode } : current,
   );
   setNote(saved.blockReason);
 }
 
 async function postJurisdiction(
   code: string,
-): Promise<{ jurisdictionCode: string; geoCompliance: string; blockReason: string | null } | null> {
+): Promise<{ jurisdictionCode: string; blockReason: string | null } | null> {
   try {
     const supabase = getSupabaseBrowserClient();
     const session = await supabase.auth.getSession();
@@ -916,12 +804,11 @@ async function postJurisdiction(
       return null;
     }
     const record = body as Record<string, unknown>;
-    if (record.ok !== true || typeof record.jurisdictionCode !== "string" || typeof record.geoCompliance !== "string") {
+    if (record.ok !== true || typeof record.jurisdictionCode !== "string") {
       return null;
     }
     return {
       jurisdictionCode: record.jurisdictionCode,
-      geoCompliance: record.geoCompliance,
       blockReason: typeof record.blockReason === "string" ? record.blockReason : null,
     };
   } catch {
@@ -938,11 +825,7 @@ function optionalText(value: unknown): string | null {
 }
 
 function textValue(value: unknown): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed === "" ? null : trimmed;
+  return optionalText(value);
 }
 
 function positiveInteger(value: unknown): number | null {

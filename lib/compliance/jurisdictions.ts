@@ -60,6 +60,15 @@ export const JURISDICTION_RULES: readonly JurisdictionRule[] = [
   },
 ];
 
+/**
+ * Locations a person can choose on screen. VettedRent is Maryland-only, so
+ * the pickers offer Maryland and nothing else. The full rule list above stays
+ * for the server and for older agreements that still carry another code.
+ */
+export const MARYLAND_JURISDICTION_RULES: readonly JurisdictionRule[] = JURISDICTION_RULES.filter(
+  (rule) => rule.code === "MD" || rule.code.startsWith("MD-"),
+);
+
 export function resolveJurisdiction(code: string | null | undefined): JurisdictionRule | null {
   if (typeof code !== "string") {
     return null;

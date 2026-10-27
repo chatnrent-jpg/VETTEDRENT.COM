@@ -1,12 +1,11 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  AvailabilityCalendar,
-  type InstantBookingConfirmation,
-} from "@/components/availability-calendar";
+import type { InstantBookingConfirmation } from "@/components/availability-calendar";
+import { BookingConfirmation } from "@/components/booking-confirmation";
+import { SimpleShell } from "@/components/simple-shell";
 import { usePlaidLinkFlow } from "@/hooks/usePlaidLinkFlow";
 import {
   STAY_DURATION_OPTIONS,
@@ -16,21 +15,17 @@ import {
 } from "@/lib/availability-calendar";
 import {
   DEFAULT_JURISDICTION_CODE,
-  JURISDICTION_RULES,
+  MARYLAND_JURISDICTION_RULES,
   resolveJurisdiction,
 } from "@/lib/compliance/jurisdictions";
 import {
   DAILY_RATE_PRESET_TIERS,
   SPACE_TIER_CARDS,
-  calculateDailyRateComparison,
   clampTierWeeklyRateCents,
   type DailyRateTierId,
 } from "@/lib/daily-rate-comparison";
 import { intendedStayLengthDays } from "@/lib/geo-compliance";
-import {
-  divideIntegerCentsHalfUp,
-  formatCurrencyCents,
-} from "@/lib/marketing-calculator";
+import { divideIntegerCentsHalfUp } from "@/lib/marketing-calculator";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import {
   PURPOSE_COHORTS,
@@ -55,7 +50,6 @@ export function PlaidLinkScreen() {
   const [licenseSigned, setLicenseSigned] = useState<boolean>(false);
   const [prefilledStayDays, setPrefilledStayDays] = useState<number | null>(null);
   const [checkInIso, setCheckInIso] = useState<string>(() => todayIsoUtc());
-  const [showCalendar, setShowCalendar] = useState<boolean>(true);
   const [activatingPass, setActivatingPass] = useState(false);
   const [activationMessage, setActivationMessage] = useState<string | null>(null);
   const [activationError, setActivationError] = useState<string | null>(null);
@@ -216,19 +210,19 @@ export function PlaidLinkScreen() {
 
     if (trimmedName.length < 2) {
       setActivationError(
-        "Please enter your Legal Full Name so your Revocable Commercial License and Stay Passport are issued in your name.",
+        "Please enter your full name so your stay agreement and stay pass are issued in your name.",
       );
       return;
     }
     if (!trimmedEmail || !trimmedEmail.includes("@")) {
       setActivationError(
-        "Please enter your Verified Email Address to bind your identity to the Revocable Commercial License.",
+        "Please enter your email so we can send your stay agreement and stay pass.",
       );
       return;
     }
     if (!licenseSigned) {
       setActivationError(
-        "Please check the Electronic Signature box to sign and accept the Revocable Commercial License to Occupy.",
+        "Please check the box to sign the Stay Agreement before booking.",
       );
       return;
     }
@@ -281,7 +275,7 @@ export function PlaidLinkScreen() {
         const errText =
           typeof convRecord.error === "string"
             ? convRecord.error
-            : "Could not activate stay via conversion engine";
+            : "We couldn't complete your booking. Please try again.";
         setActivationError(errText);
         return;
       }
@@ -415,517 +409,258 @@ export function PlaidLinkScreen() {
       }
 
       setActivationMessage(
-        `Signed & Executed (${selectedStayDays} days: ${checkInIso} → ${validUntil}) for ${trimmedName} (${finalEmail}). Digital entry pass ready.`,
+        `You're booked: ${selectedStayDays} days, ${checkInIso} to ${validUntil}. Your stay pass is ready.`,
       );
       if (decision?.approved) {
         router.push("/dashboard");
       }
     } catch {
-      setActivationError("Network error while activating stay.");
+      setActivationError("Network problem while booking. Check your connection and try again.");
     } finally {
       setActivatingPass(false);
     }
   }
 
+  const nights = selectedStayDays;
+  const bankVerified = Boolean(decision?.approved);
+
   return (
-    <main className="google-home" data-perspective="tenant">
-      <div
-        className="google-hero-backdrop pointer-events-none"
-        style={{ pointerEvents: "none" }}
-        aria-hidden="true"
-      />
-      <header
-        className="google-topbar relative z-10"
-        style={{ position: "relative", zIndex: 10 }}
-      >
-        <Link href="/" className="google-logo">
-          <img
-            src="/vettedrent-logo-mark.jpg"
-            alt="VettedRent Crest"
-            className="google-logo-badge"
-            width={42}
-            height={42}
-          />
-          <div className="google-logo-lockup">
-            <strong>
-              VettedRent<em className="google-logo-domain">.Com</em>
-            </strong>
-            <span>Be Great to Yourself.</span>
-          </div>
-        </Link>
-        <nav className="google-nav" aria-label="Main navigation">
+    <SimpleShell
+      nav={
+        <>
           <Link className="text-button" href="/">
-            ← Explore Stays
+            Find a Stay
           </Link>
-          <Link className="button" href="/dashboard">
-            Sign In
+          <Link className="text-button" href="/dashboard">
+            My Account
           </Link>
-        </nav>
-      </header>
-
-      <section
-        className="google-stage relative z-10"
-        style={{ position: "relative", zIndex: 10 }}
-        aria-label="Instant booking and bank verification"
-      >
-        <div className="google-headline">
-          <h1>Sign &amp; Complete Your 7-to-90-Day Reservation</h1>
-          <p>
-            <strong>{selectedCard.title}</strong> ({selectedCard.dailyPriceLabel} ·{" "}
-            {selectedCard.weeklyPriceLabel}) · <strong>$0 Security Deposit</strong> ·{" "}
-            <strong>No Credit Check</strong> · <strong>Instant Bank Link Setup</strong>
-          </p>
-        </div>
-
-        {/* GUEST IDENTITY SIGN-UP & ELECTRONIC SIGNATURE PANEL */}
-        <div
-          className="panel stack relative z-10"
-          style={{ width: "100%", maxWidth: "62rem", textAlign: "left" }}
-          role="region"
-          aria-label="Guest Identity Sign-Up and Electronic Signature"
-        >
-          <div>
-            <p className="pass-kicker">
-              Mandatory Guest Identity &amp; Electronic Signature Binding
-            </p>
-            <h2>Enter Your Legal Full Name &amp; Sign Your Revocable Commercial License</h2>
-            <p className="note">
-              Your Legal Full Name and Verified Email are printed directly on your{" "}
-              <strong>Revocable Commercial License to Occupy</strong> and{" "}
-              <strong>Stay Passport PDF</strong> and cryptographically bound to your smart-lock
-              entry token.
-            </p>
-          </div>
-
-          <div className="simple-grid-2">
-            <label className="field">
-              <span>Your Legal Full Name (Printed on Document) *</span>
-              <input
-                type="text"
-                required
-                placeholder="Jordan Taylor"
-                value={guestFullName}
-                onChange={(e) => setGuestFullName(e.target.value)}
-              />
-            </label>
-            <label className="field">
-              <span>Your Verified Email Address *</span>
-              <input
-                type="email"
-                required
-                placeholder="jordan.taylor@domain.com"
-                value={prefilledLeadEmail}
-                onChange={(e) => setPrefilledLeadEmail(e.target.value)}
-              />
-            </label>
-          </div>
-
-          <label
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: "0.6rem",
-              fontSize: "0.86rem",
-              color: "#f8fafc",
-              cursor: "pointer",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={licenseSigned}
-              onChange={(e) => setLicenseSigned(e.target.checked)}
-              style={{ marginTop: "0.22rem", accentColor: "#10b981" }}
-            />
-            <span>
-              <strong>Electronic Signature (/s/ {guestFullName.trim() || "Your Name"}):</strong> I,{" "}
-              <strong>{guestFullName.trim() || "[Enter Your Legal Full Name Above]"}</strong>,
-              electronically sign and agree to the{" "}
-              <strong>Revocable Commercial License to Occupy</strong> ({selectedStayDays}-day
-              non-tenancy stay agreement) and authorize 1:1 weekly billing and digital smart-lock
-              keyway issuance.
-            </span>
-          </label>
-        </div>
-
-        {/* MINIMALIST DESTINATION + STAY LENGTH + CHECK-IN + INSTANT ACTION BAR */}
-        <div
-          className="google-search-bar vr-clean-booking-bar relative z-10"
-          style={{ position: "relative", zIndex: 10 }}
-        >
-          <label className="google-search-cell vr-search-cell--destination">
-            <span>Where are you traveling?</span>
-            <select
-              value={jurisdictionCode}
-              onChange={(e) => setJurisdictionCode(e.target.value)}
-            >
-              {JURISDICTION_RULES.map((rule) => (
-                <option key={rule.code} value={rule.code}>
-                  {rule.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="google-search-cell">
-            <span>Stay Length (7 to 90 Days)</span>
-            <select
-              aria-label="Stay Length (7 to 90 Days)"
-              value={selectedStayDays}
-              onChange={(e) => updateStayDurationDays(Number(e.target.value) || 7)}
-            >
-              {STAY_DURATION_OPTIONS.map((opt) => (
-                <option
-                  key={opt.days}
-                  value={opt.days}
-                  disabled={
-                    activeCohort.id === "Seasonal-Remote" &&
-                    opt.days < SEASONAL_REMOTE_MIN_DAYS
-                  }
-                >
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="google-search-cell">
-            <span>Check-In (→ {formatReadableDate(checkOutIso)})</span>
-            <input
-              type="date"
-              value={checkInIso}
-              onChange={(e) => {
-                if (e.target.value) {
-                  updateCheckInDate(e.target.value);
-                }
-              }}
-            />
-          </label>
-
-          {canSimulate ? (
-            <button
-              type="button"
-              className="button google-search-cta"
-              disabled={phase === "loading" || checking}
-              onClick={() => simulate(contract)}
-            >
-              {checking ? "Verifying..." : "Instant Bank Link Setup →"}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="button google-search-cta"
-              disabled={!ready || checking}
-              onClick={() => open()}
-            >
-              Instant Bank Link Setup →
-            </button>
-          )}
-
-          <button
-            type="button"
-            className="button button-secondary google-search-cta"
-            disabled={activatingPass}
-            onClick={() => void handleActivateWeeklyBillingAndPass()}
-          >
-            {activatingPass
-              ? "Executing..."
-              : `Sign & Issue ${selectedStayDays}-Day Pass`}
-          </button>
-        </div>
-
-        {activationError ? (
-          <p className="error" role="alert">
-            {activationError}
-          </p>
-        ) : null}
-
-        {error ? (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        ) : null}
-
-        {decision ? (
-          <Decision
-            decision={decision}
-            weeklyStayCents={clampedWeeklyStayCents}
-            jurisdictionCode={jurisdictionCode}
-            stayDays={prefilledStayDays ?? activeCohort.defaultStayDays}
-            applicantFullName={guestFullName.trim() || null}
-            applicantEmail={prefilledLeadEmail.trim() || null}
-            activatingPass={activatingPass}
-            activationMessage={activationMessage}
-            activationError={activationError}
-            onActivate={() => void handleActivateWeeklyBillingAndPass()}
-          />
-        ) : null}
-
+        </>
+      }
+    >
+      <div className="vr-page" aria-label="Book your stay">
         {confirmedBooking ? (
-          <div
-            className="vr-booking-confirmation relative z-10"
-            style={{ position: "relative", zIndex: 10, width: "100%" }}
-            role="region"
-            aria-label="Instant Booking Confirmation"
-          >
-            <div className="stay-card-head" style={{ flexWrap: "wrap" }}>
-              <div>
-                <p className="pass-kicker">
-                  Signed &amp; Executed · Licensee:{" "}
-                  {confirmedBooking.applicantFullName || confirmedBooking.applicant}
-                </p>
-                <h2>
-                  BOOKED: {formatReadableDate(confirmedBooking.checkInDate)} →{" "}
-                  {formatReadableDate(confirmedBooking.validUntil)} (
-                  {confirmedBooking.stayDays} Days)
-                </h2>
-              </div>
-              <span className="stay-badge" data-status="active">
-                Signed: /s/ {confirmedBooking.applicantFullName || "Verified Guest"}
-              </span>
+          <BookingConfirmation confirmation={confirmedBooking} />
+        ) : (
+          <>
+            <div className="vr-page__head">
+              <h1>Book your stay</h1>
+              <p>
+                {selectedCard.title} · {selectedCard.dailyPriceLabel} · $0 deposit · No credit
+                check
+              </p>
             </div>
 
-            <div className="vr-booking-confirmation__grid">
-              <div>
-                <span>Licensee Legal Full Name</span>
-                <strong>
-                  {confirmedBooking.applicantFullName || confirmedBooking.applicant}
-                </strong>
+            <section className="vr-card vr-step" aria-label="Step 1: About you">
+              <div className="vr-step__head">
+                <span className="vr-step__num">1</span>
+                <h2>About you</h2>
               </div>
-              <div>
-                <span>Verified Email</span>
-                <strong>{confirmedBooking.applicantEmail || confirmedBooking.applicant}</strong>
+              <div className="vr-form-grid">
+                <label className="field">
+                  <span>Full name</span>
+                  <input
+                    type="text"
+                    required
+                    autoComplete="name"
+                    placeholder="Jordan Taylor"
+                    value={guestFullName}
+                    onChange={(e) => setGuestFullName(e.target.value)}
+                  />
+                </label>
+                <label className="field">
+                  <span>Email</span>
+                  <input
+                    type="email"
+                    required
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    value={prefilledLeadEmail}
+                    onChange={(e) => setPrefilledLeadEmail(e.target.value)}
+                  />
+                </label>
               </div>
-              <div>
-                <span>Space Tier &amp; Rate</span>
-                <strong>
-                  {confirmedBooking.tier} ·{" "}
-                  {formatCurrencyCents(confirmedBooking.dailyRateCents)}/day (
-                  {formatCurrencyCents(confirmedBooking.weeklyRateCents)}/wk)
-                </strong>
-              </div>
-              <div>
-                <span>Electronic Signature &amp; Token</span>
-                <code>
-                  /s/ {confirmedBooking.applicantFullName} · {confirmedBooking.licenseToken}
-                </code>
-              </div>
-            </div>
+              <p className="vr-help">
+                Use your name as it appears on your ID. It goes on your stay agreement.
+              </p>
+            </section>
 
-            <div className="actions" style={{ marginTop: "0.5rem", flexWrap: "wrap" }}>
-              <a
-                className="button"
-                href={confirmedBooking.passportPdfHref}
-                download={`VettedRent-Trust-Passport-${(confirmedBooking.applicantFullName || "Guest").replace(/\s+/g, "-")}.pdf`}
-              >
-                Download Signed Stay Passport (PDF) ↓
-              </a>
-              <a
-                className="button button-secondary"
-                href={confirmedBooking.commercialLicensePdfHref}
-                download={`VettedRent-Commercial-License-${(confirmedBooking.applicantFullName || "Guest").replace(/\s+/g, "-")}.pdf`}
-              >
-                Download Signed Commercial License (PDF) ↓
-              </a>
-              <Link className="button button-secondary" href="/dashboard">
-                Open Digital Key Dashboard →
-              </Link>
-            </div>
-          </div>
-        ) : null}
+            <section className="vr-card vr-step" aria-label="Step 2: Your stay">
+              <div className="vr-step__head">
+                <span className="vr-step__num">2</span>
+                <h2>Your stay</h2>
+              </div>
+              <div className="vr-form-grid">
+                <label className="field">
+                  <span>Where</span>
+                  <select
+                    value={jurisdictionCode}
+                    onChange={(e) => setJurisdictionCode(e.target.value)}
+                  >
+                    {MARYLAND_JURISDICTION_RULES.map((rule) => (
+                      <option key={rule.code} value={rule.code}>
+                        {rule.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>How long</span>
+                  <select
+                    aria-label="How long"
+                    value={selectedStayDays}
+                    onChange={(e) => updateStayDurationDays(Number(e.target.value) || 7)}
+                  >
+                    {STAY_DURATION_OPTIONS.map((opt) => (
+                      <option
+                        key={opt.days}
+                        value={opt.days}
+                        disabled={
+                          activeCohort.id === "Seasonal-Remote" &&
+                          opt.days < SEASONAL_REMOTE_MIN_DAYS
+                        }
+                      >
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Check-in</span>
+                  <input
+                    type="date"
+                    value={checkInIso}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        updateCheckInDate(e.target.value);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="vr-total">
+                <span>
+                  {formatReadableDate(checkInIso)} to {formatReadableDate(checkOutIso)} ({nights}{" "}
+                  days)
+                </span>
+                <strong>{selectedCard.weeklyPriceLabel}</strong>
+              </div>
+              <p className="vr-help">
+                Want to see which days are open? <Link href="/">Browse stays</Link> and pick your
+                dates there.
+              </p>
+            </section>
 
-        {showCalendar ? (
-          <AvailabilityCalendar
-            mode="tenant"
-            tierId={selectedTierId}
-            weeklyRateCents={clampedWeeklyStayCents}
-            onChangeWeeklyRateCents={(next) => setWeeklyStayCents(next)}
-            stayDays={selectedStayDays}
-            onChangeStayDays={(nextDays) => updateStayDurationDays(nextDays)}
-            checkInIso={checkInIso}
-            onSelectCheckIn={(iso) => updateCheckInDate(iso)}
-            cohortId={activeCohort.id}
-            jurisdictionCode={jurisdictionCode}
-            applicantFullName={guestFullName}
-            applicantEmail={prefilledLeadEmail}
-            credentialIdentifier={contract.credentialIdentifier}
-            context="underwriting"
-            onBookingConfirmed={(conf) => setConfirmedBooking(conf)}
-          />
-        ) : null}
+            <section className="vr-card vr-step" aria-label="Step 3: Sign and book">
+              <div className="vr-step__head">
+                <span className="vr-step__num">3</span>
+                <h2>Sign and book</h2>
+              </div>
 
-        <details className="google-compare-drawer">
-          <summary>Travel Purpose &amp; Verification Details (Optional)</summary>
-          <div className="google-compare-drawer__body">
-            <div className="simple-grid-2">
-              <label className="field">
-                <span>Travel Purpose</span>
-                <select
-                  value={activeCohort.id}
-                  onChange={(e) => selectCohort(e.target.value as PurposeCohortId)}
-                >
-                  {PURPOSE_COHORTS.map((cohort) => (
-                    <option key={cohort.id} value={cohort.id}>
-                      {cohort.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                <span>{activeCohort.identifierLabel}</span>
+              <label className="vr-check">
                 <input
-                  value={contract.credentialIdentifier}
-                  onChange={(event) =>
-                    setContract({ ...contract, credentialIdentifier: event.target.value })
-                  }
+                  type="checkbox"
+                  checked={licenseSigned}
+                  onChange={(e) => setLicenseSigned(e.target.checked)}
                 />
+                <span>
+                  I&apos;m <strong>{guestFullName.trim() || "(your name)"}</strong>. I agree to the{" "}
+                  <strong>Stay Agreement</strong> for {nights} days. It&apos;s a short-term
+                  license to stay, not a lease. I agree to weekly billing and a digital key for
+                  my stay.
+                </span>
               </label>
-            </div>
-          </div>
-        </details>
-      </section>
 
-      <footer
-        className="google-footer relative z-10"
-        style={{ position: "relative", zIndex: 10 }}
-      >
-        <span>
-          VettedRent · <strong>$0 Security Deposit</strong> · <strong>No Credit Check</strong> ·{" "}
-          <strong>Instant Bank Link Setup</strong>
-        </span>
-        <div className="google-footer__links">
-          <Link href="/">Explore Stays</Link>
-          <Link href="/dashboard">Sign In</Link>
-        </div>
-      </footer>
-    </main>
-  );
-}
+              <div className="vr-cta-row">
+                <button
+                  type="button"
+                  className="button"
+                  disabled={activatingPass}
+                  onClick={() => void handleActivateWeeklyBillingAndPass()}
+                >
+                  {activatingPass ? "Booking..." : "Sign and get my stay pass"}
+                </button>
+                {canSimulate ? (
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    disabled={phase === "loading" || checking}
+                    onClick={() => simulate(contract)}
+                  >
+                    {checking ? "Checking..." : "Verify with my bank (optional)"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    disabled={!ready || checking}
+                    onClick={() => open()}
+                  >
+                    {checking ? "Checking..." : "Verify with my bank (optional)"}
+                  </button>
+                )}
+              </div>
 
-function Decision({
-  decision,
-  weeklyStayCents,
-  jurisdictionCode,
-  stayDays,
-  applicantFullName,
-  applicantEmail,
-  activatingPass,
-  activationMessage,
-  activationError,
-  onActivate,
-}: {
-  decision: {
-    approved: boolean;
-    ratio: number;
-    monthlyInflowEstimated: number;
-    simulated: boolean;
-    rejection: string | null;
-    credentialType: string;
-    credentialIdentifier: string;
-    contractEndDate: string;
-    intendedStayEndDate: string;
-    geoCompliance: string;
-  };
-  weeklyStayCents: number;
-  jurisdictionCode: string;
-  stayDays: number;
-  applicantFullName: string | null;
-  applicantEmail: string | null;
-  activatingPass: boolean;
-  activationMessage: string | null;
-  activationError: string | null;
-  onActivate: () => void;
-}) {
-  const passportQuery = new URLSearchParams({
-    cohort: decision.credentialType,
-    jurisdiction: jurisdictionCode,
-    days: String(stayDays),
-    weeklyCents: String(weeklyStayCents),
-    credentialId: decision.credentialIdentifier,
-    ratio: String(decision.ratio),
-    monthlyInflow: String(decision.monthlyInflowEstimated),
-    contractEnd: decision.contractEndDate,
-    stayEnd: decision.intendedStayEndDate,
-    ...(applicantFullName ? { fullName: applicantFullName } : {}),
-    ...(applicantEmail ? { email: applicantEmail, applicant: applicantEmail } : {}),
-  });
-  const passportHref = `/api/underwriting/trust-passport?${passportQuery.toString()}`;
+              {bankVerified ? (
+                <p>
+                  <span className="vr-pill">Bank verified</span> You&apos;re approved for a $0
+                  deposit stay.
+                </p>
+              ) : null}
+              {decision && !decision.approved ? (
+                <p className="error" role="alert">
+                  {decision.rejection ?? "We couldn't verify your bank yet. You can still book."}
+                </p>
+              ) : null}
+              {activationError ? (
+                <p className="error" role="alert">
+                  {activationError}
+                </p>
+              ) : null}
+              {error ? (
+                <p className="error" role="alert">
+                  {error}
+                </p>
+              ) : null}
+              {activationMessage ? <p className="payload">{activationMessage}</p> : null}
 
-  const licenseQuery = new URLSearchParams({
-    format: "pdf",
-    cohort: decision.credentialType,
-    jurisdiction: jurisdictionCode,
-    days: String(stayDays),
-    credentialId: decision.credentialIdentifier,
-    ratio: String(decision.ratio),
-    weeklyFeeCents: String(weeklyStayCents),
-    purposeEnd: decision.contractEndDate,
-    stayEnd: decision.intendedStayEndDate,
-    ...(applicantFullName ? { fullName: applicantFullName } : {}),
-    ...(applicantEmail ? { email: applicantEmail, licensee: applicantEmail } : {}),
-  });
-  const licenseHref = `/api/agreements/license?${licenseQuery.toString()}`;
+              <p className="vr-help">
+                Verifying your bank is optional and helps speed up approval. Your agreement and
+                stay pass are emailed to you after you book.
+              </p>
+            </section>
 
-  const decisionComparison = calculateDailyRateComparison(weeklyStayCents, stayDays);
-
-  return (
-    <div className="panel stack" style={{ width: "100%", textAlign: "left" }}>
-      <div className="stay-card-head">
-        <div>
-          <p className="pass-kicker">Instant Bank Link Setup Complete</p>
-          <h2>{decision.approved ? "Approved for $0 Security Deposit Stay" : "Verification Needed"}</h2>
-        </div>
-        <span
-          className="stay-badge"
-          data-status={decision.approved ? "active" : "terminated"}
-        >
-          {decision.approved ? "Verified" : "Action Required"}
-        </span>
+            <details className="vr-card vr-fold">
+              <summary>Why are you staying? (optional)</summary>
+              <div className="vr-fold__body">
+                <div className="vr-form-grid">
+                  <label className="field">
+                    <span>Reason for your stay</span>
+                    <select
+                      value={activeCohort.id}
+                      onChange={(e) => selectCohort(e.target.value as PurposeCohortId)}
+                    >
+                      {PURPOSE_COHORTS.map((cohort) => (
+                        <option key={cohort.id} value={cohort.id}>
+                          {cohort.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>{activeCohort.identifierLabel}</span>
+                    <input
+                      value={contract.credentialIdentifier}
+                      onChange={(event) =>
+                        setContract({ ...contract, credentialIdentifier: event.target.value })
+                      }
+                    />
+                  </label>
+                </div>
+              </div>
+            </details>
+          </>
+        )}
       </div>
-
-      <p className="note">
-        Licensee: <strong>{applicantFullName || "Enter Legal Full Name Above"}</strong> · Rate:{" "}
-        <strong>{formatCurrencyCents(decisionComparison.grossDailyRateCents)}/day</strong> ·{" "}
-        <strong>$0 Security Deposit</strong> · <strong>No Credit Check</strong>
-      </p>
-
-      {decision.rejection ? (
-        <p className="error" role="alert">
-          {decision.rejection}
-        </p>
-      ) : null}
-
-      {decision.approved ? (
-        <div className="actions" style={{ justifyContent: "space-between" }}>
-          <button
-            type="button"
-            className="button"
-            disabled={activatingPass}
-            onClick={onActivate}
-          >
-            {activatingPass
-              ? "Activating..."
-              : `Execute Signed Stay as ${applicantFullName || "Guest"} →`}
-          </button>
-
-          <a
-            className="button button-secondary"
-            href={passportHref}
-            download={`VettedRent-Trust-Passport-${(applicantFullName || decision.credentialType).replace(/\s+/g, "-")}.pdf`}
-          >
-            Signed Stay Passport (PDF) ↓
-          </a>
-          <a
-            className="button button-secondary"
-            href={licenseHref}
-            download={`VettedRent-Commercial-License-${(applicantFullName || decision.credentialType).replace(/\s+/g, "-")}-${jurisdictionCode}.pdf`}
-          >
-            Signed Stay Agreement (PDF) ↓
-          </a>
-        </div>
-      ) : null}
-
-      {activationMessage ? <p className="payload">{activationMessage}</p> : null}
-      {activationError ? <p className="error">{activationError}</p> : null}
-    </div>
+    </SimpleShell>
   );
 }

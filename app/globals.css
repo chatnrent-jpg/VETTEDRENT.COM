@@ -4635,3 +4635,103 @@ html[data-theme="light"] .vr-book-stay__back { color: #475569; }
     animation: none !important;
   }
 }
+
+/* ==========================================================================
+   SIMPLE PAGES: /dashboard and /underwriting.
+   Plain cards, big friendly type, one clear action per card. All colors come
+   from the theme variables, so the day/evening toggle works here too.
+   ========================================================================== */
+
+.vr-page {
+  width: min(62rem, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 1.1rem;
+  text-align: left;
+  animation: vr-rise 600ms 60ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+
+.vr-page--narrow { width: min(40rem, 100%); }
+
+.vr-page__head { display: grid; gap: 0.35rem; text-align: center; padding: 0.4rem 0 0.2rem; }
+.vr-page__head h1 { margin: 0; font-size: clamp(1.7rem, 4.2vw, 2.4rem); line-height: 1.15; color: var(--text); }
+.vr-page__head p { margin: 0; color: var(--muted); font-size: 1.05rem; line-height: 1.5; }
+
+.vr-card {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.4rem;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  box-shadow: 0 18px 40px -26px rgba(4, 10, 24, 0.7);
+  color: var(--text);
+}
+.vr-card h2 { margin: 0; font-size: 1.2rem; color: var(--text); }
+.vr-card p { margin: 0; color: var(--muted); line-height: 1.55; }
+.vr-card strong { color: var(--text); }
+.vr-card--center { justify-items: center; text-align: center; }
+
+.vr-tiles { display: grid; gap: 0.9rem; grid-template-columns: repeat(auto-fit, minmax(13.5rem, 1fr)); }
+.vr-tile {
+  display: grid;
+  gap: 0.3rem;
+  padding: 1.2rem 1.25rem;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  color: var(--text);
+  text-decoration: none;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.vr-tile:hover { transform: translateY(-3px); border-color: var(--accent-bright); box-shadow: 0 18px 36px -22px rgba(16, 185, 129, 0.55); }
+.vr-tile strong { font-size: 1.08rem; }
+.vr-tile span { color: var(--muted); font-size: 0.93rem; line-height: 1.45; }
+.vr-tile__icon { font-size: 1.5rem; line-height: 1; }
+
+.vr-facts { display: grid; gap: 0; margin: 0; }
+.vr-facts > div { display: flex; justify-content: space-between; gap: 1rem; padding: 0.7rem 0; border-top: 1px solid var(--line); }
+.vr-facts > div:first-child { border-top: 0; }
+.vr-facts dt { color: var(--muted); }
+.vr-facts dd { margin: 0; font-weight: 700; color: var(--text); text-align: right; }
+
+.vr-pill { display: inline-block; padding: 0.22rem 0.7rem; border-radius: 999px; font-size: 0.85rem; font-weight: 700; background: rgba(16, 185, 129, 0.16); color: var(--accent-bright); }
+.vr-pill--warn { background: rgba(251, 191, 36, 0.18); color: var(--gold); }
+
+.vr-qr { padding: 0.9rem; background: #ffffff; border-radius: 20px; line-height: 0; box-shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.6); }
+.vr-qr svg { width: min(15rem, 62vw); height: auto; }
+
+.vr-fold { padding: 0; overflow: hidden; }
+.vr-fold > summary { cursor: pointer; padding: 1.1rem 1.4rem; font-weight: 700; font-size: 1.05rem; list-style: none; color: var(--text); display: flex; justify-content: space-between; align-items: center; }
+.vr-fold > summary::-webkit-details-marker { display: none; }
+.vr-fold > summary::after { content: "+"; font-size: 1.4rem; color: var(--accent-bright); }
+.vr-fold[open] > summary::after { content: "\2212"; }
+.vr-fold__body { padding: 0 1.4rem 1.4rem; display: grid; gap: 0.9rem; }
+
+.vr-step { display: grid; gap: 0.9rem; }
+.vr-step__head { display: flex; align-items: center; gap: 0.75rem; }
+.vr-step__num { flex: none; width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; font-weight: 800; background: var(--accent-bright); color: #06281c; }
+.vr-step__head h2 { margin: 0; font-size: 1.2rem; }
+
+.vr-form-grid { display: grid; gap: 0.9rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
+.vr-form-grid .field { margin: 0; }
+
+.vr-check { display: flex; align-items: flex-start; gap: 0.7rem; padding: 0.9rem 1rem; border: 1px solid var(--line); border-radius: 14px; cursor: pointer; color: var(--text); line-height: 1.5; font-size: 0.97rem; }
+.vr-check input { margin-top: 0.25rem; width: 1.15rem; height: 1.15rem; accent-color: #10b981; flex: none; }
+
+.vr-total { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: 0.9rem 1rem; border-radius: 14px; background: rgba(16, 185, 129, 0.12); }
+.vr-total strong { font-size: 1.5rem; }
+.vr-total span { color: var(--muted); }
+
+.vr-cta-row { display: flex; flex-wrap: wrap; gap: 0.7rem; align-items: center; }
+.vr-cta-row .button { flex: 1 1 14rem; text-align: center; justify-content: center; }
+
+.vr-help { font-size: 0.92rem; color: var(--muted); }
+.vr-help a { color: var(--accent-bright); }
+
+html[data-theme="light"] .vr-card { box-shadow: 0 16px 36px -24px rgba(30, 64, 110, 0.4); }
+html[data-theme="light"] .vr-tile { box-shadow: 0 12px 28px -22px rgba(30, 64, 110, 0.4); }
+html[data-theme="light"] .vr-qr { box-shadow: 0 12px 28px -20px rgba(30, 64, 110, 0.5); border: 1px solid var(--line); }
+html[data-theme="light"] .vr-pill { color: #047857; }
+html[data-theme="light"] .vr-step__num { color: #ffffff; background: #059669; }
+html[data-theme="light"] .vr-total { background: rgba(16, 185, 129, 0.1); }
