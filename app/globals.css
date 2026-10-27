@@ -1417,6 +1417,36 @@ h2 {
   font: inherit;
 }
 
+/* Native dropdown lists open with the OS background but inherit our light text,
+   which made options (e.g. "How long") white on white. Pin both colors. */
+.field select {
+  color-scheme: dark;
+}
+
+.field select option,
+.field select optgroup {
+  background: #0d121c;
+  color: #f1f5f9;
+}
+
+.field select option:disabled {
+  color: #7c8798;
+}
+
+html[data-theme="light"] .field select {
+  color-scheme: light;
+}
+
+html[data-theme="light"] .field select option,
+html[data-theme="light"] .field select optgroup {
+  background: #ffffff;
+  color: #0f1b2d;
+}
+
+html[data-theme="light"] .field select option:disabled {
+  color: #94a3b8;
+}
+
 .field input[type="range"] {
   min-height: 1.75rem;
   padding: 0;
