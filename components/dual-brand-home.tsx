@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { ListingDiscoveryGrid, type PropertyCardProps } from "@/src/components/ListingGrid";
 import { todayIsoUtc } from "@/lib/availability-calendar";
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/compliance/jurisdictions";
@@ -193,6 +194,7 @@ export function DualBrandHome({
           <Link className="text-button" href="/host/onboard">
             List Your Property
           </Link>
+          <ThemeToggle />
           <Link className="button" href="/dashboard">
             Sign In
           </Link>

@@ -29,11 +29,13 @@ type HostListingView =
     };
 
 export default function DashboardPage() {
-  const [gate, setGate] = useState<Gate>("signed-out");
+  const [gate, setGate] = useState<Gate>("checking");
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     let unsubscribe = () => {};
+    setLinkError(readLinkError());
     try {
       const supabase = getSupabaseBrowserClient();
       void readSessionGate().then((next) => {
@@ -90,7 +92,7 @@ export default function DashboardPage() {
 
       <section className="google-stage" style={{ width: "100%" }}>
         {gate === "checking" ? <p className="note">Checking your session...</p> : null}
-        {gate === "signed-out" ? <SignInPanel /> : null}
+        {gate === "signed-out" ? <SignInPanel linkError={linkError} /> : null}
         {gate === "unknown" ? (
           <article className="panel" style={{ width: "min(36rem, 100%)" }}>
             <h2>Account not assigned</h2>
@@ -123,6 +125,30 @@ export default function DashboardPage() {
   );
 }
 
+/**
+ * Supabase reports a rejected sign-in link in the URL hash
+ * (#error=access_denied&error_code=otp_expired&...). Surface it so the
+ * visitor sees why they are still signed out instead of a silent loop.
+ */
+function readLinkError(): string | null {
+  try {
+    const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const code = params.get("error_code") ?? "";
+    const description = params.get("error_description") ?? "";
+    if (!code && !params.get("error")) {
+      return null;
+    }
+    if (code === "otp_expired") {
+      return "That sign-in link expired or was already used. Some email apps open links automatically and use them up. Request one new link, then open it right away on this device.";
+    }
+    return description
+      ? `Sign-in link problem: ${description.replace(/\+/g, " ")}`
+      : "That sign-in link did not work. Request a new one.";
+  } catch {
+    return null;
+  }
+}
+
 function signInErrorMessage(signError: { code?: string; message?: string }): string {
   const code = signError.code ?? "";
   const message = signError.message ?? "";
@@ -135,7 +161,7 @@ function signInErrorMessage(signError: { code?: string; message?: string }): str
   return "Could not send the sign-in link.";
 }
 
-function SignInPanel() {
+function SignInPanel({ linkError = null }: { linkError?: string | null }) {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -185,6 +211,12 @@ function SignInPanel() {
           <strong>Host Payout Dashboard</strong> with a 1-click email link.
         </p>
       </div>
+
+      {linkError ? (
+        <p className="note" role="alert">
+          {linkError}
+        </p>
+      ) : null}
 
       <form className="google-search-bar" onSubmit={submit}>
         <label className="google-search-cell" style={{ flex: "1 1 16rem" }}>

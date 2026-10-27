@@ -4288,3 +4288,350 @@ h2 {
 }
 .vr-host-listing__upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .vr-host-listing__checks { margin: 0; padding-left: 1.2rem; color: #fcd34d; font-size: 0.92rem; display: grid; gap: 0.25rem; }
+
+/* ==========================================================================
+   VIVID THEME: brighter, warmer, livelier. Default = bright evening;
+   html[data-theme="light"] = daytime. Appended last so it wins the cascade.
+   ========================================================================== */
+
+:root {
+  --bg: #13203a;
+  --raised: #1a2a46;
+  --raised-hover: #213456;
+  --muted: #a9b8cf;
+  --line: rgba(255, 255, 255, 0.14);
+  --accent-bright: #4ade9f;
+  --gold: #fbbf24;
+}
+
+html,
+body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 70% 45% at 15% -10%, rgba(251, 191, 36, 0.16), transparent 70%),
+    radial-gradient(ellipse 80% 50% at 85% -15%, rgba(16, 185, 129, 0.2), transparent 70%);
+}
+
+/* ---- Backdrop: lighter photo, warm glow, slow drift ---- */
+.google-hero-backdrop,
+.google-home[data-perspective="landlord"] .google-hero-backdrop {
+  background-image:
+    linear-gradient(180deg, rgba(255, 190, 110, 0.12) 0%, rgba(22, 38, 66, 0.14) 40%, rgba(12, 22, 40, 0.5) 100%),
+    radial-gradient(ellipse at 50% 42%, rgba(255, 255, 255, 0.05) 0%, rgba(10, 18, 34, 0.38) 100%),
+    url("/vettedrent-hero-renter.jpg");
+  filter: brightness(1.28) saturate(1.12);
+  transform-origin: 50% 40%;
+  animation: vr-drift 52s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.google-home[data-perspective="landlord"] .google-hero-backdrop {
+  background-image:
+    linear-gradient(180deg, rgba(255, 190, 110, 0.12) 0%, rgba(22, 38, 66, 0.14) 40%, rgba(12, 22, 40, 0.5) 100%),
+    radial-gradient(ellipse at 50% 42%, rgba(255, 255, 255, 0.05) 0%, rgba(10, 18, 34, 0.38) 100%),
+    url("/vettedrent-hero-landlord.jpg");
+}
+
+.google-hero-backdrop::before {
+  content: "";
+  position: absolute;
+  inset: -12%;
+  pointer-events: none;
+  background:
+    radial-gradient(38rem 26rem at 18% 10%, rgba(255, 205, 130, 0.3), transparent 65%),
+    radial-gradient(34rem 24rem at 86% 16%, rgba(110, 231, 183, 0.2), transparent 65%),
+    radial-gradient(30rem 22rem at 62% 92%, rgba(125, 170, 255, 0.18), transparent 65%);
+  animation: vr-glow 18s ease-in-out infinite alternate;
+}
+
+@keyframes vr-drift {
+  from { transform: scale(1.06) translate3d(-0.8%, 0, 0); }
+  to { transform: scale(1.14) translate3d(0.8%, -1.2%, 0); }
+}
+
+@keyframes vr-glow {
+  from { opacity: 0.65; transform: translate3d(-2%, 0, 0); }
+  to { opacity: 1; transform: translate3d(2%, 2%, 0); }
+}
+
+@keyframes vr-rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Frosted, lighter panels ---- */
+.google-topbar,
+.google-footer {
+  background: rgba(24, 40, 68, 0.5);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.vr-unified-marketplace {
+  background: linear-gradient(180deg, rgba(30, 48, 80, 0.6) 0%, rgba(18, 32, 56, 0.66) 100%);
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow:
+    0 30px 70px -28px rgba(6, 14, 30, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.google-search-bar {
+  background: rgba(26, 42, 70, 0.62);
+  border-color: rgba(255, 255, 255, 0.26);
+}
+
+.vr-zip-search-row {
+  background: rgba(24, 40, 68, 0.72);
+  border-color: rgba(74, 222, 159, 0.55);
+  box-shadow: 0 18px 40px -18px rgba(6, 14, 30, 0.6);
+}
+
+.vr-zip-search-box {
+  background: rgba(10, 20, 38, 0.72);
+}
+
+.vr-zip-chip {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ---- Cards: lift, glow, slow photo zoom ---- */
+.vr-simple-space {
+  background: linear-gradient(180deg, #1f3252 0%, #182843 100%);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.vr-simple-space:hover {
+  transform: translateY(-5px);
+  border-color: rgba(74, 222, 159, 0.7);
+  box-shadow:
+    0 22px 44px -18px rgba(6, 14, 30, 0.7),
+    0 0 0 1px rgba(74, 222, 159, 0.25),
+    0 0 36px -8px rgba(74, 222, 159, 0.35);
+}
+
+.vr-simple-space__photo {
+  transition: transform 600ms ease;
+}
+
+.vr-simple-space:hover .vr-simple-space__photo {
+  transform: scale(1.06);
+}
+
+.vr-simple-space__meta span {
+  color: var(--gold);
+}
+
+.vr-simple-space__count {
+  background: rgba(12, 22, 40, 0.7);
+}
+
+/* ---- Buttons: warm emerald glow ---- */
+.button {
+  background-image: linear-gradient(135deg, #5eeaa8 0%, #10b981 55%, #0ea5a4 100%);
+  box-shadow: 0 8px 22px -10px rgba(16, 185, 129, 0.85);
+  transition: transform 150ms ease, box-shadow 150ms ease, filter 150ms ease;
+}
+
+.button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px -10px rgba(16, 185, 129, 0.95);
+  filter: brightness(1.06);
+}
+
+.button.button-secondary {
+  background-image: none;
+  box-shadow: none;
+}
+
+/* ---- Gentle entrance (backwards fill keeps hover transforms working) ---- */
+.google-topbar { animation: vr-rise 600ms ease backwards; }
+.vr-unified-marketplace { animation: vr-rise 750ms 80ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+.vr-simple-spaces .vr-simple-space:nth-child(1) { animation: vr-rise 600ms 260ms ease backwards; }
+.vr-simple-spaces .vr-simple-space:nth-child(2) { animation: vr-rise 600ms 360ms ease backwards; }
+.vr-simple-spaces .vr-simple-space:nth-child(3) { animation: vr-rise 600ms 460ms ease backwards; }
+.vr-trust-line,
+.vr-area-links { animation: vr-rise 700ms 560ms ease backwards; }
+
+/* ---- Theme toggle ---- */
+.vr-theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fde68a;
+  cursor: pointer;
+  transition: transform 150ms ease, background-color 150ms ease;
+}
+
+.vr-theme-toggle:hover {
+  transform: rotate(18deg) scale(1.06);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.vr-theme-toggle:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   DAYTIME THEME
+   ========================================================================== */
+
+html[data-theme="light"] {
+  --bg: #eef6fc;
+  --raised: #ffffff;
+  --raised-hover: #f3f8fc;
+  --text: #0f1b2d;
+  --muted: #53647c;
+  --line: rgba(15, 27, 45, 0.12);
+  --accent-bright: #059669;
+  --ok: #047857;
+  --ok-bg: rgba(16, 185, 129, 0.12);
+  --danger: #dc2626;
+  --gold: #b45309;
+  color-scheme: light;
+}
+
+html[data-theme="light"],
+html[data-theme="light"] body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 70% 45% at 12% -10%, rgba(251, 191, 36, 0.22), transparent 70%),
+    radial-gradient(ellipse 80% 50% at 88% -15%, rgba(56, 189, 248, 0.22), transparent 70%);
+  color: var(--text);
+}
+
+html[data-theme="light"] .google-hero-backdrop,
+html[data-theme="light"] .google-home[data-perspective="landlord"] .google-hero-backdrop {
+  filter: none;
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, rgba(236, 246, 255, 0.58) 45%, rgba(255, 249, 238, 0.84) 100%),
+    url("/vettedrent-hero-renter.jpg");
+}
+
+html[data-theme="light"] .google-home[data-perspective="landlord"] .google-hero-backdrop {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, rgba(236, 246, 255, 0.58) 45%, rgba(255, 249, 238, 0.84) 100%),
+    url("/vettedrent-hero-landlord.jpg");
+}
+
+html[data-theme="light"] .google-hero-backdrop::before {
+  background:
+    radial-gradient(38rem 26rem at 18% 10%, rgba(255, 214, 140, 0.4), transparent 65%),
+    radial-gradient(34rem 24rem at 86% 16%, rgba(125, 211, 252, 0.34), transparent 65%),
+    radial-gradient(30rem 22rem at 62% 92%, rgba(167, 243, 208, 0.34), transparent 65%);
+}
+
+html[data-theme="light"] .google-topbar,
+html[data-theme="light"] .google-footer {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(15, 27, 45, 0.1);
+  color: #334155;
+  box-shadow: 0 10px 30px -18px rgba(30, 64, 110, 0.35);
+}
+
+html[data-theme="light"] .google-footer__links a:hover { color: #0f1b2d; }
+html[data-theme="light"] .google-logo strong { color: #0f1b2d; }
+html[data-theme="light"] .google-logo span { color: #475569; }
+html[data-theme="light"] .google-logo-domain { color: #059669; }
+html[data-theme="light"] .google-nav .text-button { color: #1e293b; }
+
+html[data-theme="light"] .vr-theme-toggle {
+  color: #1e3a8a;
+  border-color: rgba(15, 27, 45, 0.18);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+html[data-theme="light"] .vr-unified-marketplace {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0.7) 100%);
+  border-color: rgba(15, 27, 45, 0.08);
+  box-shadow:
+    0 30px 70px -30px rgba(30, 64, 110, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+html[data-theme="light"] .vr-unified-marketplace__title,
+html[data-theme="light"] .google-headline h1 { color: #0f1b2d; text-shadow: none; }
+html[data-theme="light"] .vr-unified-marketplace__sub,
+html[data-theme="light"] .google-headline p { color: #334155; text-shadow: none; }
+html[data-theme="light"] .vr-unified-marketplace__sub strong,
+html[data-theme="light"] .google-headline p strong { color: #059669; }
+
+html[data-theme="light"] .google-search-bar {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(15, 27, 45, 0.12);
+  box-shadow: 0 18px 44px -22px rgba(30, 64, 110, 0.4);
+}
+
+html[data-theme="light"] .google-search-cell {
+  background: rgba(15, 27, 45, 0.04);
+  border-color: rgba(15, 27, 45, 0.1);
+}
+
+html[data-theme="light"] .google-search-cell:focus-within { background: #ffffff; }
+html[data-theme="light"] .google-search-cell span { color: #475569; }
+html[data-theme="light"] .google-search-cell select,
+html[data-theme="light"] .google-search-cell input { color: #0f1b2d; }
+html[data-theme="light"] .google-search-cell select option { background: #ffffff; color: #0f1b2d; }
+
+html[data-theme="light"] .vr-zip-search-row {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(16, 185, 129, 0.45);
+  box-shadow: 0 18px 40px -22px rgba(30, 64, 110, 0.4);
+}
+
+html[data-theme="light"] .vr-zip-search-box { background: #ffffff; border-color: rgba(16, 185, 129, 0.5); }
+html[data-theme="light"] .vr-zip-search-input { color: #0f1b2d; }
+html[data-theme="light"] .vr-zip-search-input::placeholder { color: #64748b; }
+html[data-theme="light"] .vr-zip-chip { background: rgba(15, 27, 45, 0.04); color: #0f1b2d; border-color: rgba(16, 185, 129, 0.4); }
+html[data-theme="light"] .vr-zip-chip:hover { color: #047857; border-color: #10b981; }
+html[data-theme="light"] .vr-zip-chip--active { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+
+html[data-theme="light"] .vr-simple-space {
+  background: #ffffff;
+  color: #0f1b2d;
+  border-color: rgba(15, 27, 45, 0.1);
+  box-shadow: 0 12px 28px -20px rgba(30, 64, 110, 0.45);
+}
+
+html[data-theme="light"] .vr-simple-space:hover {
+  border-color: rgba(16, 185, 129, 0.7);
+  box-shadow: 0 22px 44px -20px rgba(30, 64, 110, 0.5), 0 0 0 1px rgba(16, 185, 129, 0.25);
+}
+
+html[data-theme="light"] .vr-simple-space__count { background: rgba(255, 255, 255, 0.92); color: #047857; }
+html[data-theme="light"] .vr-simple-space__meta small { color: #64748b; }
+html[data-theme="light"] .vr-simple-space__meta span { color: #b45309; }
+html[data-theme="light"] .vr-simple-space__hint { color: #64748b; }
+html[data-theme="light"] .vr-simple-space:hover .vr-simple-space__hint { color: #047857; }
+
+html[data-theme="light"] .vr-trust-line { color: #475569; }
+html[data-theme="light"] .vr-trust-line span::before { color: #059669; }
+html[data-theme="light"] .vr-area-links span { color: #64748b; }
+html[data-theme="light"] .vr-area-links a { color: #334155; }
+html[data-theme="light"] .vr-area-links a:hover { color: #047857; }
+
+/* Shared pieces used on inner pages (/book, /dashboard, /host/...) */
+html[data-theme="light"] .panel { box-shadow: 0 16px 36px -22px rgba(30, 64, 110, 0.35); }
+html[data-theme="light"] .field input,
+html[data-theme="light"] .field select { background: #ffffff; }
+html[data-theme="light"] .payload { background: #eef6fc; }
+html[data-theme="light"] .vr-book-stay__card { background: #ffffff; border-color: rgba(15, 27, 45, 0.1); }
+html[data-theme="light"] .vr-book-stay__text strong { color: #0f1b2d; }
+html[data-theme="light"] .vr-book-stay__text span { color: #53647c; }
+html[data-theme="light"] .vr-book-stay__back { color: #475569; }
+
+@media (prefers-reduced-motion: reduce) {
+  .google-hero-backdrop,
+  .google-hero-backdrop::before,
+  .google-topbar,
+  .vr-unified-marketplace,
+  .vr-simple-spaces .vr-simple-space,
+  .vr-trust-line,
+  .vr-area-links {
+    animation: none !important;
+  }
+}

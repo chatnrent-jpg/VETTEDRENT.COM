@@ -30,9 +30,16 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+// Static string (no user input): applies the saved theme before first paint.
+const THEME_BOOT_SCRIPT =
+  '(function(){try{var t=localStorage.getItem("vr-theme");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t)}}catch(e){}})();';
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
       <body>{children}</body>
     </html>
   );
