@@ -3045,6 +3045,80 @@ h2 {
   font-weight: 700;
 }
 
+.vr-book-stay {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.vr-book-stay__back {
+  justify-self: start;
+  color: rgba(226, 232, 240, 0.7);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.vr-book-stay__back:hover {
+  color: #34d399;
+}
+
+.vr-book-stay__card {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.7rem 1rem 0.7rem 0.7rem;
+  border-radius: 18px;
+  background: #131a26;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.vr-book-stay__photo {
+  flex: none;
+  width: 96px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.vr-book-stay__text {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.vr-book-stay__text strong {
+  color: #f1f5f9;
+  font-size: 0.98rem;
+  line-height: 1.25;
+}
+
+.vr-book-stay__text span {
+  color: rgba(226, 232, 240, 0.6);
+  font-size: 0.82rem;
+}
+
+.vr-book-stay__price {
+  flex: none;
+  color: #34d399;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.vr-book-stay__price small {
+  color: rgba(226, 232, 240, 0.6);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+@media (max-width: 560px) {
+  .vr-book-stay__photo {
+    width: 72px;
+    height: 56px;
+  }
+}
+
 .vr-simple-book {
   display: grid;
   gap: 1rem;

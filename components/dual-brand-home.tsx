@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { AvailabilityCalendar } from "@/components/availability-calendar";
 import { ListingDiscoveryGrid } from "@/src/components/ListingGrid";
 import { todayIsoUtc } from "@/lib/availability-calendar";
 import { DEFAULT_JURISDICTION_CODE } from "@/lib/compliance/jurisdictions";
@@ -52,7 +52,8 @@ export function DualBrandHome({
     DEFAULT_JURISDICTION_CODE,
   );
   const [stayDays, setStayDays] = useState<number>(7);
-  const [checkInIso, setCheckInIso] = useState<string>(() => todayIsoUtc());
+  const [checkInIso] = useState<string>(() => todayIsoUtc());
+  const router = useRouter();
 
   const [hostEmail, setHostEmail] = useState("");
   const [hostSubmitting, setHostSubmitting] = useState(false);
@@ -67,9 +68,24 @@ export function DualBrandHome({
     setSelectedWeeklyCents(DAILY_RATE_PRESET_TIERS[nextTierId].weeklyRateCents);
   }
 
-  function selectListing(selection: { tier: DailyRateTierId; weeklyRateCents: number }) {
+  function selectListing(selection: {
+    tier: DailyRateTierId;
+    weeklyRateCents: number;
+    listingId: string;
+  }) {
     setSelectedTierId(selection.tier);
     setSelectedWeeklyCents(selection.weeklyRateCents);
+    // Dates and checkout live on their own page so the front page stays clean.
+    const params = new URLSearchParams({
+      tier: selection.tier,
+      listing: selection.listingId,
+      weeklyCents: String(selection.weeklyRateCents),
+      days: String(stayDays),
+      checkIn: checkInIso,
+      cohort: selectedCohortId,
+      jurisdiction: selectedJurisdictionCode,
+    });
+    router.push(`/book?${params.toString()}`);
   }
 
   function handleSelectAudienceFilter(nextCohort: PurposeCohortId | "ALL") {
@@ -84,12 +100,6 @@ export function DualBrandHome({
         setStayDays(SEASONAL_REMOTE_MIN_DAYS);
       }
     }
-  }
-
-  function handleStayDaysChange(nextDaysRaw: number) {
-    const minDays =
-      selectedCohortId === "Seasonal-Remote" ? SEASONAL_REMOTE_MIN_DAYS : 7;
-    setStayDays(Math.max(minDays, Math.min(90, nextDaysRaw || 7)));
   }
 
   async function handleQuickHostStart(event: FormEvent<HTMLFormElement>) {
@@ -299,22 +309,6 @@ export function DualBrandHome({
           }}
         />
 
-        {!isLandlord ? (
-          <AvailabilityCalendar
-            mode="tenant"
-            tierId={selectedTierId}
-            weeklyRateCents={clampedWeeklyCents}
-            onChangeWeeklyRateCents={(next) => setSelectedWeeklyCents(next)}
-            stayDays={stayDays}
-            onChangeStayDays={(nextDays) => handleStayDaysChange(nextDays)}
-            checkInIso={checkInIso}
-            onSelectCheckIn={(iso) => setCheckInIso(iso)}
-            cohortId={selectedCohortId}
-            jurisdictionCode={selectedJurisdictionCode}
-            context="home"
-            onChangeCohort={(nextCohort) => handleSelectAudienceFilter(nextCohort)}
-          />
-        ) : null}
       </section>
 
       {/* CLEAN FOOTER */}

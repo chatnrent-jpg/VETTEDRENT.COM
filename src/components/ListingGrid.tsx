@@ -551,12 +551,6 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
       onSelectTier?.(property.tier);
     }
     setSimpleGallery(null);
-    window.setTimeout(() => {
-      const target =
-        document.querySelector(".vr-simple-book") ??
-        document.querySelector(".vettedrent-premium-checkout");
-      target?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 120);
   }
 
   useEffect(() => {
@@ -812,7 +806,7 @@ export const ListingDiscoveryGrid: React.FC<ListingDiscoveryGridProps> = ({
                   className="vr-gallery__select"
                   onClick={() => selectGalleryProperty(galleryProperty)}
                 >
-                  Select this stay · ${galleryProperty.dailyRate}/day →
+                  Book this stay · ${galleryProperty.dailyRate}/day →
                 </button>
               </div>
             </div>
